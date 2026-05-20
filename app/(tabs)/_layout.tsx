@@ -1,0 +1,211 @@
+import React, { useEffect } from 'react'
+import { Tabs } from 'expo-router'
+import { BlurView } from 'expo-blur'
+import { StyleSheet, View, Platform } from 'react-native'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated'
+import { Colors } from '@/constants/theme'
+import { haptic } from '@/constants/animation'
+
+// ─── Spring configs ───────────────────────────────────────────────────────────
+const ICON_SPRING = { mass: 0.6, damping: 11, stiffness: 260 }
+const PILL_SPRING = { mass: 0.7, damping: 14, stiffness: 220 }
+
+// ─── Wrapper: springs the icon + shows a glowing pill behind active tab ───────
+function AnimatedTabIcon({ focused, children }: { focused: boolean; children: React.ReactNode }) {
+  const scale       = useSharedValue(1)
+  const pillOpacity = useSharedValue(0)
+  const pillScale   = useSharedValue(0.6)
+
+  useEffect(() => {
+    scale.value       = withSpring(focused ? 1.18 : 1,   ICON_SPRING)
+    pillOpacity.value = withSpring(focused ? 1   : 0,   PILL_SPRING)
+    pillScale.value   = withSpring(focused ? 1   : 0.6, PILL_SPRING)
+  }, [focused])
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }))
+
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity:   pillOpacity.value,
+    transform: [{ scale: pillScale.value }],
+  }))
+
+  return (
+    <Animated.View style={[iconStyles.base, iconStyle]}>
+      <Animated.View style={[iconStyles.pill, pillStyle]} />
+      {children}
+    </Animated.View>
+  )
+}
+
+// ─── Tab icons ────────────────────────────────────────────────────────────────
+function GridIcon({ focused }: { focused: boolean }) {
+  return (
+    <AnimatedTabIcon focused={focused}>
+      <View style={iconStyles.gridRow}>
+        <View style={[iconStyles.dot, focused && iconStyles.dotActive]} />
+        <View style={[iconStyles.dot, focused && iconStyles.dotActive]} />
+      </View>
+      <View style={iconStyles.gridRow}>
+        <View style={[iconStyles.dot, focused && iconStyles.dotActive]} />
+        <View style={[iconStyles.dot, focused && iconStyles.dotActive]} />
+      </View>
+    </AnimatedTabIcon>
+  )
+}
+
+function CompareIcon({ focused }: { focused: boolean }) {
+  return (
+    <AnimatedTabIcon focused={focused}>
+      <View style={iconStyles.row}>
+        <View style={[iconStyles.bar, focused && iconStyles.barActive]} />
+        <View style={[iconStyles.barTall, focused && iconStyles.barActive]} />
+        <View style={[iconStyles.barMid, focused && iconStyles.barActive]} />
+      </View>
+    </AnimatedTabIcon>
+  )
+}
+
+function ProfileIcon({ focused }: { focused: boolean }) {
+  return (
+    <AnimatedTabIcon focused={focused}>
+      <View style={[iconStyles.circle, focused && iconStyles.circleActive]} />
+      <View style={[iconStyles.arc, focused && iconStyles.arcActive]} />
+    </AnimatedTabIcon>
+  )
+}
+
+function FriendsIcon({ focused }: { focused: boolean }) {
+  return (
+    <AnimatedTabIcon focused={focused}>
+      <View style={iconStyles.row}>
+        <View style={[iconStyles.smCircle, focused && iconStyles.circleActive]} />
+        <View style={[iconStyles.smCircle, iconStyles.smCircleOffset, focused && iconStyles.circleActive]} />
+      </View>
+    </AnimatedTabIcon>
+  )
+}
+
+export default function TabLayout() {
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        // Prevents white flash on tab switch
+        sceneStyle: { backgroundColor: Colors.background },
+        tabBarStyle: styles.tabBar,
+        tabBarBackground: () => (
+          <BlurView
+            intensity={60}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+          />
+        ),
+        tabBarActiveTintColor:   Colors.green,
+        tabBarInactiveTintColor: Colors.textDim,
+        tabBarLabelStyle:        styles.tabLabel,
+        tabBarShowLabel:         true,
+        animation:               'fade',
+      }}
+      screenListeners={{
+        tabPress: () => haptic.light(),
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title:    'playlists',
+          tabBarIcon: ({ focused }) => <GridIcon focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="compare"
+        options={{
+          title:    'compare',
+          tabBarIcon: ({ focused }) => <CompareIcon focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title:    'profile',
+          tabBarIcon: ({ focused }) => <ProfileIcon focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="friends"
+        options={{
+          title:    'friends',
+          tabBarIcon: ({ focused }) => <FriendsIcon focused={focused} />,
+        }}
+      />
+    </Tabs>
+  )
+}
+
+const styles = StyleSheet.create({
+  tabBar: {
+    position:        'absolute',
+    borderTopWidth:  1,
+    borderTopColor:  Colors.border,
+    backgroundColor: 'transparent',
+    elevation:       0,
+    height:          Platform.OS === 'ios' ? 84 : 64,
+  },
+  tabLabel: {
+    fontFamily:   'DMMono_400Regular',
+    fontSize:     9,
+    marginBottom: Platform.OS === 'ios' ? 0 : 4,
+  },
+})
+
+const iconStyles = StyleSheet.create({
+  base: {
+    width:           36,
+    height:          36,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+
+  // Glowing pill behind active icon
+  pill: {
+    position:        'absolute',
+    width:           36,
+    height:          28,
+    borderRadius:    14,
+    backgroundColor: Colors.greenSubtle,
+    // iOS glow
+    shadowColor:     Colors.green,
+    shadowOffset:    { width: 0, height: 0 },
+    shadowOpacity:   0.5,
+    shadowRadius:    8,
+  },
+
+  row:     { flexDirection: 'row', gap: 3, alignItems: 'flex-end' },
+
+  // Grid icon
+  gridRow:  { flexDirection: 'row', gap: 3, marginVertical: 1.5 },
+  dot:      { width: 7, height: 7, borderRadius: 2, backgroundColor: Colors.textDim },
+  dotActive:{ backgroundColor: Colors.green },
+
+  // Bar chart icon
+  bar:      { width: 5, height: 10, borderRadius: 2, backgroundColor: Colors.textDim },
+  barTall:  { width: 5, height: 16, borderRadius: 2, backgroundColor: Colors.textDim },
+  barMid:   { width: 5, height: 13, borderRadius: 2, backgroundColor: Colors.textDim },
+  barActive:{ backgroundColor: Colors.green },
+
+  // Profile icon
+  circle:       { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.textDim, marginBottom: 1 },
+  circleActive: { backgroundColor: Colors.green },
+  arc:          { width: 16, height: 8, borderRadius: 8, borderWidth: 1.5, borderColor: Colors.textDim, borderBottomWidth: 0 },
+  arcActive:    { borderColor: Colors.green },
+
+  // Friends icon
+  smCircle:       { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.textDim },
+  smCircleOffset: { marginLeft: -3, marginTop: 4 },
+})
