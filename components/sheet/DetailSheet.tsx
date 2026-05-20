@@ -239,6 +239,23 @@ function AnalysisContent({ data, accent }: { data: PlaylistAnalysis; accent: str
         </Section>
       )}
 
+      {/* Popularity distribution */}
+      {data.popBuckets.some(b => b.count > 0) && (
+        <Section title="Popularity">
+          {data.popBuckets.filter(b => b.count > 0).map((b, i) => (
+            <BarRow
+              key={b.label}
+              label={b.label}
+              count={b.count}
+              max={Math.max(...data.popBuckets.map(x => x.count))}
+              color={accent}
+              valueSuffix={b.count === 1 ? 'track' : 'tracks'}
+              delay={i * 45}
+            />
+          ))}
+        </Section>
+      )}
+
       {/* Decades */}
       {data.decades.length > 0 && (
         <Section title="By Decade">

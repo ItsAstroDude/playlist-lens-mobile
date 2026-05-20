@@ -117,7 +117,7 @@ export function buildAnalysis(
     avgPop,
     avgTrackMs: tracks.length > 0 ? totalMs / tracks.length : 0,
     artistCount,
-    vibe:       audioFeatures ? computeVibe(audioFeatures) : null,
+    vibe:       audioFeatures ? computeVibe(audioFeatures) : computeVibeFromGenres(topGenres),
     cachedAt:   Date.now(),
   }
 }
@@ -141,6 +141,36 @@ function computeVibe(af: AudioProfile): string {
   ]
 
   return scores.sort((a, b) => b[1] - a[1])[0][0]
+}
+
+// ─── Genre-based vibe fallback ────────────────────────────────────────────────
+// Used when Spotify audio features are unavailable (deprecated for newer apps).
+// Checks top genre names against keyword clusters, ordered most-specific first.
+function computeVibeFromGenres(genres: GenreCount[]): string | null {
+  if (genres.length === 0) return null
+
+  // Build a single text string from the top genres weighted by count
+  // (repeat high-frequency genres so they match more strongly)
+  const max  = genres[0].count
+  const text = genres.slice(0, 12).flatMap(g => {
+    const times = Math.max(1, Math.round((g.count / max) * 3))
+    return Array<string>(times).fill(g.genre.toLowerCase())
+  }).join(' ')
+
+  // Ordered most-specific → most-general to avoid false positives
+  if (/metal|hardcore|grunge|screamo|heavy/.test(text))                   return '🌑 Intense & dark'
+  if (/classical|orchestra|chamber|opera|piano|ambient|new age/.test(text)) return '🎹 Instrumental'
+  if (/acoustic|folk|singer.?songwriter|country|bluegrass|americana/.test(text)) return '🎸 Raw & organic'
+  if (/hip.?hop|trap|rap|drill|grime/.test(text))                         return '💃 Made to move'
+  if (/house|techno|edm|electronic|drum.?and.?bass|dnb|club|trance/.test(text)) return '💃 Made to move'
+  if (/lo.?fi|shoegaze|dream pop|slowcore|post.?rock|darkwave/.test(text)) return '🌙 Melancholic & calm'
+  if (/chill|reggae|bossa|lounge|tropical|beach|surf/.test(text))         return '☀️ Chill & positive'
+  if (/jazz|soul|funk|neo soul|r&b|rnb/.test(text))                       return '🎉 Feel-good & upbeat'
+  if (/rock|punk|alternative|indie rock|garage/.test(text))               return '⚡ High energy & happy'
+  if (/pop|k.?pop|j.?pop|dance pop|electropop|synthpop/.test(text))      return '🎉 Feel-good & upbeat'
+  if (/indie|bedroom pop|dream/.test(text))                               return '🌙 Melancholic & calm'
+
+  return null
 }
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
