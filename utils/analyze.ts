@@ -123,16 +123,24 @@ export function buildAnalysis(
 }
 
 // ─── Vibe classification ──────────────────────────────────────────────────────
+// Scores each label across multiple dimensions instead of hard if-else thresholds,
+// so every playlist gets the most fitting label rather than falling through to
+// "Eclectic mix" whenever it sits between two zones.
 function computeVibe(af: AudioProfile): string {
-  const { energy, valence, danceability, acousticness } = af
-  if (danceability > 0.72)                              return '💃 Made to move'
-  if (energy > 0.7  && valence > 0.6)                  return '⚡ High energy & happy'
-  if (energy > 0.7  && valence < 0.4)                  return '🌑 Intense & dark'
-  if (energy < 0.38 && valence > 0.6)                  return '☀️ Chill & positive'
-  if (energy < 0.38 && valence < 0.4)                  return '🌙 Melancholic & calm'
-  if (acousticness > 0.6)                               return '🎸 Raw & organic'
-  if (energy > 0.6  && danceability > 0.6)              return '🎉 Feel-good & upbeat'
-  return '🎵 Eclectic mix'
+  const { energy, valence, danceability, acousticness, instrumentalness } = af
+
+  const scores: [string, number][] = [
+    ['💃 Made to move',      danceability * 1.4 + energy * 0.4 - acousticness * 0.3],
+    ['⚡ High energy & happy', energy * 1.2 + valence * 1.0 - acousticness * 0.4],
+    ['🌑 Intense & dark',    energy * 1.2 + (1 - valence) * 1.0 - acousticness * 0.5],
+    ['☀️ Chill & positive',  valence * 1.1 + (1 - energy) * 0.9 + acousticness * 0.3],
+    ['🌙 Melancholic & calm',(1 - valence) * 1.1 + (1 - energy) * 0.9 + acousticness * 0.2],
+    ['🎸 Raw & organic',     acousticness * 1.5 + (1 - danceability) * 0.4],
+    ['🎹 Instrumental',      instrumentalness * 2.0 + (1 - valence) * 0.3],
+    ['🎉 Feel-good & upbeat',valence * 1.0 + danceability * 0.8 + energy * 0.5],
+  ]
+
+  return scores.sort((a, b) => b[1] - a[1])[0][0]
 }
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
