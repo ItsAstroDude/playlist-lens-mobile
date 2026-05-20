@@ -16,7 +16,7 @@ function getDevUrl(): string {
 
 export const BACKEND_URL = __DEV__
   ? getDevUrl()
-  : 'https://YOUR-RENDER-URL.onrender.com'
+  : 'https://playlist-lens-mobile.onrender.com'
 
 // How long to wait before showing the "Waking up servers..." cold start UI
 const COLD_START_THRESHOLD_MS = 3000
