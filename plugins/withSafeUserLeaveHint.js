@@ -20,7 +20,7 @@ module.exports = function withSafeUserLeaveHint(config) {
   // Workaround: ReactActivityDelegate.onUserLeaveHint() NPE on Android.
   // Triggered by expo-web-browser OAuth flow. Safe to suppress.
   override fun onUserLeaveHint() {
-    try { super.onUserLeaveHint() } catch (_: NullPointerException) {}
+    try { super.onUserLeaveHint() } catch (e: NullPointerException) {}
   }
 `
       : `
