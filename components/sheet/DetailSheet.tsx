@@ -131,7 +131,7 @@ export function DetailSheet({ playlist, palette, onClose }: DetailSheetProps) {
           )}
 
           {status === 'success' && data && (
-            <AnalysisContent data={data} accent={accent} />
+            <AnalysisContent data={data} accent={accent} trackTotal={playlist?.tracks.total} />
           )}
         </ScrollView>
       </Animated.View>
@@ -176,13 +176,13 @@ function SheetHeader({ playlist, palette }: { playlist: SpotifyPlaylist; palette
 }
 
 // ─── Analysis Content ─────────────────────────────────────────────────────────
-function AnalysisContent({ data, accent }: { data: PlaylistAnalysis; accent: string }) {
+function AnalysisContent({ data, accent, trackTotal }: { data: PlaylistAnalysis; accent: string; trackTotal?: number }) {
   return (
     <View style={styles.content}>
 
       {data.vibe && <VibeChip vibe={data.vibe} accent={accent} />}
 
-      <StatsRow data={data} />
+      <StatsRow data={data} trackTotal={trackTotal} />
 
       {data.topArtists.length > 0 && (
         <Section title="Top Artists">
@@ -297,11 +297,20 @@ function VibeChip({ vibe, accent }: { vibe: string; accent: string }) {
 }
 
 // ─── Stats row ────────────────────────────────────────────────────────────────
-function StatsRow({ data }: { data: PlaylistAnalysis }) {
+function StatsRow({ data, trackTotal }: { data: PlaylistAnalysis; trackTotal?: number }) {
+  // Use the real Spotify-reported total for display; data.tracks.length is capped
+  // at 500 by the backend so it would be misleading on large playlists.
+  const displayTotal   = trackTotal ?? data.tracks.length
+  const isTruncated    = trackTotal != null && data.tracks.length < trackTotal
+  const durationValue  = isTruncated
+    // Extrapolate duration: avg track length × real total
+    ? fmtDuration((data.totalMs / data.tracks.length) * trackTotal)
+    : fmtDuration(data.totalMs)
+
   const stats = [
-    { label: 'tracks',   value: data.tracks.length.toString() },
+    { label: 'tracks',   value: displayTotal.toLocaleString() },
     { label: 'artists',  value: data.artistCount.toString() },
-    { label: 'duration', value: fmtDuration(data.totalMs) },
+    { label: 'duration', value: durationValue },
     { label: 'avg pop',  value: `${data.avgPop}` },
   ]
   return (
