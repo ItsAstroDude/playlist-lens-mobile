@@ -33,14 +33,14 @@ export function useAuth() {
       // Generate CSRF state param — verified server-side
       const state = generateState()
 
-      // Build the login URL pointing at our Flask backend
-      const loginUrl = `${BACKEND_URL}/login?mobile=true&state=${state}`
+      // The deep-link URL this build listens on (varies: Expo Go vs dev build vs prod)
+      const redirectUrl = Linking.createURL('/auth/callback')
+
+      // Pass it to the backend so the callback redirects to the right scheme
+      const loginUrl = `${BACKEND_URL}/login?mobile=true&state=${state}&redirect_url=${encodeURIComponent(redirectUrl)}`
 
       // Open in an in-app browser session
-      const result = await WebBrowser.openAuthSessionAsync(
-        loginUrl,
-        Linking.createURL('/auth/callback')
-      )
+      const result = await WebBrowser.openAuthSessionAsync(loginUrl, redirectUrl)
 
       if (result.type !== 'success') {
         setError('Login was cancelled.')
