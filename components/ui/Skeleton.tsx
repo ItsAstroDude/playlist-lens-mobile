@@ -8,7 +8,7 @@ import Animated, {
   interpolateColor,
   Easing,
 } from 'react-native-reanimated'
-import { Colors, Radius } from '@/constants/theme'
+import { Colors, Radius, Spacing } from '@/constants/theme'
 
 interface SkeletonProps {
   width?:        number | `${number}%`
@@ -64,9 +64,11 @@ interface SkeletonCardProps {
 export function PlaylistCardSkeleton({ baseColor, style }: SkeletonCardProps) {
   return (
     <View style={[skStyles.card, style]}>
-      <Skeleton height={140} borderRadius={10} baseColor={baseColor} style={{ marginBottom: 10 }} />
-      <Skeleton height={12}  width="80%"  borderRadius={6} baseColor={baseColor} style={{ marginBottom: 6 }} />
-      <Skeleton height={10}  width="50%"  borderRadius={6} baseColor={baseColor} />
+      <Skeleton height={148} borderRadius={Radius.lg - 1} baseColor={baseColor} style={{ marginBottom: 1 }} />
+      <View style={skStyles.cardInfo}>
+        <Skeleton height={12} width="80%" borderRadius={6} baseColor={baseColor} style={{ marginBottom: 6 }} />
+        <Skeleton height={10} width="50%" borderRadius={6} baseColor={baseColor} />
+      </View>
     </View>
   )
 }
@@ -91,24 +93,28 @@ export function ChartSkeleton({ baseColor }: { baseColor?: string }) {
 
 const skStyles = StyleSheet.create({
   card: {
-    padding: 11,
-    borderRadius: 12,
-    backgroundColor: Colors.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderRadius:    Radius.lg,
+    backgroundColor: Colors.glass,
+    borderWidth:     1,
+    borderColor:     Colors.glassBorder,
+    overflow:        'hidden',
+  },
+  cardInfo: {
+    padding: Spacing.sm,
+    paddingBottom: Spacing.md,
   },
   statCard: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: Colors.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    padding:         Spacing.md,
+    borderRadius:    Radius.md,
+    backgroundColor: Colors.glass,
+    borderWidth:     1,
+    borderColor:     Colors.glassBorder,
   },
   chart: {
-    padding: 20,
-    borderRadius: 14,
-    backgroundColor: Colors.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    padding:         Spacing.xl,
+    borderRadius:    Radius.lg,
+    backgroundColor: Colors.glass,
+    borderWidth:     1,
+    borderColor:     Colors.glassBorder,
   },
 })
