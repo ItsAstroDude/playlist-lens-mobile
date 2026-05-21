@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Stack } from 'expo-router'
+import { Stack, router } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useFonts } from 'expo-font'
@@ -37,7 +37,10 @@ export default function RootLayout() {
     checkAuth()
 
     // When a 401 fires anywhere in the app, drop back to the auth screen
-    const unsub = onSessionExpired(() => setIsAuthenticated(false))
+    const unsub = onSessionExpired(() => {
+      setIsAuthenticated(false)
+      router.replace('/auth')
+    })
     return unsub
   }, [])
 
