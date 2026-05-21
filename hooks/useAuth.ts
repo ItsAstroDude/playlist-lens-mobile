@@ -15,6 +15,21 @@ function generateState(): string {
   return Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
 }
 
+// new URL() can silently misparse custom schemes like playlistlens:// in
+// Hermes — searchParams may be empty even when the query string is present.
+// This manual parser handles any URL format safely.
+function parseUrlParams(url: string): Record<string, string> {
+  const qi = url.indexOf('?')
+  if (qi === -1) return {}
+  return Object.fromEntries(
+    url.slice(qi + 1).split('&').filter(Boolean).map(pair => {
+      const ei = pair.indexOf('=')
+      if (ei === -1) return [decodeURIComponent(pair), '']
+      return [decodeURIComponent(pair.slice(0, ei)), decodeURIComponent(pair.slice(ei + 1))]
+    })
+  )
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 export function useAuth() {
   const [isLoading, setIsLoading] = useState(false)
@@ -49,11 +64,11 @@ export function useAuth() {
       }
 
       // Parse the callback URL for our token
-      const url = new URL(result.url)
-      const token = url.searchParams.get('access_token')
-      const refresh = url.searchParams.get('refresh_token')
-      const returnedState = url.searchParams.get('state')
-      const errorParam = url.searchParams.get('error')
+      const params       = parseUrlParams(result.url)
+      const token        = params['access_token']  ?? null
+      const refresh      = params['refresh_token'] ?? null
+      const returnedState = params['state']        ?? null
+      const errorParam   = params['error']         ?? null
 
       if (errorParam) {
         setError(`Spotify error: ${errorParam}`)
