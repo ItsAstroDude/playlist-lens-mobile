@@ -123,25 +123,29 @@ function StatRow({
 }
 
 // ─── Audio bar ────────────────────────────────────────────────────────────────
+// NOTE: Reanimated cannot animate string values like '50%'. We measure the bar
+// track's pixel width via onLayout, then animate absolute pixel values instead.
 function AudioBar({ label, valA, valB, colorA, colorB }: {
   label: string; valA: number; valB: number; colorA: string; colorB: string
 }) {
-  const wA = useSharedValue(0)
-  const wB = useSharedValue(0)
+  const wA   = useSharedValue(0)
+  const wB   = useSharedValue(0)
+  const [barW, setBarW] = useState(0)
 
   React.useEffect(() => {
-    wA.value = withSpring(valA, { mass: 1, damping: 18, stiffness: 110 })
-    wB.value = withSpring(valB, { mass: 1, damping: 18, stiffness: 110 })
-  }, [valA, valB])
+    if (barW === 0) return
+    wA.value = withSpring(valA * barW, { mass: 1, damping: 18, stiffness: 110 })
+    wB.value = withSpring(valB * barW, { mass: 1, damping: 18, stiffness: 110 })
+  }, [valA, valB, barW])
 
-  const styleA = useAnimatedStyle(() => ({ width: `${wA.value * 100}%` as any }))
-  const styleB = useAnimatedStyle(() => ({ width: `${wB.value * 100}%` as any }))
+  const styleA = useAnimatedStyle(() => ({ width: wA.value }))
+  const styleB = useAnimatedStyle(() => ({ width: wB.value }))
 
   return (
     <View style={styles.audioRow}>
       <Text style={[styles.audioLabel, { textAlign: 'right', color: colorA }]}>{pct(valA)}</Text>
       <View style={{ flex: 1, gap: 3 }}>
-        <View style={styles.barTrack}>
+        <View style={styles.barTrack} onLayout={e => setBarW(e.nativeEvent.layout.width)}>
           <Animated.View style={[styles.barFill, { backgroundColor: colorA }, styleA]} />
         </View>
         <Text style={styles.audioBarLabel}>{label}</Text>

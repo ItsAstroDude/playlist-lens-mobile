@@ -23,18 +23,18 @@ export function getCache<T>(key: string): T | null {
   try {
     const entry: CacheEntry<T> = JSON.parse(raw)
     if (Date.now() - entry.ts > CACHE_TTL_MS) {
-      storage.delete(key)
+      storage.remove(key)
       return null
     }
     return entry.data
   } catch {
-    storage.delete(key)
+    storage.remove(key)
     return null
   }
 }
 
 export function deleteCache(key: string): void {
-  storage.delete(key)
+  storage.remove(key)
 }
 
 // ─── Cache key builders ───────────────────────────────────────────────────────
