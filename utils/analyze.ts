@@ -34,11 +34,12 @@ export function buildAnalysis(
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
 
-  // ── Genre counts (weighted by artist appearance count) ──
+  // ── Genre counts (weighted by artist appearance count, deduplicated) ──
   const genreTally: Record<string, number> = {}
   for (const [id, { count }] of Object.entries(artistTally)) {
     for (const genre of genreMap[id] || []) {
-      genreTally[genre] = (genreTally[genre] || 0) + count
+      const key = normalizeGenre(genre)
+      genreTally[key] = (genreTally[key] || 0) + count
     }
   }
   const topGenres: GenreCount[] = Object.entries(genreTally)
@@ -141,6 +142,70 @@ function computeVibe(af: AudioProfile): string {
   ]
 
   return scores.sort((a, b) => b[1] - a[1])[0][0]
+}
+
+// ─── Genre normalisation ──────────────────────────────────────────────────────
+// Spotify returns many near-duplicate genre strings ("j-pop", "jpop",
+// "japanese pop"; "hip hop" vs "hip-hop"; "r&b" vs "rnb", etc.).
+// Normalise to a canonical form before tallying so they merge correctly.
+function normalizeGenre(raw: string): string {
+  let g = raw.toLowerCase().trim()
+
+  // Collapse whitespace & unify punctuation
+  g = g.replace(/\s+/g, ' ')
+  g = g.replace(/[–—]/g, '-')
+
+  // Strip common trailing noise words
+  g = g.replace(/\s+(music|sounds?)$/, '')
+
+  // Apply canonical synonym map (order: most-specific first)
+  const MAP: Record<string, string> = {
+    // J-Pop
+    'jpop':          'j-pop',
+    'j pop':         'j-pop',
+    'japanese pop':  'j-pop',
+    // K-Pop
+    'kpop':          'k-pop',
+    'k pop':         'k-pop',
+    'korean pop':    'k-pop',
+    // R&B
+    'rnb':                 'r&b',
+    'r and b':             'r&b',
+    'rhythm and blues':    'r&b',
+    // Hip-hop
+    'hip hop':       'hip-hop',
+    'hiphop':        'hip-hop',
+    // Lo-fi
+    'lofi':          'lo-fi',
+    'lo fi':         'lo-fi',
+    'lo-fi beats':   'lo-fi',
+    'lofi beats':    'lo-fi',
+    // Drum & bass
+    'drum & bass':   'drum and bass',
+    'drum n bass':   'drum and bass',
+    'dnb':           'drum and bass',
+    'd&b':           'drum and bass',
+    // Electronic
+    'electronica':   'electronic',
+    // EDM variants
+    'electronic dance':  'edm',
+    // Synthwave aliases
+    'retrowave':     'synthwave',
+    'outrun':        'synthwave',
+    // Bedroom pop aliases
+    'bedroom pop':   'lo-fi',
+    // Classical
+    'orchestral':    'classical',
+    'orchestra':     'classical',
+    // Anime
+    'anime ost':     'anime',
+    'anime score':   'anime',
+    'anime soundtrack': 'anime',
+    // Vocaloid
+    'vocaloid':      'vocaloid',   // already canonical, block re-suffixing
+  }
+
+  return MAP[g] ?? g
 }
 
 // ─── Genre-based vibe fallback ────────────────────────────────────────────────
