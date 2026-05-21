@@ -49,11 +49,14 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+      <Stack screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
-          <Stack.Screen name="(tabs)" />
+          <>
+            <Stack.Screen name="(tabs)"    options={{ animation: 'fade' }} />
+            <Stack.Screen name="settings"  options={{ animation: 'slide_from_right' }} />
+          </>
         ) : (
-          <Stack.Screen name="auth" />
+          <Stack.Screen name="auth" options={{ animation: 'fade' }} />
         )}
       </Stack>
     </GestureHandlerRootView>

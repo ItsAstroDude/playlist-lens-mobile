@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { View, Text, StyleSheet, RefreshControl } from 'react-native'
+import { View, Text, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
+import { router } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
 import { DetailSheet } from '@/components/sheet/DetailSheet'
 import { FlashList } from '@shopify/flash-list'
 import Animated, {
@@ -139,11 +141,20 @@ export default function PlaylistsTab() {
           <Text style={styles.logo}>
             playlist<Text style={styles.dot}>.</Text>lens
           </Text>
-          {data && data.length > 0 && (
-            <View style={styles.countBadge}>
-              <Text style={styles.countText}>{data.length} playlists</Text>
-            </View>
-          )}
+          <View style={styles.headerRight}>
+            {data && data.length > 0 && (
+              <View style={styles.countBadge}>
+                <Text style={styles.countText}>{data.length} playlists</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              onPress={() => router.push('/settings')}
+              style={styles.gearBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="settings-outline" size={20} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
         </Animated.View>
 
         {/* Grid */}
@@ -208,6 +219,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop:        Spacing.md,
     paddingBottom:     Spacing.lg,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           Spacing.sm,
+  },
+  gearBtn: {
+    width:          34,
+    height:         34,
+    alignItems:     'center',
+    justifyContent: 'center',
   },
   logo: {
     fontFamily:    FontFamily.syneBold,
