@@ -76,7 +76,11 @@ export async function apiFetch<T>(
 
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
-        throw new ApiError(response.status, body.error || `Server error ${response.status}`)
+        // body.error can be a Spotify error object {status, message} or a plain string
+        const errMsg = typeof body.error === 'string'
+          ? body.error
+          : body.error?.message ?? `Server error ${response.status}`
+        throw new ApiError(response.status, errMsg)
       }
 
       return response.json() as Promise<T>
