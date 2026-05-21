@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store'
 import Constants from 'expo-constants'
 import { SecureKeys } from './cache'
+import { emitSessionExpired } from './authEvents'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 // In dev, derive host IP from Expo's dev server so physical devices work.
@@ -69,8 +70,10 @@ export async function apiFetch<T>(
         throw new ApiError(429, 'Rate limited. Please wait a moment and try again.')
       }
 
-      // Handle auth expired
+      // Handle auth expired — clear stored token and signal the app to re-route
       if (response.status === 401) {
+        await SecureStore.deleteItemAsync(SecureKeys.accessToken).catch(() => {})
+        emitSessionExpired()
         throw new ApiError(401, 'Session expired. Please log in again.')
       }
 

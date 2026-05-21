@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
 import { SecureKeys, flush } from '@/utils/cache'
 import { api, BACKEND_URL } from '@/utils/api'
+import { emitSessionExpired } from '@/utils/authEvents'
 import type { SpotifyUser } from '@/types'
 
 WebBrowser.maybeCompleteAuthSession()
@@ -85,9 +86,10 @@ export function useAuth() {
     }
   }, [])
 
-  // ── Logout — flush everything ──
+  // ── Logout — flush everything and route back to auth ──
   const logout = useCallback(async (): Promise<void> => {
     await flush()
+    emitSessionExpired()
   }, [])
 
   // ── Fetch current user ──
