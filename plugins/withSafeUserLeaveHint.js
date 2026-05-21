@@ -12,8 +12,16 @@ const { withMainActivity } = require('@expo/config-plugins')
 
 module.exports = function withSafeUserLeaveHint(config) {
   return withMainActivity(config, (config) => {
-    const src      = config.modResults.contents
-    const isKotlin = config.modResults.language === 'kotlin'
+    const src = config.modResults.contents
+
+    // Guard: skip if already patched (idempotent)
+    if (src.includes('onUserLeaveHint')) {
+      return config
+    }
+
+    // Always use Kotlin syntax — Expo SDK 50+ generates Kotlin MainActivity.
+    // Don't rely on config.modResults.language; detect by file content instead.
+    const isKotlin = src.includes('override fun') || src.includes('fun onCreate')
 
     const override = isKotlin
       ? `
