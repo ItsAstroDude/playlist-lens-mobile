@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#090910"
+      "backgroundColor": "#13131b"
     },
     "ios": {
       "supportsTablet": false,
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#090910"
+        "backgroundColor": "#13131b"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.andrei.playlistlens"

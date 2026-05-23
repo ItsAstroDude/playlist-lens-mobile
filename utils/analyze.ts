@@ -127,7 +127,7 @@ export function buildAnalysis(
 // Scores each label across multiple dimensions instead of hard if-else thresholds,
 // so every playlist gets the most fitting label rather than falling through to
 // "Eclectic mix" whenever it sits between two zones.
-function computeVibe(af: AudioProfile): string {
+export function computeVibe(af: AudioProfile): string {
   const { energy, valence, danceability, acousticness, instrumentalness } = af
 
   const scores: [string, number][] = [
@@ -211,7 +211,7 @@ function normalizeGenre(raw: string): string {
 // ─── Genre-based vibe fallback ────────────────────────────────────────────────
 // Used when Spotify audio features are unavailable (deprecated for newer apps).
 // Checks top genre names against keyword clusters, ordered most-specific first.
-function computeVibeFromGenres(genres: GenreCount[]): string | null {
+export function computeVibeFromGenres(genres: GenreCount[]): string | null {
   if (genres.length === 0) return null
 
   // Build a single text string from the top genres weighted by count

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Dimensions,
 } from 'react-native'
 import { Image } from 'expo-image'
+import { LinearGradient } from 'expo-linear-gradient'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,12 +17,12 @@ import Animated, {
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { Spring, STAGGER_DELAY_MS, haptic } from '@/constants/animation'
-import type { SpotifyPlaylist, PlaylistPalette } from '@/types'
+import { getCache, CacheKeys } from '@/utils/cache'
+import type { SpotifyPlaylist, PlaylistPalette, PlaylistAnalysis } from '@/types'
 
 const { width: SCREEN_W } = Dimensions.get('window')
-const COLUMN_GAP = Spacing.md
-const SIDE_PAD   = Spacing.lg
-const CARD_W     = (SCREEN_W - SIDE_PAD * 2 - COLUMN_GAP) / 2
+const CARD_H   = 188
+const SIDE_PAD = Spacing.lg
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
@@ -35,14 +36,20 @@ interface PlaylistCardProps {
 export function PlaylistCard({ playlist, palette, index, onPress }: PlaylistCardProps) {
   const coverUrl = playlist.images?.[0]?.url
 
+  // ── Check cache for a previously computed vibe label ──
+  const cachedVibe = useMemo(() => {
+    const cached = getCache<PlaylistAnalysis>(CacheKeys.playlistAnalysis(playlist.id))
+    return cached?.vibe ?? null
+  }, [playlist.id])
+
   // ── Staggered entrance ──
-  const translateY = useSharedValue(28)
+  const translateY = useSharedValue(32)
   const opacity    = useSharedValue(0)
 
   useEffect(() => {
-    const delay = Math.min(index * STAGGER_DELAY_MS, 360)
+    const delay = Math.min(index * STAGGER_DELAY_MS, 400)
     translateY.value = withDelay(delay, withSpring(0, Spring.entrance))
-    opacity.value    = withDelay(delay, withTiming(1, { duration: 400 }))
+    opacity.value    = withDelay(delay, withTiming(1, { duration: 380 }))
   }, [])
 
   const entranceStyle = useAnimatedStyle(() => ({
@@ -50,23 +57,22 @@ export function PlaylistCard({ playlist, palette, index, onPress }: PlaylistCard
     opacity:   opacity.value,
   }))
 
-  // ── Press scale + glow pulse ──
+  // ── Press scale ──
   const scale      = useSharedValue(1)
-  const shadowAnim = useSharedValue(0.3)
+  const shadowAnim = useSharedValue(0.25)
 
   const pressStyle = useAnimatedStyle(() => ({
     transform:     [{ scale: scale.value }],
     shadowOpacity: shadowAnim.value,
-    elevation:     shadowAnim.value * 28,
   }))
 
   const handlePressIn  = () => {
-    scale.value      = withSpring(0.95, Spring.snappy)
-    shadowAnim.value = withSpring(0.65, Spring.snappy)
+    scale.value      = withSpring(0.97, Spring.snappy)
+    shadowAnim.value = withSpring(0.55, Spring.snappy)
   }
   const handlePressOut = () => {
     scale.value      = withSpring(1, Spring.snappy)
-    shadowAnim.value = withSpring(0.3, Spring.snappy)
+    shadowAnim.value = withSpring(0.25, Spring.snappy)
   }
   const handlePress = () => {
     haptic.medium()
@@ -74,10 +80,8 @@ export function PlaylistCard({ playlist, palette, index, onPress }: PlaylistCard
   }
 
   // ── Dynamic palette ──
-  const glowColor   = palette?.primary ?? Colors.green
-  // Glass border is always the base "white glass edge"; palette tints are on the bg.
-  const borderColor = palette ? `${palette.primary}50` : Colors.glassBorder
-  const bgTint      = palette ? `${palette.primary}0E` : Colors.glass
+  const glowColor   = palette?.primary ?? Colors.greenPrimary
+  const borderColor = palette ? `${palette.primary}40` : Colors.glassBorder
 
   return (
     <Animated.View style={[styles.wrapper, entranceStyle]}>
@@ -85,49 +89,51 @@ export function PlaylistCard({ playlist, palette, index, onPress }: PlaylistCard
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         onPress={handlePress}
-        style={[
-          pressStyle,
-          styles.card,
-          {
-            borderColor,
-            backgroundColor: bgTint,
-            shadowColor:     glowColor,
-          },
-        ]}
+        style={[pressStyle, styles.card, { borderColor, shadowColor: glowColor }]}
       >
-        {/* Cover art */}
-        <View style={styles.imageWrap}>
-          {coverUrl ? (
-            <Image
-              source={{ uri: coverUrl }}
-              style={styles.image}
-              contentFit="cover"
-              transition={300}
-              recyclingKey={playlist.id}
-            />
-          ) : (
-            <View style={[styles.image, styles.imagePlaceholder]}>
-              <Text style={styles.placeholderEmoji}>🎵</Text>
-            </View>
-          )}
+        {/* Cover art fills the card */}
+        {coverUrl ? (
+          <Image
+            source={{ uri: coverUrl }}
+            style={StyleSheet.absoluteFillObject}
+            contentFit="cover"
+            transition={300}
+            recyclingKey={playlist.id}
+          />
+        ) : (
+          <View style={[StyleSheet.absoluteFillObject, styles.coverFallback]} />
+        )}
 
-          {/* Track count badge — glassy pill */}
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{playlist.tracks.total}</Text>
+        {/* Dark gradient: transparent top → near-black bottom */}
+        <LinearGradient
+          colors={['rgba(19,19,21,0.05)', 'rgba(19,19,21,0.92)']}
+          locations={[0.3, 1.0]}
+          style={StyleSheet.absoluteFillObject}
+          pointerEvents="none"
+        />
+
+        {/* Glass specular top border */}
+        <View style={styles.specular} pointerEvents="none" />
+
+        {/* Vibe badge — only if cached */}
+        {cachedVibe && (
+          <View style={[styles.vibeBadge, palette && { borderColor: `${palette.primary}50` }]}>
+            <Text style={[styles.vibeText, palette && { color: palette.primary }]}>
+              {cachedVibe}
+            </Text>
           </View>
-        </View>
+        )}
 
-        {/* Glass specular line — simulates the reflective top edge of glass */}
-        <View style={styles.specularLine} />
-
-        {/* Info */}
-        <View style={styles.info}>
+        {/* Bottom info */}
+        <View style={styles.bottomInfo}>
           <Text style={styles.name} numberOfLines={1}>
             {playlist.name}
           </Text>
-          <Text style={styles.owner} numberOfLines={1}>
-            {playlist.owner.display_name}
-          </Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.metaText}>{playlist.tracks.total} tracks</Text>
+            <Text style={styles.metaDot}>·</Text>
+            <Text style={styles.metaText}>{playlist.owner.display_name}</Text>
+          </View>
         </View>
       </AnimatedPressable>
     </Animated.View>
@@ -136,79 +142,83 @@ export function PlaylistCard({ playlist, palette, index, onPress }: PlaylistCard
 
 const styles = StyleSheet.create({
   wrapper: {
-    width:        CARD_W,
-    marginBottom: COLUMN_GAP,
+    width:        SCREEN_W - SIDE_PAD * 2,
+    height:       CARD_H,
+    marginBottom: Spacing.md,
+    alignSelf:    'center',
   },
 
   card: {
-    borderRadius: Radius.lg,
+    flex:         1,
+    borderRadius: Radius.xl,
     borderWidth:  1,
     overflow:     'hidden',
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 24,
   },
 
-  // ── Image ──
-  imageWrap: {
-    position: 'relative',
-  },
-  image: {
-    width:           '100%',
-    aspectRatio:     1,
-    borderTopLeftRadius:  Radius.lg - 1,
-    borderTopRightRadius: Radius.lg - 1,
-  },
-  imagePlaceholder: {
+  coverFallback: {
     backgroundColor: Colors.card,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-  placeholderEmoji: {
-    fontSize: 32,
-    opacity:  0.4,
   },
 
-  // ── Glass specular highlight ──
-  // This 1px line at the top of the info area sells the glass illusion —
-  // it looks like light catching the edge of a frosted glass panel.
-  specularLine: {
+  // 1px specular highlight across the very top of the card
+  specular: {
+    position:        'absolute',
+    top:             0,
+    left:            0,
+    right:           0,
     height:          1,
     backgroundColor: Colors.glassHighlight,
   },
 
-  // ── Badge ──
-  badge: {
+  // Vibe badge — glass pill at top-left
+  vibeBadge: {
     position:          'absolute',
-    bottom:            Spacing.xs,
-    right:             Spacing.xs,
-    backgroundColor:   'rgba(0,0,0,0.50)',
+    top:               Spacing.md,
+    left:              Spacing.md,
+    backgroundColor:   'rgba(0,0,0,0.45)',
     borderWidth:       1,
-    borderColor:       Colors.glassBorder,
+    borderColor:       'rgba(255,255,255,0.18)',
+    borderRadius:      Radius.full,
     paddingHorizontal: Spacing.sm,
-    paddingVertical:   2,
-    borderRadius:      Radius.sm,
+    paddingVertical:   3,
   },
-  badgeText: {
-    fontFamily: FontFamily.monoMedium,
+  vibeText: {
+    fontFamily: FontFamily.mono,
     fontSize:   FontSize.xs,
-    color:      Colors.text,
+    color:      Colors.greenPrimary,
+    letterSpacing: 0.5,
   },
 
-  // ── Info ──
-  info: {
-    padding:       Spacing.sm,
-    paddingBottom: Spacing.md,
-    gap:           3,
+  // Bottom info overlay
+  bottomInfo: {
+    position: 'absolute',
+    bottom:   0,
+    left:     0,
+    right:    0,
+    padding:  Spacing.md,
+    gap:      3,
   },
   name: {
-    fontFamily:    FontFamily.monoMedium,
-    fontSize:      FontSize.base,
+    fontFamily:    FontFamily.syneBold,
+    fontSize:      FontSize.lg,
     color:         Colors.text,
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
+    lineHeight:    FontSize.lg * 1.2,
   },
-  owner: {
+  metaRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           Spacing.xs,
+  },
+  metaText: {
     fontFamily: FontFamily.mono,
     fontSize:   FontSize.xs,
     color:      Colors.textMuted,
+  },
+  metaDot: {
+    fontFamily: FontFamily.mono,
+    fontSize:   FontSize.xs,
+    color:      Colors.textDim,
   },
 })

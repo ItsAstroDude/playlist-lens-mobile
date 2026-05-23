@@ -154,12 +154,12 @@ const styles = StyleSheet.create({
     width:         ORB_SIZE,
     height:        ORB_SIZE,
     borderRadius:  ORB_SIZE / 2,
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.greenPrimary,
     top:           height * 0.1,
     alignSelf:     'center',
     ...GreenGlow,
     shadowRadius:  80,
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.30,
   },
   orbBlur: {
     flex:         1,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     color:      Colors.text,
     letterSpacing: -3,
   },
-  logoDot: { color: Colors.green },
+  logoDot: { color: Colors.greenPrimary },
 
   // Tagline
   tagline: {

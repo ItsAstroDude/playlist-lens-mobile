@@ -1,53 +1,59 @@
 // ─── Color Palette ────────────────────────────────────────────────────────────
 export const Colors = {
-  background:   '#090910',
+  background: '#131315',
 
   // ── Glass surfaces ──
-  // These are the core tokens for the glassmorphism aesthetic.
-  // glass:          the surface fill (semi-transparent white)
-  // glassBorder:    the crisp edge that sells the glass illusion
-  // glassHighlight: the specular "glare" line at the top edge of a panel
-  glass:          'rgba(255,255,255,0.07)',
-  glassBorder:    'rgba(255,255,255,0.13)',
-  glassHighlight: 'rgba(255,255,255,0.07)',
+  glass:          'rgba(255,255,255,0.04)',
+  glassBorder:    'rgba(255,255,255,0.10)',
+  glassHighlight: 'rgba(255,255,255,0.13)',  // specular top edge
 
-  // ── Generic surfaces (kept for compatibility) ──
-  card:         'rgba(255,255,255,0.06)',
-  cardHover:    'rgba(255,255,255,0.10)',
+  // ── Generic surfaces ──
+  card:         'rgba(255,255,255,0.04)',
+  cardHover:    'rgba(255,255,255,0.08)',
   border:       'rgba(255,255,255,0.10)',
-  borderActive: 'rgba(29,185,84,0.4)',
+  borderActive: 'rgba(83,224,118,0.4)',
 
-  // ── Text — off-white prevents halation on near-black backgrounds ──
-  text:          '#EBEBEB',
-  textSecondary: '#AAAAAA',
-  textMuted:     '#606060',
-  textDim:       '#333333',
+  // ── Text ──
+  text:          '#E5E1E4',
+  textSecondary: '#BCCBB9',
+  textMuted:     '#869585',
+  textDim:       '#3D4A3D',
 
-  // ── Brand ──
-  green:        '#1DB954',
+  // ── Brand greens ──
+  green:        '#1DB954',  // Spotify brand (login button)
+  greenPrimary: '#53e076',  // design primary — used for all UI accents
   green2:       '#1ed760',
-  greenNeon:    '#00FF87',
-  greenGlow:    'rgba(29,185,84,0.15)',
-  greenSubtle:  'rgba(29,185,84,0.08)',
+  greenNeon:    '#53e076',
+  greenGlow:    'rgba(83,224,118,0.15)',
+  greenSubtle:  'rgba(83,224,118,0.08)',
 
-  // ── Aurora — the ambient "light source" behind the glass ──
-  // Used as a vertical gradient from the top of the main screen,
-  // giving the glass cards something luminous to refract.
-  auroraTop:    'rgba(29,185,84,0.09)',
-  auroraBot:    'rgba(9,9,16,0.00)',
+  // ── Aurora ──
+  auroraTop:    'rgba(83,224,118,0.06)',
+  auroraBot:    'rgba(19,19,21,0.00)',
 
-  // ── Semantic ──
-  error:        '#FF6B6B',
-  errorSubtle:  'rgba(255,80,80,0.08)',
-  warning:      '#FFB347',
+  // ── Violet ambient (top-left glow) ──
+  violet:      '#4E03D0',
+  violetGlow:  'rgba(78,3,208,0.14)',
+
+  // ── Pink / tertiary accent ──
+  pink:        '#FF70A5',
+  pinkGlow:    'rgba(255,112,165,0.09)',
+
+  // ── Lavender / secondary ──
+  lavender:    '#CCBDFF',
 
   // ── Compare palette ──
-  compareA:     '#4FC3F7',
-  compareB:     '#F06292',
+  compareA:    '#4FC3F7',
+  compareB:    '#F06292',
+
+  // ── Semantic ──
+  error:       '#ffb4ab',
+  errorSubtle: 'rgba(255,80,80,0.08)',
+  warning:     '#FFB347',
 
   // ── Overlays ──
-  overlay:      'rgba(9,9,16,0.75)',
-  overlayLight: 'rgba(9,9,16,0.4)',
+  overlay:      'rgba(19,19,21,0.75)',
+  overlayLight: 'rgba(19,19,21,0.4)',
 } as const
 
 // ─── Typography ───────────────────────────────────────────────────────────────
@@ -68,6 +74,8 @@ export const FontFamily = {
   monoMedium: 'DMMono_500Medium',
   syne:       'Syne_700Bold',
   syneBold:   'Syne_800ExtraBold',
+  // alias used across the app as the "display" font
+  display:    'Syne_700Bold',
 } as const
 
 export const LineHeight = {
@@ -90,7 +98,6 @@ export const Spacing = {
 } as const
 
 // ─── Border Radius ────────────────────────────────────────────────────────────
-// Rounder across the board — consistent with the premium glass aesthetic.
 export const Radius = {
   sm:    8,
   md:    14,
@@ -100,11 +107,19 @@ export const Radius = {
   full:  9999,
 } as const
 
-// ─── Shadows / Glows ─────────────────────────────────────────────────────────
+// ─── Glows ────────────────────────────────────────────────────────────────────
 export const GreenGlow = {
-  shadowColor:   '#1DB954',
+  shadowColor:   '#53e076',
   shadowOffset:  { width: 0, height: 0 },
-  shadowOpacity: 0.65,
-  shadowRadius:  28,
-  elevation:     14,
+  shadowOpacity: 0.55,
+  shadowRadius:  24,
+  elevation:     12,
+} as const
+
+export const VioletGlow = {
+  shadowColor:   '#4E03D0',
+  shadowOffset:  { width: 0, height: 0 },
+  shadowOpacity: 0.35,
+  shadowRadius:  40,
+  elevation:     8,
 } as const

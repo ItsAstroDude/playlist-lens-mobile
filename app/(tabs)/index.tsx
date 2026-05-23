@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, RefreshControl, TouchableOpacity } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
 import { DetailSheet } from '@/components/sheet/DetailSheet'
 import { FlashList } from '@shopify/flash-list'
 import Animated, {
@@ -23,8 +22,7 @@ import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
 import type { SpotifyPlaylist } from '@/types'
 
-const NUM_COLUMNS    = 2
-const SKELETON_COUNT = 6
+const SKELETON_COUNT = 4
 
 export default function PlaylistsTab() {
   const { status, data, error, fetch } = usePlaylists()
@@ -34,13 +32,13 @@ export default function PlaylistsTab() {
   const [coldStart, setColdStart]       = useState(false)
   const [selectedPlaylist, setSelected] = useState<SpotifyPlaylist | null>(null)
 
-  // ── Header entrance animation ──
+  // ── Header entrance ──
   const headerY       = useSharedValue(12)
   const headerOpacity = useSharedValue(0)
 
   useEffect(() => {
-    headerY.value       = withDelay(100, withSpring(0, Spring.entrance))
-    headerOpacity.value = withDelay(100, withTiming(1, { duration: 400 }))
+    headerY.value       = withDelay(80, withSpring(0, Spring.entrance))
+    headerOpacity.value = withDelay(80, withTiming(1, { duration: 380 }))
   }, [])
 
   const headerStyle = useAnimatedStyle(() => ({
@@ -62,7 +60,7 @@ export default function PlaylistsTab() {
     setRefreshing(false)
   }, [fetch])
 
-  // ── Extract palette colors as playlists load ──
+  // ── Extract palette as playlists load ──
   useEffect(() => {
     if (data) {
       data.forEach(pl => {
@@ -72,32 +70,25 @@ export default function PlaylistsTab() {
     }
   }, [data])
 
-  // ── Card press ──
   const handleCardPress = useCallback((playlist: SpotifyPlaylist) => {
     setSelected(playlist)
   }, [])
 
-  // ── Render helpers ──
   const renderItem = useCallback(({ item, index }: { item: SpotifyPlaylist; index: number }) => (
-    <View style={index % 2 === 0 ? styles.cellLeft : styles.cellRight}>
-      <PlaylistCard
-        playlist={item}
-        palette={palettes[item.id] || null}
-        index={index}
-        onPress={handleCardPress}
-      />
-    </View>
+    <PlaylistCard
+      playlist={item}
+      palette={palettes[item.id] || null}
+      index={index}
+      onPress={handleCardPress}
+    />
   ), [palettes, handleCardPress])
 
   const keyExtractor = useCallback((item: SpotifyPlaylist) => item.id, [])
 
-  // ── Skeletons ──
   const renderSkeletons = () => (
-    <View style={styles.skeletonGrid}>
+    <View style={styles.skeletonList}>
       {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
-        <View key={i} style={i % 2 === 0 ? styles.cellLeft : styles.cellRight}>
-          <PlaylistCardSkeleton />
-        </View>
+        <PlaylistCardSkeleton key={i} />
       ))}
     </View>
   )
@@ -117,7 +108,7 @@ export default function PlaylistsTab() {
     return (
       <View style={styles.emptyWrap}>
         <Text style={styles.emptyText}>No playlists found.</Text>
-        <Text style={styles.emptySubtext}>Create a playlist on Spotify and come back!</Text>
+        <Text style={styles.emptySubtext}>Create a playlist on Spotify and come back.</Text>
       </View>
     )
   }
@@ -125,7 +116,13 @@ export default function PlaylistsTab() {
   return (
     <View style={styles.container}>
 
-      {/* ── Ambient aurora — the "light source" behind the glass ── */}
+      {/* ── Violet ambient glow — top-left ── */}
+      <View style={styles.ambientViolet} pointerEvents="none" />
+
+      {/* ── Pink ambient glow — bottom-right ── */}
+      <View style={styles.ambientPink} pointerEvents="none" />
+
+      {/* ── Subtle green aurora at top ── */}
       <LinearGradient
         colors={[Colors.auroraTop, Colors.auroraBot]}
         style={styles.aurora}
@@ -136,15 +133,17 @@ export default function PlaylistsTab() {
 
       <SafeAreaView style={styles.safe} edges={['top']}>
 
-        {/* Header */}
+        {/* ── Header ── */}
         <Animated.View style={[styles.header, headerStyle]}>
-          <Text style={styles.logo}>
-            playlist<Text style={styles.dot}>.</Text>lens
-          </Text>
+          <View>
+            <Text style={styles.logo}>
+              playlist<Text style={styles.dot}>.</Text>lens
+            </Text>
+          </View>
           <View style={styles.headerRight}>
             {data && data.length > 0 && (
               <View style={styles.countBadge}>
-                <Text style={styles.countText}>{data.length} playlists</Text>
+                <Text style={styles.countText}>{data.length}</Text>
               </View>
             )}
             <TouchableOpacity
@@ -152,17 +151,23 @@ export default function PlaylistsTab() {
               style={styles.gearBtn}
               activeOpacity={0.7}
             >
-              <Ionicons name="settings-outline" size={20} color={Colors.textMuted} />
+              <Text style={styles.gearIcon}>⚙</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
 
-        {/* Grid */}
+        {/* ── Section title ── */}
+        <Animated.View style={[styles.sectionHeader, headerStyle]}>
+          <Text style={styles.sectionTitle}>Your Lenses</Text>
+          <Text style={styles.sectionSub}>Sonic profiles from your library.</Text>
+        </Animated.View>
+
+        {/* ── Playlist list ── */}
         <FlashList
           data={data || []}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
-          numColumns={NUM_COLUMNS}
+          numColumns={1}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={ListHeader}
@@ -171,14 +176,14 @@ export default function PlaylistsTab() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={Colors.green}
-              colors={[Colors.green]}
+              tintColor={Colors.greenPrimary}
+              colors={[Colors.greenPrimary]}
               progressBackgroundColor={Colors.card}
             />
           }
         />
 
-        {/* Detail sheet — outside the list so it overlays everything */}
+        {/* ── Detail sheet ── */}
         <DetailSheet
           playlist={selectedPlaylist}
           palette={selectedPlaylist ? palettes[selectedPlaylist.id] ?? null : null}
@@ -196,13 +201,33 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
 
-  // Ambient gradient — covers the top 30% of screen with a faint green aurora
+  // Ambient blobs
+  ambientViolet: {
+    position:     'absolute',
+    top:          -80,
+    left:         -80,
+    width:        320,
+    height:       320,
+    borderRadius: 160,
+    backgroundColor: Colors.violetGlow,
+  },
+  ambientPink: {
+    position:     'absolute',
+    bottom:       -100,
+    right:        -80,
+    width:        280,
+    height:       280,
+    borderRadius: 140,
+    backgroundColor: Colors.pinkGlow,
+  },
+
+  // Green aurora at top
   aurora: {
     position: 'absolute',
     top:      0,
     left:     0,
     right:    0,
-    height:   300,
+    height:   220,
     zIndex:   0,
   },
 
@@ -217,31 +242,23 @@ const styles = StyleSheet.create({
     alignItems:        'center',
     justifyContent:    'space-between',
     paddingHorizontal: Spacing.lg,
-    paddingTop:        Spacing.md,
-    paddingBottom:     Spacing.lg,
+    paddingTop:        Spacing.sm,
+    paddingBottom:     Spacing.sm,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems:    'center',
     gap:           Spacing.sm,
   },
-  gearBtn: {
-    width:          34,
-    height:         34,
-    alignItems:     'center',
-    justifyContent: 'center',
-  },
   logo: {
     fontFamily:    FontFamily.syneBold,
-    fontSize:      FontSize['2xl'],
+    fontSize:      FontSize.xl,
     color:         Colors.text,
     letterSpacing: -1,
   },
   dot: {
-    color: Colors.green,
+    color: Colors.greenPrimary,
   },
-
-  // Glass pill badge for the playlist count
   countBadge: {
     backgroundColor:   Colors.glass,
     borderWidth:       1,
@@ -255,30 +272,48 @@ const styles = StyleSheet.create({
     fontSize:   FontSize.xs,
     color:      Colors.textMuted,
   },
+  gearBtn: {
+    width:          32,
+    height:         32,
+    alignItems:     'center',
+    justifyContent: 'center',
+  },
+  gearIcon: {
+    fontSize: 16,
+    color:    Colors.textMuted,
+  },
 
-  // ── List ──
-  listContent: {
+  // Section title below header
+  sectionHeader: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom:     120,
+    paddingBottom:     Spacing.lg,
+    gap:               3,
+  },
+  sectionTitle: {
+    fontFamily:    FontFamily.syneBold,
+    fontSize:      FontSize['2xl'],
+    color:         Colors.text,
+    letterSpacing: -1,
+    lineHeight:    FontSize['2xl'] * 1.1,
+  },
+  sectionSub: {
+    fontFamily: FontFamily.mono,
+    fontSize:   FontSize.xs,
+    color:      Colors.textMuted,
   },
 
-  // ── Grid cells ──
-  cellLeft: {
-    flex:        1,
-    paddingRight: Spacing.md / 2,
-  },
-  cellRight: {
-    flex:       1,
-    paddingLeft: Spacing.md / 2,
+  // List content padding
+  listContent: {
+    paddingBottom: 120,
   },
 
-  // ── Skeleton grid ──
-  skeletonGrid: {
-    flexDirection: 'row',
-    flexWrap:      'wrap',
+  // Skeleton list (single column, matching new card layout)
+  skeletonList: {
+    gap:               Spacing.md,
+    paddingHorizontal: Spacing.lg,
   },
 
-  // ── Empty state ──
+  // Empty
   emptyWrap: {
     alignItems:     'center',
     justifyContent: 'center',
@@ -297,4 +332,3 @@ const styles = StyleSheet.create({
     textAlign:  'center',
   },
 })
-

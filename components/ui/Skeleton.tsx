@@ -63,12 +63,9 @@ interface SkeletonCardProps {
 
 export function PlaylistCardSkeleton({ baseColor, style }: SkeletonCardProps) {
   return (
+    // Full-width card matching the new single-column PlaylistCard design
     <View style={[skStyles.card, style]}>
-      <Skeleton height={148} borderRadius={Radius.lg - 1} baseColor={baseColor} style={{ marginBottom: 1 }} />
-      <View style={skStyles.cardInfo}>
-        <Skeleton height={12} width="80%" borderRadius={6} baseColor={baseColor} style={{ marginBottom: 6 }} />
-        <Skeleton height={10} width="50%" borderRadius={6} baseColor={baseColor} />
-      </View>
+      <Skeleton height={188} borderRadius={Radius.xl} baseColor={baseColor} />
     </View>
   )
 }
@@ -93,15 +90,11 @@ export function ChartSkeleton({ baseColor }: { baseColor?: string }) {
 
 const skStyles = StyleSheet.create({
   card: {
-    borderRadius:    Radius.lg,
-    backgroundColor: Colors.glass,
-    borderWidth:     1,
-    borderColor:     Colors.glassBorder,
+    borderRadius:    Radius.xl,
     overflow:        'hidden',
-  },
-  cardInfo: {
-    padding: Spacing.sm,
-    paddingBottom: Spacing.md,
+    alignSelf:       'center',
+    width:           '100%',
+    paddingHorizontal: Spacing.lg,
   },
   statCard: {
     padding:         Spacing.md,

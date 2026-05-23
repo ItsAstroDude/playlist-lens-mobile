@@ -106,7 +106,7 @@ export default function TabLayout() {
             style={StyleSheet.absoluteFill}
           />
         ),
-        tabBarActiveTintColor:   Colors.green,
+        tabBarActiveTintColor:   Colors.greenPrimary,
         tabBarInactiveTintColor: Colors.textDim,
         tabBarLabelStyle:        styles.tabLabel,
         tabBarShowLabel:         true,
@@ -119,7 +119,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title:    'playlists',
+          title:    'lenses',
           tabBarIcon: ({ focused }) => <GridIcon focused={focused} />,
         }}
       />
@@ -133,14 +133,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title:    'profile',
+          title:    'taste',
           tabBarIcon: ({ focused }) => <ProfileIcon focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="friends"
         options={{
-          title:    'friends',
+          title:    'share',
           tabBarIcon: ({ focused }) => <FriendsIcon focused={focused} />,
         }}
       />
@@ -180,7 +180,7 @@ const iconStyles = StyleSheet.create({
     borderRadius:    14,
     backgroundColor: Colors.greenSubtle,
     // iOS glow
-    shadowColor:     Colors.green,
+    shadowColor:     Colors.greenPrimary,
     shadowOffset:    { width: 0, height: 0 },
     shadowOpacity:   0.5,
     shadowRadius:    8,
@@ -191,19 +191,19 @@ const iconStyles = StyleSheet.create({
   // Grid icon
   gridRow:  { flexDirection: 'row', gap: 3, marginVertical: 1.5 },
   dot:      { width: 7, height: 7, borderRadius: 2, backgroundColor: Colors.textDim },
-  dotActive:{ backgroundColor: Colors.green },
+  dotActive:{ backgroundColor: Colors.greenPrimary },
 
   // Bar chart icon
   bar:      { width: 5, height: 10, borderRadius: 2, backgroundColor: Colors.textDim },
   barTall:  { width: 5, height: 16, borderRadius: 2, backgroundColor: Colors.textDim },
   barMid:   { width: 5, height: 13, borderRadius: 2, backgroundColor: Colors.textDim },
-  barActive:{ backgroundColor: Colors.green },
+  barActive:{ backgroundColor: Colors.greenPrimary },
 
   // Profile icon
   circle:       { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.textDim, marginBottom: 1 },
-  circleActive: { backgroundColor: Colors.green },
+  circleActive: { backgroundColor: Colors.greenPrimary },
   arc:          { width: 16, height: 8, borderRadius: 8, borderWidth: 1.5, borderColor: Colors.textDim, borderBottomWidth: 0 },
-  arcActive:    { borderColor: Colors.green },
+  arcActive:    { borderColor: Colors.greenPrimary },
 
   // Friends icon
   smCircle:       { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.textDim },
