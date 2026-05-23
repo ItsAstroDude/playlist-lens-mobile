@@ -148,7 +148,7 @@ export function computeVibe(af: AudioProfile): string {
 // Spotify returns many near-duplicate genre strings ("j-pop", "jpop",
 // "japanese pop"; "hip hop" vs "hip-hop"; "r&b" vs "rnb", etc.).
 // Normalise to a canonical form before tallying so they merge correctly.
-function normalizeGenre(raw: string): string {
+export function normalizeGenre(raw: string): string {
   let g = raw.toLowerCase().trim()
 
   // Collapse whitespace & unify punctuation

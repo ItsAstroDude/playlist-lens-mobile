@@ -36,7 +36,7 @@ function readCachedAnalyses(): PlaylistAnalysis[] {
   }
 }
 
-function aggregate(analyses: PlaylistAnalysis[]): TasteProfile {
+export function aggregate(analyses: PlaylistAnalysis[]): TasteProfile {
   const artistTally: Record<string, { name: string; count: number }> = {}
   const genreTally:  Record<string, number> = {}
   let trackCount = 0
