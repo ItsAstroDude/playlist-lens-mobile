@@ -22,7 +22,7 @@ function VibePill({ vibe }: { vibe: string }) {
   const pulse = useSharedValue(1)
   useEffect(() => {
     pulse.value = withRepeat(
-      withTiming(0.35, { duration: 1200, easing: Easing.inOut(Easing.sine) }),
+      withTiming(0.35, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
       -1, true,
     )
   }, [])
