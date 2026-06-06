@@ -61,6 +61,8 @@ export default function RootLayout() {
         ) : (
           <Stack.Screen name="auth" options={{ animation: 'fade' }} />
         )}
+        {/* OAuth redirect landing — always reachable, regardless of auth state */}
+        <Stack.Screen name="callback" options={{ animation: 'fade' }} />
       </Stack>
     </GestureHandlerRootView>
   )

@@ -49,6 +49,10 @@ export const CacheKeys = {
 export const SecureKeys = {
   accessToken:  'access_token',
   refreshToken: 'refresh_token',
+  // CSRF state for the OAuth round-trip. Persisted (not just held in memory) so
+  // the /callback deep-link route can verify it even if the app was cold-started
+  // by the redirect intent.
+  oauthState:   'oauth_state',
 }
 
 // ─── flush() — wipes everything on logout ────────────────────────────────────
@@ -59,5 +63,6 @@ export async function flush(): Promise<void> {
   await Promise.all([
     SecureStore.deleteItemAsync(SecureKeys.accessToken),
     SecureStore.deleteItemAsync(SecureKeys.refreshToken),
+    SecureStore.deleteItemAsync(SecureKeys.oauthState),
   ])
 }

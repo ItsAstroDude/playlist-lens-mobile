@@ -30,6 +30,53 @@ function parseUrlParams(url: string): Record<string, string> {
   )
 }
 
+// ─── Token finalization ───────────────────────────────────────────────────────
+// Shared by BOTH redirect paths:
+//   1. openAuthSessionAsync capture (returns the URL directly)        → finalizeAuthFromUrl
+//   2. the /callback deep-link route (Expo Router parses the params)  → finalizeAuthFromParams
+// Verifies the CSRF state against the value we persisted before opening the
+// browser, then stores the tokens. Idempotent — safe to run from either path.
+type AuthResult = { ok: true } | { ok: false; error: string }
+
+function first(v?: string | string[] | null): string | null {
+  if (v == null) return null
+  return Array.isArray(v) ? (v[0] ?? null) : v
+}
+
+export async function finalizeAuthFromParams(params: {
+  access_token?:  string | string[] | null
+  refresh_token?: string | string[] | null
+  state?:         string | string[] | null
+  error?:         string | string[] | null
+}): Promise<AuthResult> {
+  const token         = first(params.access_token)
+  const refresh       = first(params.refresh_token)
+  const returnedState = first(params.state)
+  const errorParam    = first(params.error)
+
+  if (errorParam) return { ok: false, error: `Spotify error: ${errorParam}` }
+
+  // CSRF check — state must match what we sent (read from secure storage so this
+  // works even when the app was cold-started by the redirect intent).
+  const savedState = await SecureStore.getItemAsync(SecureKeys.oauthState)
+  if (!returnedState || returnedState !== savedState) {
+    return { ok: false, error: 'Security check failed. Please try again.' }
+  }
+
+  if (!token) return { ok: false, error: 'No token received. Please try again.' }
+
+  await SecureStore.setItemAsync(SecureKeys.accessToken, token)
+  if (refresh) await SecureStore.setItemAsync(SecureKeys.refreshToken, refresh)
+  // One-time state — clear so it can't be replayed.
+  await SecureStore.deleteItemAsync(SecureKeys.oauthState)
+
+  return { ok: true }
+}
+
+export async function finalizeAuthFromUrl(url: string): Promise<AuthResult> {
+  return finalizeAuthFromParams(parseUrlParams(url))
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 export function useAuth() {
   const [isLoading, setIsLoading] = useState(false)
@@ -46,11 +93,16 @@ export function useAuth() {
     setError(null)
 
     try {
-      // Generate CSRF state param — verified server-side
+      // Generate CSRF state and persist it so the /callback route can verify it
+      // (the redirect may cold-start the app, losing this closure's memory).
       const state = generateState()
+      await SecureStore.setItemAsync(SecureKeys.oauthState, state)
 
-      // The deep-link URL this build listens on (varies: Expo Go vs dev build vs prod)
-      const redirectUrl = Linking.createURL('/auth/callback')
+      // The deep-link URL this build listens on. Use a dedicated top-level
+      // /callback route — Android Chrome Custom Tabs frequently fire a server
+      // 302-to-custom-scheme as an external intent instead of handing it back to
+      // the auth session, so app/callback.tsx is the reliable handler.
+      const redirectUrl = Linking.createURL('/callback')
 
       // Pass it to the backend so the callback redirects to the right scheme
       const loginUrl = `${BACKEND_URL}/login?mobile=true&state=${state}&redirect_url=${encodeURIComponent(redirectUrl)}`
@@ -58,41 +110,24 @@ export function useAuth() {
       // Open in an in-app browser session
       const result = await WebBrowser.openAuthSessionAsync(loginUrl, redirectUrl)
 
-      if (result.type !== 'success') {
-        setError('Login was cancelled.')
-        return false
+      // Happy path: the auth session captured the redirect itself.
+      if (result.type === 'success') {
+        const res = await finalizeAuthFromUrl(result.url)
+        if (!res.ok) { setError(res.error); return false }
+        return true
       }
 
-      // Parse the callback URL for our token
-      const params       = parseUrlParams(result.url)
-      const token        = params['access_token']  ?? null
-      const refresh      = params['refresh_token'] ?? null
-      const returnedState = params['state']        ?? null
-      const errorParam   = params['error']         ?? null
-
-      if (errorParam) {
-        setError(`Spotify error: ${errorParam}`)
-        return false
+      // Capture failed (Custom Tab launched the intent → /callback route handles
+      // it) OR the user cancelled. Give the route a moment to store the token;
+      // if it does, this was a successful login through the deep-link path.
+      for (let i = 0; i < 25; i++) {
+        const token = await SecureStore.getItemAsync(SecureKeys.accessToken)
+        if (token) return true
+        await new Promise(r => setTimeout(r, 120))
       }
 
-      // CSRF check — state must match what we sent
-      if (returnedState !== state) {
-        setError('Security check failed. Please try again.')
-        return false
-      }
-
-      if (!token) {
-        setError('No token received. Please try again.')
-        return false
-      }
-
-      // Persist tokens securely
-      await SecureStore.setItemAsync(SecureKeys.accessToken, token)
-      if (refresh) {
-        await SecureStore.setItemAsync(SecureKeys.refreshToken, refresh)
-      }
-
-      return true
+      setError('Login was cancelled.')
+      return false
     } catch (err) {
       setError('Something went wrong. Check your connection.')
       return false
