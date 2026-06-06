@@ -29,10 +29,13 @@ export function buildAnalysis(
       artistTally[artist.id].count++
     }
   }
+  // Keep a deep list (not just top 10) so the cross-playlist taste aggregate
+  // isn't biased toward artists concentrated in a single playlist. The detail
+  // view slices this down to 6 for display.
   const topArtists: ArtistCount[] = Object.entries(artistTally)
     .map(([id, { name, count }]) => ({ id, name, count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 10)
+    .slice(0, 50)
 
   // ── Genre counts (weighted by artist appearance count, deduplicated) ──
   const genreTally: Record<string, number> = {}
@@ -75,10 +78,14 @@ export function buildAnalysis(
   }
 
   // ── Decade distribution ──
+  // Spotify returns 1900 / 0000 as a placeholder for unknown or local-file
+  // release dates — exclude those (and any out-of-range junk) so we don't show
+  // a bogus "1900s" bucket.
   const decadeTally: Record<string, number> = {}
+  const nowYear = new Date().getFullYear()
   for (const track of tracks) {
     const year = parseInt(track.album?.release_date?.split('-')[0] ?? '0', 10)
-    if (year > 0) {
+    if (year > 1900 && year <= nowYear + 1) {
       const label = `${Math.floor(year / 10) * 10}s`
       decadeTally[label] = (decadeTally[label] || 0) + 1
     }

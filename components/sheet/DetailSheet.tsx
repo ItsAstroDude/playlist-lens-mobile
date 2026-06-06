@@ -190,10 +190,15 @@ function HeroSection({ playlist, palette }: { playlist: SpotifyPlaylist; palette
 
 // ─── Analysis Content ─────────────────────────────────────────────────────────
 function AnalysisContent({ data, accent, trackTotal }: { data: PlaylistAnalysis; accent: string; trackTotal?: number }) {
+  // Only the backend's 500-track cap is a real truncation worth estimating
+  // around (and we flag it with "~"). For everything else show the exact summed
+  // duration of the tracks we analysed — extrapolating over a few unavailable
+  // tracks was inflating the number.
+  const TRACK_CAP     = 500
   const displayTotal  = trackTotal ?? data.tracks.length
-  const isTruncated   = trackTotal != null && data.tracks.length < trackTotal
-  const durationValue = isTruncated
-    ? fmtDuration((data.totalMs / data.tracks.length) * trackTotal)
+  const isCapped      = trackTotal != null && trackTotal > TRACK_CAP && data.tracks.length > 0
+  const durationValue = isCapped
+    ? '~' + fmtDuration((data.totalMs / data.tracks.length) * trackTotal)
     : fmtDuration(data.totalMs)
 
   return (

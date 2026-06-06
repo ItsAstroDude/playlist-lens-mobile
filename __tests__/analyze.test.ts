@@ -115,16 +115,28 @@ describe('buildAnalysis', () => {
     expect(twenties?.count).toBe(1)
   })
 
-  it('caps topArtists at 10 and topGenres at 16', () => {
-    const tracks = Array.from({ length: 20 }, (_, i) =>
+  it('caps topArtists at 50 and topGenres at 16', () => {
+    const tracks = Array.from({ length: 60 }, (_, i) =>
       makeTrack({ id: `t${i}`, artists: [{ id: `a${i}`, name: `Artist ${i}` }] })
     )
     const gmap: Record<string, string[]> = {}
     tracks.forEach((t, i) => { gmap[`a${i}`] = [`genre-${i}`] })
 
     const result = buildAnalysis('pl', 'pl', '', null, tracks, [], gmap)
-    expect(result.topArtists.length).toBeLessThanOrEqual(10)
+    expect(result.topArtists.length).toBeLessThanOrEqual(50)
+    expect(result.topArtists.length).toBeGreaterThan(10) // deeper list than before
     expect(result.topGenres.length).toBeLessThanOrEqual(16)
+  })
+
+  it('excludes placeholder/invalid release years from decades', () => {
+    const tracks = [
+      makeTrack({ id: 't1', album: { name: '', release_date: '1900-01-01', images: [] } }), // placeholder
+      makeTrack({ id: 't2', album: { name: '', release_date: '0000',       images: [] } }), // junk
+      makeTrack({ id: 't3', album: { name: '', release_date: '2019-05-01', images: [] } }), // valid
+    ]
+    const result = buildAnalysis('pl', 'pl', '', null, tracks, [], {})
+    expect(result.decades.find(d => d.label === '1900s')).toBeUndefined()
+    expect(result.decades.find(d => d.label === '2010s')?.count).toBe(1)
   })
 
   it('handles an empty track list without throwing', () => {
