@@ -29,7 +29,7 @@ export default function AuthScreen() {
 
   // ── Orb animation (pulsing blurred green glow) ──
   const orbScale   = useSharedValue(1)
-  const orbOpacity = useSharedValue(0.5)
+  const orbOpacity = useSharedValue(0.16)
 
   // ── Entrance animations ──
   const logoY       = useSharedValue(20)
@@ -51,8 +51,8 @@ export default function AuthScreen() {
     )
     orbOpacity.value = withRepeat(
       withSequence(
-        withTiming(0.75, { duration: 2800, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.4,  { duration: 2800, easing: Easing.inOut(Easing.ease) })
+        withTiming(0.22, { duration: 2800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.12, { duration: 2800, easing: Easing.inOut(Easing.ease) })
       ),
       -1,
       false
@@ -102,7 +102,12 @@ export default function AuthScreen() {
 
       {/* Logo */}
       <Animated.View style={[styles.logoWrap, logoStyle]}>
-        <Text style={styles.logoText}>
+        <Text
+          style={styles.logoText}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
           playlist<Text style={styles.logoDot}>.</Text>lens
         </Text>
       </Animated.View>
@@ -167,12 +172,13 @@ const styles = StyleSheet.create({
   },
 
   // Logo
-  logoWrap: { alignItems: 'center' },
+  logoWrap: { alignItems: 'center', alignSelf: 'stretch' },
   logoText: {
-    fontFamily: FontFamily.syneBold,
-    fontSize:   FontSize['4xl'],
-    color:      Colors.text,
-    letterSpacing: -3,
+    fontFamily:    FontFamily.syneBold,
+    fontSize:      44,
+    color:         Colors.text,
+    letterSpacing: -2,
+    textAlign:     'center',
   },
   logoDot: { color: Colors.greenPrimary },
 
