@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, Switch,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
@@ -17,7 +17,11 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import { haptic } from '@/constants/animation'
 import { useAuth } from '@/hooks/useAuth'
+import { clearCaches } from '@/utils/cache'
+import { hapticsEnabled, setHapticsEnabled } from '@/utils/settings'
+import type { SpotifyUser } from '@/types'
 
 const { width: W, height: H } = Dimensions.get('window')
 
@@ -76,9 +80,67 @@ function SettingRow({
   )
 }
 
+// ─── Toggle row ───────────────────────────────────────────────────────────────
+function ToggleRow({
+  icon, label, value, onValueChange, last,
+}: {
+  icon:          keyof typeof Ionicons.glyphMap
+  label:         string
+  value:         boolean
+  onValueChange: (v: boolean) => void
+  last?:         boolean
+}) {
+  return (
+    <View style={[styles.row, last && styles.rowLast]}>
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} size={16} color={Colors.textMuted} />
+      </View>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: Colors.glassBorder, true: 'rgba(83,224,118,0.45)' }}
+        thumbColor={value ? Colors.greenPrimary : '#9a9a9a'}
+        ios_backgroundColor={Colors.glassBorder}
+      />
+    </View>
+  )
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function SettingsScreen() {
-  const { logout } = useAuth()
+  const { logout, getMe } = useAuth()
+
+  const [haptics, setHaptics]           = useState(hapticsEnabled())
+  const [me, setMe]                     = useState<SpotifyUser | null>(null)
+  const [cacheCleared, setCacheCleared] = useState(false)
+
+  useEffect(() => { getMe().then(setMe) }, [])
+
+  const onToggleHaptics = (v: boolean) => {
+    setHaptics(v)
+    setHapticsEnabled(v)
+    if (v) haptic.light()
+  }
+
+  const onClearCache = () => {
+    Alert.alert(
+      'Clear cache?',
+      'Removes cached playlist analyses and your taste profile. You stay logged in — everything rebuilds as you browse.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear', style: 'destructive',
+          onPress: () => {
+            clearCaches()
+            haptic.success()
+            setCacheCleared(true)
+            setTimeout(() => setCacheCleared(false), 2500)
+          },
+        },
+      ],
+    )
+  }
 
   // ── Gear drop animation values ──
   const gearX       = useSharedValue(GEAR_START_X)
@@ -171,15 +233,31 @@ export default function SettingsScreen() {
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          {/* App */}
-          <Section label="app">
-            <SettingRow icon="notifications-outline" label="Notifications"  value="Coming soon" last />
+          {/* Preferences */}
+          <Section label="preferences">
+            <ToggleRow
+              icon="phone-portrait-outline"
+              label="Haptics"
+              value={haptics}
+              onValueChange={onToggleHaptics}
+              last
+            />
+          </Section>
+
+          {/* Data */}
+          <Section label="data">
+            <SettingRow
+              icon="trash-outline"
+              label="Clear cache"
+              value={cacheCleared ? 'Cleared ✓' : undefined}
+              onPress={onClearCache}
+              last
+            />
           </Section>
 
           {/* Spotify */}
           <Section label="spotify">
-            <SettingRow icon="musical-notes-outline" label="Extended quota mode" value="Coming soon" />
-            <SettingRow icon="refresh-outline"       label="Clear cache"          value="Coming soon" last />
+            <SettingRow icon="pulse-outline" label="Audio features" value="Pre-2024 apps" last />
           </Section>
 
           {/* About */}
@@ -190,6 +268,11 @@ export default function SettingsScreen() {
 
           {/* Account */}
           <Section label="account">
+            <SettingRow
+              icon="person-circle-outline"
+              label={me?.display_name || 'Spotify account'}
+              value={me ? 'Connected' : '…'}
+            />
             <SettingRow
               icon="log-out-outline"
               label="Log out"

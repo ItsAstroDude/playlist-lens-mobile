@@ -1,24 +1,26 @@
 import React, { useEffect, useCallback, useMemo, useState } from 'react'
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
-import * as Haptics from 'expo-haptics'
+import { router } from 'expo-router'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withDelay,
   withTiming, withRepeat, Easing,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
-import { Spring } from '@/constants/animation'
+import { Spring, haptic } from '@/constants/animation'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { RadarChart } from '@/components/ui/RadarChart'
+import { vibeColor } from '@/utils/color'
 import type { TasteProfile } from '@/types'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function VibePill({ vibe }: { vibe: string }) {
+  const color = vibeColor(vibe)
   const pulse = useSharedValue(1)
   useEffect(() => {
     pulse.value = withRepeat(
@@ -29,9 +31,9 @@ function VibePill({ vibe }: { vibe: string }) {
   const dotStyle = useAnimatedStyle(() => ({ opacity: pulse.value }))
 
   return (
-    <View style={vibe_styles.pill}>
-      <Animated.View style={[vibe_styles.dot, dotStyle]} />
-      <Text style={vibe_styles.text}>{vibe}</Text>
+    <View style={[vibe_styles.pill, { backgroundColor: `${color}14`, borderColor: `${color}40` }]}>
+      <Animated.View style={[vibe_styles.dot, dotStyle, { backgroundColor: color }]} />
+      <Text style={[vibe_styles.text, { color }]}>{vibe}</Text>
     </View>
   )
 }
@@ -97,48 +99,25 @@ const stat_styles = StyleSheet.create({
   },
 })
 
-// ─── Share card ───────────────────────────────────────────────────────────────
-function ShareCard({
-  code, saving, onGenerate, onShare,
-}: {
-  code:       string | null
-  saving:     boolean
-  onGenerate: () => void
-  onShare:    () => void
-}) {
+// ─── Share teaser ─────────────────────────────────────────────────────────────
+// Code generation + sharing lives on the Share tab (single source of truth).
+// The taste tab just surfaces the code (if any) and points there.
+function ShareTeaser({ code, onPress }: { code: string | null; onPress: () => void }) {
   return (
-    <View style={share_styles.card}>
+    <TouchableOpacity style={share_styles.card} onPress={onPress} activeOpacity={0.8}>
       <View style={share_styles.specular} />
       <Text style={share_styles.heading}>SHARE YOUR TASTE</Text>
       {code ? (
-        <>
-          <View style={share_styles.codeBox}>
-            <Text style={share_styles.codeText}>{code}</Text>
-          </View>
-          <Text style={share_styles.hint}>Your friends can enter this code in the Share tab</Text>
-          <TouchableOpacity style={share_styles.btn} onPress={onShare} activeOpacity={0.75}>
-            <Text style={share_styles.btnText}>Share Code</Text>
-          </TouchableOpacity>
-        </>
+        <View style={share_styles.codeBox}>
+          <Text style={share_styles.codeText}>{code}</Text>
+        </View>
       ) : (
-        <>
-          <Text style={share_styles.desc}>
-            Generate a 6-character code. Anyone with it can view your taste profile.
-          </Text>
-          <TouchableOpacity
-            style={[share_styles.btn, saving && share_styles.btnDisabled]}
-            onPress={onGenerate}
-            activeOpacity={0.75}
-            disabled={saving}
-          >
-            {saving
-              ? <ActivityIndicator size="small" color={Colors.background} />
-              : <Text style={share_styles.btnText}>Generate & Share</Text>
-            }
-          </TouchableOpacity>
-        </>
+        <Text style={share_styles.desc}>
+          Create a code on the Share tab so friends can view your taste profile.
+        </Text>
       )}
-    </View>
+      <Text style={share_styles.cta}>Open Share tab  →</Text>
+    </TouchableOpacity>
   )
 }
 const share_styles = StyleSheet.create({
@@ -194,6 +173,11 @@ const share_styles = StyleSheet.create({
     textAlign:  'center',
     lineHeight: FontSize.sm * 1.6,
   },
+  cta: {
+    fontFamily: FontFamily.monoMedium,
+    fontSize:   FontSize.sm,
+    color:      Colors.greenPrimary,
+  },
   btn: {
     backgroundColor: Colors.greenPrimary,
     borderRadius:    Radius.full,
@@ -248,17 +232,16 @@ const artist_styles = StyleSheet.create({
 
 // ─── Profile view ─────────────────────────────────────────────────────────────
 function ProfileContent({
-  profile, shareCode, saving,
-  onGenerate, onShare,
+  profile, shareCode, onOpenShare,
 }: {
-  profile:    TasteProfile
-  shareCode:  string | null
-  saving:     boolean
-  onGenerate: () => void
-  onShare:    () => void
+  profile:     TasteProfile
+  shareCode:   string | null
+  onOpenShare: () => void
 }) {
   const maxArtistCount = profile.topArtists[0]?.count ?? 1
   const genreAccents   = [Colors.greenPrimary, Colors.pink, Colors.lavender]
+  // True distinct-artist count (older cached profiles fall back to the list).
+  const artistCount    = profile.artistCount ?? profile.topArtists.length
 
   return (
     <>
@@ -266,7 +249,7 @@ function ProfileContent({
       <View style={styles.statRow}>
         <StatPill value={profile.playlistCount.toString()} label="lenses" />
         <StatPill value={profile.trackCount.toLocaleString()} label="tracks" />
-        <StatPill value={profile.topArtists.length.toString()} label="artists" />
+        <StatPill value={artistCount.toLocaleString()} label="artists" />
       </View>
 
       {/* Vibe */}
@@ -339,13 +322,8 @@ function ProfileContent({
         </View>
       )}
 
-      {/* Share card */}
-      <ShareCard
-        code={shareCode}
-        saving={saving}
-        onGenerate={onGenerate}
-        onShare={onShare}
-      />
+      {/* Share teaser → links to the Share tab */}
+      <ShareTeaser code={shareCode} onPress={onOpenShare} />
     </>
   )
 }
@@ -368,7 +346,7 @@ export default function ProfileTab() {
   const { fetch: fetchPlaylists, data: playlists } = usePlaylists()
   const {
     profile, shareCode, status, errorMsg, scanProgress,
-    buildFromCache, scanAll, saveProfile,
+    buildFromCache, scanAll,
   } = useTasteProfile()
 
   const [scanBtnVisible, setScanBtnVisible] = useState(false)
@@ -401,31 +379,16 @@ export default function ProfileTab() {
 
   const handleScanAll = useCallback(async () => {
     if (!playlists) return
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    haptic.medium()
     await scanAll(playlists)
   }, [playlists, scanAll])
 
-  const handleGenerate = useCallback(async () => {
-    if (!profile) return
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    const code = await saveProfile(profile)
-    if (code) {
-      await Share.share({
-        message: `Check out my music taste on playlist.lens! Enter my code: ${code}`,
-      })
-    }
-  }, [profile, saveProfile])
-
-  const handleShare = useCallback(async () => {
-    if (!shareCode) return
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    await Share.share({
-      message: `Check out my music taste on playlist.lens! Enter my code: ${shareCode}`,
-    })
-  }, [shareCode])
+  const handleOpenShare = useCallback(() => {
+    haptic.light()
+    router.push('/(tabs)/friends')
+  }, [])
 
   const isScanning = status === 'scanning'
-  const isSaving   = status === 'saving'
 
   return (
     <View style={styles.container}>
@@ -483,9 +446,7 @@ export default function ProfileTab() {
             <ProfileContent
               profile={profile}
               shareCode={shareCode}
-              saving={isSaving}
-              onGenerate={handleGenerate}
-              onShare={handleShare}
+              onOpenShare={handleOpenShare}
             />
           ) : !isScanning ? (
             <EmptyState />
@@ -577,7 +538,7 @@ const styles = StyleSheet.create({
 
   scroll: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom:     120,
+    paddingBottom:     140,
     gap:               Spacing.md,
   },
 

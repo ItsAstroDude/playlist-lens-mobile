@@ -52,6 +52,10 @@ export function aggregate(analyses: PlaylistAnalysis[]): TasteProfile {
     }
   }
 
+  // Distinct artists across every playlist's top-artist lists — a real number
+  // for the "artists" stat, not the capped length of the list below.
+  const artistCount = Object.keys(artistTally).length
+
   const topArtists: ArtistCount[] = Object.entries(artistTally)
     .map(([id, { name, count }]) => ({ id, name, count }))
     .sort((a, b) => b.count - a.count)
@@ -85,6 +89,7 @@ export function aggregate(analyses: PlaylistAnalysis[]): TasteProfile {
     name:          '',
     trackCount,
     playlistCount: analyses.length,
+    artistCount,
     vibe,
     topArtists,
     topGenres,

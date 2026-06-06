@@ -107,7 +107,7 @@ export default function TabLayout() {
           />
         ),
         tabBarActiveTintColor:   Colors.greenPrimary,
-        tabBarInactiveTintColor: Colors.textDim,
+        tabBarInactiveTintColor: Colors.textMuted,
         tabBarLabelStyle:        styles.tabLabel,
         tabBarShowLabel:         true,
         animation:               'fade',
@@ -190,22 +190,22 @@ const iconStyles = StyleSheet.create({
 
   // Grid icon
   gridRow:  { flexDirection: 'row', gap: 3, marginVertical: 1.5 },
-  dot:      { width: 7, height: 7, borderRadius: 2, backgroundColor: Colors.textDim },
+  dot:      { width: 7, height: 7, borderRadius: 2, backgroundColor: Colors.textMuted },
   dotActive:{ backgroundColor: Colors.greenPrimary },
 
   // Bar chart icon
-  bar:      { width: 5, height: 10, borderRadius: 2, backgroundColor: Colors.textDim },
-  barTall:  { width: 5, height: 16, borderRadius: 2, backgroundColor: Colors.textDim },
-  barMid:   { width: 5, height: 13, borderRadius: 2, backgroundColor: Colors.textDim },
+  bar:      { width: 5, height: 10, borderRadius: 2, backgroundColor: Colors.textMuted },
+  barTall:  { width: 5, height: 16, borderRadius: 2, backgroundColor: Colors.textMuted },
+  barMid:   { width: 5, height: 13, borderRadius: 2, backgroundColor: Colors.textMuted },
   barActive:{ backgroundColor: Colors.greenPrimary },
 
   // Profile icon
-  circle:       { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.textDim, marginBottom: 1 },
+  circle:       { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.textMuted, marginBottom: 1 },
   circleActive: { backgroundColor: Colors.greenPrimary },
-  arc:          { width: 16, height: 8, borderRadius: 8, borderWidth: 1.5, borderColor: Colors.textDim, borderBottomWidth: 0 },
+  arc:          { width: 16, height: 8, borderRadius: 8, borderWidth: 1.5, borderColor: Colors.textMuted, borderBottomWidth: 0 },
   arcActive:    { borderColor: Colors.greenPrimary },
 
   // Friends icon
-  smCircle:       { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.textDim },
+  smCircle:       { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.textMuted },
   smCircleOffset: { marginLeft: -3, marginTop: 4 },
 })

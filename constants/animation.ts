@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics'
 import type { WithSpringConfig } from 'react-native-reanimated'
+import { hapticsEnabled } from '@/utils/settings'
 
 // ─── Spring Configs ───────────────────────────────────────────────────────────
 // Base spring used for all transitions unless overridden
@@ -20,13 +21,15 @@ export const Spring: Record<string, WithSpringConfig> = {
 // Light   → passive interactions (tab switch, scroll snap)
 // Medium  → intentional actions (button press, card tap)
 // Heavy   → success / significant outcomes (profile generated, code copied)
+// Gate every buzz behind the user's Haptics setting (default on).
+const fire = (fn: () => void) => { if (hapticsEnabled()) fn() }
 export const haptic = {
-  light:   () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
-  medium:  () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium),
-  heavy:   () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy),
-  success: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
-  warning: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
-  error:   () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+  light:   () => fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)),
+  medium:  () => fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)),
+  heavy:   () => fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)),
+  success: () => fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)),
+  warning: () => fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)),
+  error:   () => fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)),
 } as const
 
 // ─── Stagger Delay ────────────────────────────────────────────────────────────

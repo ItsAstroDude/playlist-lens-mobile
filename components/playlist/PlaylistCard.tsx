@@ -18,6 +18,7 @@ import Animated, {
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { Spring, STAGGER_DELAY_MS, haptic } from '@/constants/animation'
 import { getCache, CacheKeys } from '@/utils/cache'
+import { vibeColor } from '@/utils/color'
 import type { SpotifyPlaylist, PlaylistPalette, PlaylistAnalysis } from '@/types'
 
 const { width: SCREEN_W } = Dimensions.get('window')
@@ -115,10 +116,11 @@ export function PlaylistCard({ playlist, palette, index, onPress }: PlaylistCard
         {/* Glass specular top border */}
         <View style={styles.specular} pointerEvents="none" />
 
-        {/* Vibe badge — only if cached */}
+        {/* Vibe badge — only if cached. Colour reflects the vibe, not the cover,
+            and rides on a dark scrim so it stays legible over bright artwork. */}
         {cachedVibe && (
-          <View style={[styles.vibeBadge, palette && { borderColor: `${palette.primary}50` }]}>
-            <Text style={[styles.vibeText, palette && { color: palette.primary }]}>
+          <View style={[styles.vibeBadge, { borderColor: `${vibeColor(cachedVibe)}55` }]}>
+            <Text style={[styles.vibeText, { color: vibeColor(cachedVibe) }]}>
               {cachedVibe}
             </Text>
           </View>
@@ -176,7 +178,7 @@ const styles = StyleSheet.create({
     position:          'absolute',
     top:               Spacing.md,
     left:              Spacing.md,
-    backgroundColor:   'rgba(0,0,0,0.45)',
+    backgroundColor:   'rgba(0,0,0,0.62)',
     borderWidth:       1,
     borderColor:       'rgba(255,255,255,0.18)',
     borderRadius:      Radius.full,

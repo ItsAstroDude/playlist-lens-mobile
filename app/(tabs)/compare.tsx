@@ -4,14 +4,15 @@ import {
   Modal, FlatList, Image, Pressable,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { LinearGradient } from 'expo-linear-gradient'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, FadeIn,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
-import { Spring } from '@/constants/animation'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { usePalette } from '@/hooks/usePalette'
+import { ensureReadable, vibeColor } from '@/utils/color'
 import type { SpotifyPlaylist, PlaylistAnalysis } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -174,8 +175,10 @@ export default function CompareTab() {
 
   const playlists = plState.data ?? []
 
-  const colorA = (plA ? palettes[plA.id]?.primary : null) ?? Colors.compareA
-  const colorB = (plB ? palettes[plB.id]?.primary : null) ?? Colors.compareB
+  // Keep each playlist's cover hue, but lift any that's too dark to read on the
+  // #131315 background (e.g. a near-black maroon cover → a legible rose).
+  const colorA = ensureReadable((plA ? palettes[plA.id]?.primary : null) ?? Colors.compareA)
+  const colorB = ensureReadable((plB ? palettes[plB.id]?.primary : null) ?? Colors.compareB)
 
   const openPicker = useCallback(async (slot: 'a' | 'b') => {
     if (!playlists.length) await fetchPlaylists()
@@ -205,20 +208,40 @@ export default function CompareTab() {
   const hasResult = dataA && dataB
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {picker !== null && playlists.length > 0 && (
-        <PlaylistPicker
-          playlists={playlists}
-          exclude={picker === 'a' ? plB?.id : plA?.id}
-          onSelect={pl => onSelect(picker, pl)}
-          onClose={() => setPicker(null)}
-        />
-      )}
+    <View style={styles.container}>
+      {/* Ambient glows — match the taste / share tabs */}
+      <View style={styles.ambientViolet} pointerEvents="none" />
+      <View style={styles.ambientPink}   pointerEvents="none" />
+      <LinearGradient
+        colors={[Colors.auroraTop, Colors.auroraBot]}
+        style={styles.aurora}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        pointerEvents="none"
+      />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.heading}>compare</Text>
-        <Text style={styles.sub}>Side-by-side playlist analysis</Text>
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        {picker !== null && playlists.length > 0 && (
+          <PlaylistPicker
+            playlists={playlists}
+            exclude={picker === 'a' ? plB?.id : plA?.id}
+            onSelect={pl => onSelect(picker, pl)}
+            onClose={() => setPicker(null)}
+          />
+        )}
 
+        {/* Branded header */}
+        <View style={styles.header}>
+          <Text style={styles.logo}>
+            playlist<Text style={styles.dot}>.</Text>lens
+          </Text>
+        </View>
+        <View style={styles.titleBlock}>
+          <Text style={styles.title}>compare</Text>
+          <Text style={styles.sub}>Side-by-side playlist analysis</Text>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* ── Slot selectors ── */}
         <View style={styles.slots}>
           <SlotButton playlist={plA} color={colorA} loading={loadingA} onPress={() => openPicker('a')} />
@@ -234,10 +257,10 @@ export default function CompareTab() {
             {(dataA.vibe || dataB.vibe) && (
               <View style={styles.vibeRow}>
                 {dataA.vibe
-                  ? <Text style={[styles.vibeChip, { borderColor: `${colorA}40`, color: colorA }]}>{dataA.vibe}</Text>
+                  ? <Text style={[styles.vibeChip, { borderColor: `${vibeColor(dataA.vibe)}40`, color: vibeColor(dataA.vibe) }]}>{dataA.vibe}</Text>
                   : <View style={{ flex: 1 }} />}
                 {dataB.vibe
-                  ? <Text style={[styles.vibeChip, { borderColor: `${colorB}40`, color: colorB }]}>{dataB.vibe}</Text>
+                  ? <Text style={[styles.vibeChip, { borderColor: `${vibeColor(dataB.vibe)}40`, color: vibeColor(dataB.vibe) }]}>{dataB.vibe}</Text>
                   : <View style={{ flex: 1 }} />}
               </View>
             )}
@@ -323,18 +346,42 @@ export default function CompareTab() {
             <Text style={styles.emptyText}>Pick two playlists above{'\n'}to see how they stack up</Text>
           </View>
         )}
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   )
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll:    { padding: Spacing.lg, paddingBottom: 100 },
+  safe:      { flex: 1, zIndex: 1 },
+  scroll:    { paddingHorizontal: Spacing.lg, paddingBottom: 120 },
 
-  heading: { fontFamily: FontFamily.display, fontSize: 28, fontWeight: '800', letterSpacing: -1, color: Colors.text, marginBottom: Spacing.xs },
-  sub:     { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: Spacing.xl },
+  // Ambient glows (match taste / share)
+  ambientViolet: {
+    position: 'absolute', top: -80, left: -80, width: 300, height: 300,
+    borderRadius: 150, backgroundColor: Colors.violetGlow,
+  },
+  ambientPink: {
+    position: 'absolute', bottom: -100, right: -80, width: 260, height: 260,
+    borderRadius: 130, backgroundColor: Colors.pinkGlow,
+  },
+  aurora: { position: 'absolute', top: 0, left: 0, right: 0, height: 200 },
+
+  // Branded header
+  header: {
+    paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.xs,
+  },
+  logo: {
+    fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -1,
+  },
+  dot: { color: Colors.greenPrimary },
+  titleBlock: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, gap: 3 },
+  title: {
+    fontFamily: FontFamily.syneBold, fontSize: FontSize['2xl'], color: Colors.text, letterSpacing: -1,
+  },
+  sub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
 
   // Slots
   slots: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.xl },

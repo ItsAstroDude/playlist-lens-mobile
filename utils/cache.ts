@@ -55,6 +55,14 @@ export const SecureKeys = {
   oauthState:   'oauth_state',
 }
 
+// ─── clearCaches() — drop cached data, keep user settings & tokens ───────────
+export function clearCaches(): void {
+  for (const k of storage.getAllKeys()) {
+    if (k.startsWith('settings.')) continue // preserve app settings
+    storage.remove(k)
+  }
+}
+
 // ─── flush() — wipes everything on logout ────────────────────────────────────
 export async function flush(): Promise<void> {
   // Clear all MMKV cache

@@ -105,6 +105,7 @@ export interface TasteProfile {
   name:          string
   trackCount:    number
   playlistCount: number
+  artistCount?:  number   // distinct artists across all playlists (added in build 2)
   vibe:          string | null
   topArtists:    ArtistCount[]
   topGenres:     GenreCount[]

@@ -5,13 +5,12 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
-import * as Haptics from 'expo-haptics'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withDelay,
   withTiming, FadeIn,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
-import { Spring } from '@/constants/animation'
+import { Spring, haptic } from '@/constants/animation'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { RadarChart } from '@/components/ui/RadarChart'
 import type { TasteProfile, ArtistCount, GenreCount } from '@/types'
@@ -403,13 +402,13 @@ export default function FriendsTab() {
     const clean = codeInput.replace(/-/g, '')
     if (clean.length < 6) return
     Keyboard.dismiss()
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    haptic.light()
     await loadFriend(codeInput)
   }, [codeInput, loadFriend])
 
   const handleGenerate = useCallback(async () => {
     if (!profile) return
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    haptic.light()
     const code = await saveProfile(profile)
     if (code) {
       await Share.share({
@@ -420,7 +419,7 @@ export default function FriendsTab() {
 
   const handleShare = useCallback(async () => {
     if (!shareCode) return
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    haptic.light()
     await Share.share({
       message: `Check out my music taste on playlist.lens! Enter my code: ${shareCode}`,
     })
@@ -586,7 +585,7 @@ const styles = StyleSheet.create({
 
   scroll: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom:     120,
+    paddingBottom:     140,
     gap:               Spacing.md,
   },
 
