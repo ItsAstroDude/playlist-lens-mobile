@@ -13,7 +13,7 @@ import {
 } from '@expo-google-fonts/syne'
 import * as SecureStore from 'expo-secure-store'
 import { SecureKeys } from '@/utils/cache'
-import { onSessionExpired } from '@/utils/authEvents'
+import { onSessionExpired, onSignedIn } from '@/utils/authEvents'
 import { View, StyleSheet } from 'react-native'
 import { Colors } from '@/constants/theme'
 
@@ -37,11 +37,16 @@ export default function RootLayout() {
     checkAuth()
 
     // When a 401 fires anywhere in the app, drop back to the auth screen
-    const unsub = onSessionExpired(() => {
+    const unsubExpired = onSessionExpired(() => {
       setIsAuthenticated(false)
       router.replace('/auth')
     })
-    return unsub
+    // When OAuth completes, flip to authed so the auth screen leaves the
+    // navigator (back-gesture can't return to login).
+    const unsubSignedIn = onSignedIn(() => {
+      setIsAuthenticated(true)
+    })
+    return () => { unsubExpired(); unsubSignedIn() }
   }, [])
 
   // Don't render until fonts and auth check are done

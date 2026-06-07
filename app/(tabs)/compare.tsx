@@ -356,7 +356,7 @@ export default function CompareTab() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   safe:      { flex: 1, zIndex: 1 },
-  scroll:    { paddingHorizontal: Spacing.lg, paddingBottom: 120 },
+  scroll:    { paddingHorizontal: Spacing.lg, paddingBottom: 130 },
 
   // Ambient glows (match taste / share)
   ambientViolet: {

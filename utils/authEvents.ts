@@ -1,15 +1,27 @@
 // ─── Global auth event bus ────────────────────────────────────────────────────
-// Lets apiFetch signal a session expiry without depending on React state.
-// _layout.tsx subscribes and routes back to the auth screen.
+// Lets non-React code (apiFetch, the OAuth finalizer) signal auth changes.
+// _layout.tsx subscribes and flips its auth state — which purges the auth screen
+// from the navigator so "back" can't land on it after login.
 
 type Listener = () => void
-const listeners = new Set<Listener>()
 
+const expiredListeners = new Set<Listener>()
+const signedInListeners = new Set<Listener>()
+
+// ── Session expired (401 / logout) ──
 export function onSessionExpired(cb: Listener): () => void {
-  listeners.add(cb)
-  return () => listeners.delete(cb)
+  expiredListeners.add(cb)
+  return () => expiredListeners.delete(cb)
+}
+export function emitSessionExpired(): void {
+  expiredListeners.forEach(cb => cb())
 }
 
-export function emitSessionExpired(): void {
-  listeners.forEach(cb => cb())
+// ── Signed in (OAuth completed, tokens stored) ──
+export function onSignedIn(cb: Listener): () => void {
+  signedInListeners.add(cb)
+  return () => signedInListeners.delete(cb)
+}
+export function emitSignedIn(): void {
+  signedInListeners.forEach(cb => cb())
 }

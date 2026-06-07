@@ -302,9 +302,9 @@ const styles = StyleSheet.create({
     color:      Colors.textMuted,
   },
 
-  // List content padding
+  // List content padding — clears the floating pill navbar
   listContent: {
-    paddingBottom: 120,
+    paddingBottom: 130,
   },
 
   // Skeleton list (single column, matching new card layout)

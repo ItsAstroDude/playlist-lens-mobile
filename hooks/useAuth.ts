@@ -4,7 +4,7 @@ import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
 import { SecureKeys, flush } from '@/utils/cache'
 import { api, BACKEND_URL } from '@/utils/api'
-import { emitSessionExpired } from '@/utils/authEvents'
+import { emitSessionExpired, emitSignedIn } from '@/utils/authEvents'
 import type { SpotifyUser } from '@/types'
 
 WebBrowser.maybeCompleteAuthSession()
@@ -69,6 +69,10 @@ export async function finalizeAuthFromParams(params: {
   if (refresh) await SecureStore.setItemAsync(SecureKeys.refreshToken, refresh)
   // One-time state — clear so it can't be replayed.
   await SecureStore.deleteItemAsync(SecureKeys.oauthState)
+
+  // Tell the root layout we're authed → it purges the auth screen from the
+  // navigator so a back-gesture can't pop back to login.
+  emitSignedIn()
 
   return { ok: true }
 }

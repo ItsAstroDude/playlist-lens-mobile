@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Dimensions,
   Pressable,
+  BackHandler,
 } from 'react-native'
 import { Image } from 'expo-image'
 import { BlurView } from 'expo-blur'
@@ -27,6 +28,7 @@ import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme
 import { Spring, haptic } from '@/constants/animation'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { fmtDuration } from '@/utils/analyze'
+import { ensureReadable } from '@/utils/color'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { RadarChart } from '@/components/ui/RadarChart'
 import type { SpotifyPlaylist, PlaylistAnalysis, PlaylistPalette } from '@/types'
@@ -90,7 +92,20 @@ export function DetailSheet({ playlist, palette, onClose }: DetailSheetProps) {
   const sheetStyle    = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }))
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOpacity.value }))
 
-  const accent = palette?.primary ?? Colors.greenPrimary
+  // Lift dark cover colours to a readable tone (same clamp Compare uses), so the
+  // vibe pill / genre chips / bars aren't invisible on near-black covers.
+  const accent = ensureReadable(palette?.primary ?? Colors.greenPrimary)
+
+  // While the sheet is open, hardware/gesture back should close it — not pop the
+  // navigator (which could otherwise jump away from the current tab).
+  useEffect(() => {
+    if (!isOpen) return
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      dismiss()
+      return true
+    })
+    return () => sub.remove()
+  }, [isOpen, dismiss])
 
   return (
     <>
@@ -367,7 +382,14 @@ function QuickStat({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.quickStatCard}>
       <View style={styles.quickStatSpecular} />
-      <Text style={styles.quickStatValue}>{value}</Text>
+      <Text
+        style={styles.quickStatValue}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.6}
+      >
+        {value}
+      </Text>
       <Text style={styles.quickStatLabel}>{label}</Text>
     </View>
   )
@@ -581,6 +603,9 @@ const styles = StyleSheet.create({
     fontSize:      FontSize.lg,
     color:         Colors.text,
     letterSpacing: -0.5,
+    alignSelf:     'stretch',
+    textAlign:     'center',
+    paddingHorizontal: 2,
   },
   quickStatLabel: {
     fontFamily: FontFamily.mono,

@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react'
 import { Tabs } from 'expo-router'
 import { BlurView } from 'expo-blur'
-import { StyleSheet, View, Platform } from 'react-native'
+import { StyleSheet, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -92,13 +93,16 @@ function FriendsIcon({ focused }: { focused: boolean }) {
 }
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets()
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         // Prevents white flash on tab switch
         sceneStyle: { backgroundColor: Colors.background },
-        tabBarStyle: styles.tabBar,
+        // Compact floating pill — sits above the gesture area
+        tabBarStyle: [styles.tabBar, { bottom: Math.max(insets.bottom, 8) + 10 }],
+        tabBarItemStyle: styles.tabItem,
         tabBarBackground: () => (
           <BlurView
             intensity={60}
@@ -149,18 +153,32 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  // Floating compact pill
   tabBar: {
     position:        'absolute',
-    borderTopWidth:  1,
-    borderTopColor:  Colors.border,
-    backgroundColor: 'transparent',
-    elevation:       0,
-    height:          Platform.OS === 'ios' ? 84 : 64,
+    left:            18,
+    right:           18,
+    height:          62,
+    borderRadius:    31,
+    borderWidth:     1,
+    borderColor:     Colors.glassBorder,
+    backgroundColor: 'rgba(18,18,22,0.72)',
+    overflow:        'hidden',
+    paddingHorizontal: 6,
+    // float
+    elevation:       12,
+    shadowColor:     '#000',
+    shadowOffset:    { width: 0, height: 10 },
+    shadowOpacity:   0.45,
+    shadowRadius:    18,
+  },
+  tabItem: {
+    paddingTop: 8,
   },
   tabLabel: {
     fontFamily:   'DMMono_400Regular',
     fontSize:     9,
-    marginBottom: Platform.OS === 'ios' ? 0 : 4,
+    marginBottom: 8,
   },
 })
 
