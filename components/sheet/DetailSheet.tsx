@@ -124,7 +124,7 @@ export function DetailSheet({ playlist, palette, onClose }: DetailSheetProps) {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 48 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
           bounces
         >
           {/* ── Hero Section ── */}
@@ -386,7 +386,7 @@ function QuickStat({ label, value }: { label: string; value: string }) {
         style={styles.quickStatValue}
         numberOfLines={1}
         adjustsFontSizeToFit
-        minimumFontScale={0.6}
+        minimumFontScale={0.85}
       >
         {value}
       </Text>
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
   },
   quickStatValue: {
     fontFamily:    FontFamily.syneBold,
-    fontSize:      FontSize.lg,
+    fontSize:      16,
     color:         Colors.text,
     letterSpacing: -0.5,
     alignSelf:     'stretch',
