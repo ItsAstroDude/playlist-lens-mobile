@@ -72,22 +72,23 @@ function CompareIcon({ focused }: { focused: boolean }) {
   )
 }
 
-function ProfileIcon({ focused }: { focused: boolean }) {
+// Wrapped — a vinyl/record glyph (ring + center dot)
+function WrappedIcon({ focused }: { focused: boolean }) {
   return (
     <AnimatedTabIcon focused={focused}>
-      <View style={[iconStyles.circle, focused && iconStyles.circleActive]} />
-      <View style={[iconStyles.arc, focused && iconStyles.arcActive]} />
+      <View style={[iconStyles.ring, focused && iconStyles.ringActive]}>
+        <View style={[iconStyles.ringDot, focused && iconStyles.ringDotActive]} />
+      </View>
     </AnimatedTabIcon>
   )
 }
 
-function FriendsIcon({ focused }: { focused: boolean }) {
+// Swipe — two stacked cards
+function SwipeIcon({ focused }: { focused: boolean }) {
   return (
     <AnimatedTabIcon focused={focused}>
-      <View style={iconStyles.row}>
-        <View style={[iconStyles.smCircle, focused && iconStyles.circleActive]} />
-        <View style={[iconStyles.smCircle, iconStyles.smCircleOffset, focused && iconStyles.circleActive]} />
-      </View>
+      <View style={[iconStyles.cardBehind, focused && iconStyles.cardActive]} />
+      <View style={[iconStyles.cardFront, focused && iconStyles.cardActiveBorder]} />
     </AnimatedTabIcon>
   )
 }
@@ -135,17 +136,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="wrapped"
         options={{
-          title:    'taste',
-          tabBarIcon: ({ focused }) => <ProfileIcon focused={focused} />,
+          title:    'wrapped',
+          tabBarIcon: ({ focused }) => <WrappedIcon focused={focused} />,
         }}
       />
       <Tabs.Screen
-        name="friends"
+        name="swipe"
         options={{
-          title:    'share',
-          tabBarIcon: ({ focused }) => <FriendsIcon focused={focused} />,
+          title:    'swipe',
+          tabBarIcon: ({ focused }) => <SwipeIcon focused={focused} />,
         }}
       />
     </Tabs>
@@ -223,7 +224,19 @@ const iconStyles = StyleSheet.create({
   arc:          { width: 16, height: 8, borderRadius: 8, borderWidth: 1.5, borderColor: Colors.textMuted, borderBottomWidth: 0 },
   arcActive:    { borderColor: Colors.greenPrimary },
 
-  // Friends icon
+  // Friends icon (legacy, unused)
   smCircle:       { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.textMuted },
   smCircleOffset: { marginLeft: -3, marginTop: 4 },
+
+  // Wrapped icon (vinyl record)
+  ring:          { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: Colors.textMuted, alignItems: 'center', justifyContent: 'center' },
+  ringActive:    { borderColor: Colors.greenPrimary },
+  ringDot:       { width: 5, height: 5, borderRadius: 2.5, backgroundColor: Colors.textMuted },
+  ringDotActive: { backgroundColor: Colors.greenPrimary },
+
+  // Swipe icon (stacked cards)
+  cardBehind:      { position: 'absolute', width: 13, height: 17, borderRadius: 3, borderWidth: 1.5, borderColor: Colors.textMuted, transform: [{ rotate: '12deg' }, { translateX: 3 }] },
+  cardFront:       { width: 13, height: 17, borderRadius: 3, borderWidth: 1.5, borderColor: Colors.textMuted, backgroundColor: Colors.background, transform: [{ rotate: '-6deg' }] },
+  cardActive:      { borderColor: Colors.greenPrimary },
+  cardActiveBorder:{ borderColor: Colors.greenPrimary },
 })

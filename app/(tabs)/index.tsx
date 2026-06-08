@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
-import { Spring } from '@/constants/animation'
+import { Spring, haptic } from '@/constants/animation'
 import { deleteCache, CacheKeys } from '@/utils/cache'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { usePalette } from '@/hooks/usePalette'
@@ -93,7 +93,22 @@ export default function PlaylistsTab() {
     </View>
   )
 
-  const ListHeader = () => <ColdStartOverlay visible={coldStart} />
+  const openTaste = useCallback(() => { haptic.light(); router.push('/taste') }, [])
+
+  const ListHeader = () => (
+    <>
+      <ColdStartOverlay visible={coldStart} />
+      <TouchableOpacity style={styles.tastePill} onPress={openTaste} activeOpacity={0.85}>
+        <View style={styles.tastePillSpecular} />
+        <Text style={styles.tastePillIcon}>◎</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.tastePillText}>Your taste profile</Text>
+          <Text style={styles.tastePillSub}>Aggregate stats · share · compare friends</Text>
+        </View>
+        <Text style={styles.tastePillArrow}>→</Text>
+      </TouchableOpacity>
+    </>
+  )
 
   const ListEmpty = () => {
     if (status === 'loading' || status === 'idle') return renderSkeletons()
@@ -282,6 +297,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color:    Colors.textMuted,
   },
+
+  // "Your taste" pill — lives in the top strip, opens the pushed taste screen
+  tastePill: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               Spacing.md,
+    marginHorizontal:  Spacing.lg,
+    marginBottom:      Spacing.md,
+    paddingVertical:   Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor:   'rgba(83,224,118,0.07)',
+    borderWidth:       1,
+    borderColor:       'rgba(83,224,118,0.28)',
+    borderRadius:      Radius.lg,
+    overflow:          'hidden',
+  },
+  tastePillSpecular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
+  tastePillIcon:  { fontSize: 20, color: Colors.greenPrimary },
+  tastePillText:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.text },
+  tastePillSub:   { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
+  tastePillArrow: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.lg, color: Colors.greenPrimary },
 
   // Section title below header
   sectionHeader: {

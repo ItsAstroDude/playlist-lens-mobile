@@ -2,6 +2,7 @@
 
 > Status: **research only, not started.** Build order: history-import first, then this.
 > Verdict: **feasible**, but the 30s audio cannot come from Spotify — needs an external preview source.
+> Placement (FINAL): **4th bottom-nav pill** — nav becomes `Lenses · Compare · Wrapped · Swipe`.
 
 ## The feature
 Tinder-style playlist cleanup: pick an owned playlist → each track plays a ~30s snippet →

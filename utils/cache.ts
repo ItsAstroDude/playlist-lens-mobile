@@ -59,6 +59,7 @@ export const SecureKeys = {
 export function clearCaches(): void {
   for (const k of storage.getAllKeys()) {
     if (k.startsWith('settings.')) continue // preserve app settings
+    if (k === 'wrapped_stats') continue     // preserve imported listening history (costly to re-import)
     storage.remove(k)
   }
 }

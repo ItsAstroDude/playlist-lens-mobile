@@ -62,6 +62,7 @@ export default function RootLayout() {
           <>
             <Stack.Screen name="(tabs)"    options={{ animation: 'fade' }} />
             <Stack.Screen name="settings"  options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="taste"     options={{ animation: 'slide_from_right' }} />
           </>
         ) : (
           <Stack.Screen name="auth" options={{ animation: 'fade' }} />
