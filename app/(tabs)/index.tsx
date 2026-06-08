@@ -20,6 +20,8 @@ import { usePalette } from '@/hooks/usePalette'
 import { PlaylistCard } from '@/components/playlist/PlaylistCard'
 import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
+import { AmbientBackground } from '@/components/ui/AmbientBackground'
+import { RotatingStrip } from '@/components/ui/RotatingStrip'
 import type { SpotifyPlaylist } from '@/types'
 
 const SKELETON_COUNT = 4
@@ -97,7 +99,7 @@ export default function PlaylistsTab() {
 
   const ListHeader = () => (
     <>
-      <ColdStartOverlay visible={coldStart} />
+      {coldStart ? <ColdStartOverlay visible /> : <RotatingStrip />}
       <TouchableOpacity style={styles.tastePill} onPress={openTaste} activeOpacity={0.85}>
         <View style={styles.tastePillSpecular} />
         <Text style={styles.tastePillIcon}>◎</Text>
@@ -131,20 +133,8 @@ export default function PlaylistsTab() {
   return (
     <View style={styles.container}>
 
-      {/* ── Violet ambient glow — top-left ── */}
-      <View style={styles.ambientViolet} pointerEvents="none" />
-
-      {/* ── Pink ambient glow — bottom-right ── */}
-      <View style={styles.ambientPink} pointerEvents="none" />
-
-      {/* ── Subtle green aurora at top ── */}
-      <LinearGradient
-        colors={[Colors.auroraTop, Colors.auroraBot]}
-        style={styles.aurora}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        pointerEvents="none"
-      />
+      {/* ── Living ambient background (drifting glows + aurora) ── */}
+      <AmbientBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
 

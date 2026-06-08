@@ -4,9 +4,9 @@ import {
   TextInput, Keyboard, Share,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withDelay,
   withTiming, withRepeat, Easing, FadeIn,
@@ -329,9 +329,7 @@ export default function TasteScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.ambientViolet} pointerEvents="none" />
-      <View style={styles.ambientPink}   pointerEvents="none" />
-      <LinearGradient colors={[Colors.auroraTop, Colors.auroraBot]} style={styles.aurora} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} pointerEvents="none" />
+      <AmbientBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* Header with back button */}
