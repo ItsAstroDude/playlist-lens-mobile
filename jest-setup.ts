@@ -4,10 +4,12 @@
 
 // react-native-mmkv — in-memory Map stands in for the native key-value store
 jest.mock('react-native-mmkv', () => {
-  const store = new Map<string, string>()
+  const store = new Map<string, any>()
   const mockStorage = {
-    set:        jest.fn((k: string, v: string) => store.set(k, v)),
+    set:        jest.fn((k: string, v: any) => store.set(k, v)),
     getString:  jest.fn((k: string) => store.get(k)),
+    getBoolean: jest.fn((k: string) => store.get(k)),
+    getNumber:  jest.fn((k: string) => store.get(k)),
     delete:     jest.fn((k: string) => store.delete(k)),
     remove:     jest.fn((k: string) => store.delete(k)),
     contains:   jest.fn((k: string) => store.has(k)),

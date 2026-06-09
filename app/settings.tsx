@@ -20,7 +20,13 @@ import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme
 import { haptic } from '@/constants/animation'
 import { useAuth } from '@/hooks/useAuth'
 import { clearCaches } from '@/utils/cache'
-import { hapticsEnabled, setHapticsEnabled } from '@/utils/settings'
+import {
+  hapticsEnabled, setHapticsEnabled,
+  reduceMotionEnabled, setReduceMotionEnabled,
+  artworkEnabled, setArtworkEnabled,
+} from '@/utils/settings'
+import { clearWrappedStats } from '@/hooks/useWrapped'
+import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel } from '@/utils/updates'
 import type { SpotifyUser } from '@/types'
 
 const { width: W, height: H } = Dimensions.get('window')
@@ -112,8 +118,12 @@ export default function SettingsScreen() {
   const { logout, getMe } = useAuth()
 
   const [haptics, setHaptics]           = useState(hapticsEnabled())
+  const [reduceMotion, setReduceMotion] = useState(reduceMotionEnabled())
+  const [artwork, setArtwork]           = useState(artworkEnabled())
   const [me, setMe]                     = useState<SpotifyUser | null>(null)
   const [cacheCleared, setCacheCleared] = useState(false)
+  const [wrappedCleared, setWrappedCleared] = useState(false)
+  const [updateMsg, setUpdateMsg]       = useState<string | null>(null)
 
   useEffect(() => { getMe().then(setMe) }, [])
 
@@ -121,6 +131,61 @@ export default function SettingsScreen() {
     setHaptics(v)
     setHapticsEnabled(v)
     if (v) haptic.light()
+  }
+
+  const onToggleReduceMotion = (v: boolean) => {
+    setReduceMotion(v)
+    setReduceMotionEnabled(v)
+    haptic.light()
+  }
+
+  const onToggleArtwork = (v: boolean) => {
+    setArtwork(v)
+    setArtworkEnabled(v)
+    haptic.light()
+  }
+
+  const onClearWrapped = () => {
+    Alert.alert(
+      'Clear Wrapped history?',
+      'Removes your imported listening history and all its stats. Your playlists are untouched — re-import the Spotify export anytime.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear', style: 'destructive',
+          onPress: () => {
+            clearWrappedStats()
+            haptic.success()
+            setWrappedCleared(true)
+            setTimeout(() => setWrappedCleared(false), 2500)
+          },
+        },
+      ],
+    )
+  }
+
+  const onCheckUpdates = async () => {
+    if (!otaEnabled()) { setUpdateMsg('Not in this build'); setTimeout(() => setUpdateMsg(null), 2500); return }
+    haptic.light()
+    setUpdateMsg('Checking…')
+    const outcome = await checkForUpdate()
+    if (outcome === 'ready') {
+      setUpdateMsg('Update ready')
+      Alert.alert(
+        'Update downloaded',
+        'A new version is ready. Restart now to apply it?',
+        [
+          { text: 'Later', style: 'cancel', onPress: () => setUpdateMsg(null) },
+          { text: 'Restart', onPress: () => applyUpdate() },
+        ],
+      )
+    } else if (outcome === 'none') {
+      setUpdateMsg('Up to date ✓')
+      setTimeout(() => setUpdateMsg(null), 2500)
+    } else {
+      setUpdateMsg('Check failed')
+      setTimeout(() => setUpdateMsg(null), 2500)
+    }
   }
 
   const onClearCache = () => {
@@ -240,6 +305,18 @@ export default function SettingsScreen() {
               label="Haptics"
               value={haptics}
               onValueChange={onToggleHaptics}
+            />
+            <ToggleRow
+              icon="contract-outline"
+              label="Reduce motion"
+              value={reduceMotion}
+              onValueChange={onToggleReduceMotion}
+            />
+            <ToggleRow
+              icon="image-outline"
+              label="Show artwork"
+              value={artwork}
+              onValueChange={onToggleArtwork}
               last
             />
           </Section>
@@ -251,6 +328,12 @@ export default function SettingsScreen() {
               label="Clear cache"
               value={cacheCleared ? 'Cleared ✓' : undefined}
               onPress={onClearCache}
+            />
+            <SettingRow
+              icon="disc-outline"
+              label="Clear Wrapped history"
+              value={wrappedCleared ? 'Cleared ✓' : undefined}
+              onPress={onClearWrapped}
               last
             />
           </Section>
@@ -262,8 +345,14 @@ export default function SettingsScreen() {
 
           {/* About */}
           <Section label="about">
-            <SettingRow icon="information-circle-outline" label="Version"    value="1.0.0" />
-            <SettingRow icon="code-slash-outline"         label="Built with" value="Expo SDK 54" last />
+            <SettingRow icon="information-circle-outline" label="Version" value="1.0.0" />
+            <SettingRow
+              icon="cloud-download-outline"
+              label="Check for updates"
+              value={updateMsg ?? currentUpdateLabel()}
+              onPress={onCheckUpdates}
+            />
+            <SettingRow icon="code-slash-outline" label="Built with" value="Expo SDK 54" last />
           </Section>
 
           {/* Account */}

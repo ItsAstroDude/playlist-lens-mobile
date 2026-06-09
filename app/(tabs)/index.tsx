@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -97,7 +97,10 @@ export default function PlaylistsTab() {
 
   const openTaste = useCallback(() => { haptic.light(); router.push('/taste') }, [])
 
-  const ListHeader = () => (
+  // Memoized as an ELEMENT (not an inline component) so FlashList doesn't see a
+  // new header type every render — that was remounting RotatingStrip and making
+  // the quotes jump/skip on refresh. Only re-derives when cold-start flips.
+  const listHeader = useMemo(() => (
     <>
       {coldStart ? <ColdStartOverlay visible /> : <RotatingStrip />}
       <TouchableOpacity style={styles.tastePill} onPress={openTaste} activeOpacity={0.85}>
@@ -110,7 +113,7 @@ export default function PlaylistsTab() {
         <Text style={styles.tastePillArrow}>→</Text>
       </TouchableOpacity>
     </>
-  )
+  ), [coldStart, openTaste])
 
   const ListEmpty = () => {
     if (status === 'loading' || status === 'idle') return renderSkeletons()
@@ -175,7 +178,7 @@ export default function PlaylistsTab() {
           numColumns={1}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={ListHeader}
+          ListHeaderComponent={listHeader}
           ListEmptyComponent={ListEmpty}
           refreshControl={
             <RefreshControl

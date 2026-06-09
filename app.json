@@ -8,6 +8,15 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "scheme": "playlistlens",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/48e61e3d-b513-409f-aa32-1ce725a01d3e",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -30,7 +39,14 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-font",
-      "./plugins/withSafeUserLeaveHint"
+      "./plugins/withSafeUserLeaveHint",
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Let playlist.lens use a photo as custom cover art."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -5,17 +5,20 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing,
 } from 'react-native-reanimated'
 import { Colors } from '@/constants/theme'
+import { reduceMotionEnabled } from '@/utils/settings'
 
 /**
  * Ambient glow background — violet (top-left) + pink (bottom-right) blobs that
  * slowly drift & breathe, plus a green aurora at the top. Reusable across screens
  * so the whole app feels alive. Pure decoration → pointerEvents none.
+ * Honours Reduce-motion: blobs sit still (no drift/breathe) when it's on.
  */
 export function AmbientBackground() {
   const vX = useSharedValue(0); const vY = useSharedValue(0); const vS = useSharedValue(1)
   const pX = useSharedValue(0); const pY = useSharedValue(0); const pS = useSharedValue(1)
 
   useEffect(() => {
+    if (reduceMotionEnabled()) return // still, no animation
     const drift = (to: number, dur: number) =>
       withRepeat(withSequence(
         withTiming(to,  { duration: dur, easing: Easing.inOut(Easing.ease) }),

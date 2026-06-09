@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react'
+import React, { useEffect, useCallback, useState } from 'react'
 import {
   View, Text, StyleSheet, Pressable, Dimensions, BackHandler, Share, TouchableOpacity,
 } from 'react-native'
@@ -10,6 +10,7 @@ import Animated, {
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { useArtwork, type ArtKind } from '@/hooks/useArtwork'
+import { ArtworkFixSheet, type ArtworkTarget } from '@/components/wrapped/ArtworkFixSheet'
 import { fmtMinutesShort } from '@/utils/wrapped'
 
 const { height: SH } = Dimensions.get('window')
@@ -30,7 +31,14 @@ export function WrappedItemSheet({ selection, onClose }: {
   onClose:   () => void
 }) {
   const isOpen = selection !== null
-  const art = useArtwork(selection?.kind ?? null, selection?.name, selection?.artist)
+  const fetched = useArtwork(selection?.kind ?? null, selection?.name, selection?.artist)
+  const [override, setOverride] = useState<string | null>(null)
+  const [fixOpen, setFixOpen]   = useState(false)
+  const art = override ?? fetched
+
+  // A new item wipes any in-session override (the picked image is persisted in
+  // the cache, so useArtwork re-reads it for that specific item anyway).
+  useEffect(() => { setOverride(null) }, [selection?.kind, selection?.name, selection?.artist])
 
   const translateY = useSharedValue(SHEET_H)
   const backdrop   = useSharedValue(0)
@@ -67,6 +75,12 @@ export function WrappedItemSheet({ selection, onClose }: {
     ].filter(Boolean)
     await Share.share({ message: parts.join('  ·  ') })
   }, [selection])
+
+  const onWrongImage = useCallback(() => { haptic.light(); setFixOpen(true) }, [])
+
+  const fixTarget: ArtworkTarget | null = fixOpen && selection
+    ? { kind: selection.kind, name: selection.name, artist: selection.artist, accent: selection.accent, currentArt: art }
+    : null
 
   const accent = selection?.accent ?? Colors.greenPrimary
   const initial = (selection?.name ?? '?').trim().charAt(0).toUpperCase()
@@ -119,7 +133,17 @@ export function WrappedItemSheet({ selection, onClose }: {
         <TouchableOpacity style={[styles.shareBtn, { backgroundColor: accent }]} onPress={onShare} activeOpacity={0.85}>
           <Text style={styles.shareText}>Share</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.reportBtn} onPress={onWrongImage} activeOpacity={0.6} hitSlop={8}>
+          <Text style={styles.reportText}>{art ? 'Wrong image? Fix it' : 'Set a cover'}</Text>
+        </TouchableOpacity>
       </Animated.View>
+
+      <ArtworkFixSheet
+        target={fixTarget}
+        onClose={() => setFixOpen(false)}
+        onResolved={url => setOverride(url)}
+      />
     </>
   )
 }
@@ -153,4 +177,6 @@ const styles = StyleSheet.create({
   statLbl: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
   shareBtn: { marginTop: Spacing.xl, borderRadius: Radius.full, paddingVertical: Spacing.md, paddingHorizontal: Spacing['3xl'], alignItems: 'center', minWidth: 200 },
   shareText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.md, color: Colors.background },
+  reportBtn: { marginTop: Spacing.md, paddingVertical: Spacing.xs },
+  reportText: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textDim, textDecorationLine: 'underline' },
 })

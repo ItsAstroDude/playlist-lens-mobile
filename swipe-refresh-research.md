@@ -40,15 +40,29 @@ Need play/pause, a 0:00–0:30 progress bar, auto-advance on end.
 
 ## 2. Writing changes back to Spotify
 
-- Endpoint: `DELETE /v1/playlists/{playlist_id}/tracks`, body `{ tracks: [{uri}], snapshot_id }`.
-- **Max 100 items per call** → batch for larger removals.
-- Pass `snapshot_id` to target the right playlist version (concurrency safety).
-- **Scopes:** needs `playlist-modify-public` + `playlist-modify-private`. Current scopes are
-  read-only (`playlist-read-*`, `user-library-read`) → adding write requires a **one-time re-auth**.
-- Only **owned or collaborative** playlists are editable → gate the entry point; hide "Refresh"
-  on followed playlists.
-- **Local files cannot be removed via the API** (known limitation) → detect + skip/explain.
-- New backend endpoint, e.g. `POST /api/playlist/{id}/remove` taking the track URIs.
+**NON-DESTRUCTIVE BY DEFAULT — the original must always survive.** Spotify has no
+user-facing undo (snapshot_id is only write-concurrency, not rollback), so safety = a copy.
+
+**Output choice (FINAL): ask each session.** The end-of-swipe summary offers two buttons:
+- **Save as new playlist** — create a new playlist with the *kept* tracks; original untouched.
+  `POST /me/playlists` (or `/users/{id}/playlists`) → `POST /playlists/{new}/tracks` (kept URIs).
+- **Trim original (with backup)** — first duplicate the original into a private backup
+  ("playlist.lens backup — {name} — {date}") with ALL tracks, **then** `DELETE` the cut tracks
+  from the original. Keeps the playlist's identity (name/followers/order) + a recovery copy.
+
+Mechanics (both paths):
+- Add tracks: `POST /v1/playlists/{id}/tracks` — **max 100 URIs/call** → batch. Preserve order.
+- Remove tracks: `DELETE /v1/playlists/{id}/tracks`, body `{ tracks: [{uri}], snapshot_id }`,
+  100/call.
+- **Mandatory confirm/preview screen** before any write ("Keeping 58 · removing 28 → [Create]").
+- **Scopes:** `playlist-modify-public` + `playlist-modify-private` (covers create/add/remove).
+  Current scopes are read-only → **one-time re-auth** (batch with live-tracking's read scopes).
+- Only **owned/collaborative** playlists are editable → gate the entry point; hide "Refresh" on
+  followed playlists.
+- **Local files can't be added to a copy** via the API → detect + keep/flag them (for the
+  new-playlist path) / leave untouched (for the trim path).
+- Backend endpoints, e.g. `POST /api/playlist/create`, `POST /api/playlist/{id}/add`,
+  `POST /api/playlist/{id}/remove`, plus a `duplicate` helper.
 
 ---
 

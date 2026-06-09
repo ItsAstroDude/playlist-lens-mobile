@@ -4,11 +4,12 @@ import * as FileSystem from 'expo-file-system/legacy'
 import { unzipSync, strFromU8 } from 'fflate'
 import { storage } from '@/utils/cache'
 import {
-  createAccumulator, addRows, finalize,
-  type StreamRow, type WrappedStats,
+  createAccumulator, addRows, finalize, buildTrackIndex,
+  type StreamRow, type WrappedStats, type TrackStat,
 } from '@/utils/wrapped'
 
-const WRAPPED_KEY = 'wrapped_stats'
+const WRAPPED_KEY     = 'wrapped_stats'
+const TRACK_INDEX_KEY = 'wrapped_track_index'
 const AUDIO_RE    = /Streaming_History_Audio[^/]*\.json$/i
 const LEGACY_RE   = /StreamingHistory[^/]*\.json$/i
 
@@ -39,6 +40,27 @@ function readCached(): WrappedStats | null {
   const raw = storage.getString(WRAPPED_KEY)
   if (!raw) return null
   try { return JSON.parse(raw) as WrappedStats } catch { return null }
+}
+
+/** Synchronous one-shot read of the cached Wrapped stats (for non-hook callers). */
+export function loadCachedWrapped(): WrappedStats | null {
+  return readCached()
+}
+
+/**
+ * Full per-track index — loaded lazily (it's MBs), only when something needs
+ * arbitrary-track play counts (the live now-playing bar). null if not imported.
+ */
+export function loadTrackIndex(): TrackStat[] | null {
+  const raw = storage.getString(TRACK_INDEX_KEY)
+  if (!raw) return null
+  try { return JSON.parse(raw) as TrackStat[] } catch { return null }
+}
+
+/** Wipe just the imported listening history (leaves playlist caches intact). */
+export function clearWrappedStats(): void {
+  storage.remove(WRAPPED_KEY)
+  storage.remove(TRACK_INDEX_KEY)
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -112,6 +134,8 @@ export function useWrapped() {
 
       const result = finalize(acc)
       storage.set(WRAPPED_KEY, JSON.stringify(result))
+      // Full per-track index, stored separately (loaded on demand later).
+      try { storage.set(TRACK_INDEX_KEY, JSON.stringify(buildTrackIndex(acc))) } catch { /* index is best-effort */ }
       setStats(result)
       setStatus('ready')
     } catch (e: any) {
