@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
-import { View, Text, StyleSheet, RefreshControl, TouchableOpacity, Alert } from 'react-native'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { View, Text, StyleSheet, RefreshControl, TouchableOpacity, Alert, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
@@ -25,6 +25,7 @@ import { RotatingStrip } from '@/components/ui/RotatingStrip'
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist'
 import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet'
 import { loadOrder, saveOrder, applyOrder, pinToTop } from '@/utils/playlistOrder'
+import { setTabBarHidden } from '@/utils/tabBar'
 import type { SpotifyPlaylist } from '@/types'
 
 const SKELETON_COUNT = 4
@@ -59,6 +60,25 @@ export default function PlaylistsTab() {
     haptic.warning()
     Alert.alert('Removed', 'That playlist no longer exists on Spotify — taken off your list.')
   }, [removePlaylist])
+
+  // ── Auto-hide the floating navbar on scroll-down, reveal on scroll-up / at top ──
+  const lastY = useRef(0)
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (reorderMode) return
+    const y  = e.nativeEvent.contentOffset.y
+    const dy = y - lastY.current
+    if (y < 40)       setTabBarHidden(false)
+    else if (dy > 10) setTabBarHidden(true)
+    else if (dy < -10) setTabBarHidden(false)
+    lastY.current = y
+  }, [reorderMode])
+
+  // Reorder mode hides the navbar entirely (it has its own Done button + the bar
+  // would otherwise create a dead-drop zone at the bottom). Restore on exit/unmount.
+  useEffect(() => {
+    setTabBarHidden(reorderMode)
+    return () => setTabBarHidden(false)
+  }, [reorderMode])
 
   // ── Header entrance ──
   const headerY       = useSharedValue(12)
@@ -243,6 +263,8 @@ export default function PlaylistsTab() {
             numColumns={1}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
             ListHeaderComponent={listHeader}
             ListEmptyComponent={ListEmpty}
             refreshControl={

@@ -208,3 +208,20 @@ export function reportWrongArtwork(kind: ArtKind, name: string, artist: string |
     storage.set(REPORTS_KEY, JSON.stringify(list.slice(-200))) // cap
   } catch { /* non-fatal */ }
 }
+
+export interface ArtReport { kind: ArtKind; name: string; artist: string | null; wrongUrl: string | null; at: string }
+
+/** Read the locally-stored wrong-cover reports (newest first). No backend yet — device-only. */
+export function loadArtReports(): ArtReport[] {
+  try {
+    const raw = storage.getString(REPORTS_KEY)
+    const list = raw ? (JSON.parse(raw) as ArtReport[]) : []
+    return list.slice().reverse()
+  } catch {
+    return []
+  }
+}
+
+export function clearArtReports(): void {
+  storage.remove(REPORTS_KEY)
+}

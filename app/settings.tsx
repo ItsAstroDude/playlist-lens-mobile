@@ -26,6 +26,7 @@ import {
   artworkEnabled, setArtworkEnabled,
 } from '@/utils/settings'
 import { clearWrappedStats } from '@/hooks/useWrapped'
+import { loadArtReports } from '@/hooks/useArtwork'
 import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel } from '@/utils/updates'
 import type { SpotifyUser } from '@/types'
 
@@ -124,6 +125,7 @@ export default function SettingsScreen() {
   const [cacheCleared, setCacheCleared] = useState(false)
   const [wrappedCleared, setWrappedCleared] = useState(false)
   const [updateMsg, setUpdateMsg]       = useState<string | null>(null)
+  const flaggedCount = loadArtReports().length
 
   useEffect(() => { getMe().then(setMe) }, [])
 
@@ -334,6 +336,12 @@ export default function SettingsScreen() {
               label="Clear Wrapped history"
               value={wrappedCleared ? 'Cleared ✓' : undefined}
               onPress={onClearWrapped}
+            />
+            <SettingRow
+              icon="flag-outline"
+              label="Flagged covers"
+              value={flaggedCount > 0 ? String(flaggedCount) : undefined}
+              onPress={() => { haptic.light(); router.push('/flagged-covers') }}
               last
             />
           </Section>

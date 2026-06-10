@@ -1,259 +1,227 @@
 import React, { useEffect } from 'react'
 import { Tabs } from 'expo-router'
 import { BlurView } from 'expo-blur'
-import { StyleSheet, View } from 'react-native'
+import { Pressable, StyleSheet, View, Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withTiming,
+  useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence,
 } from 'react-native-reanimated'
-import { Colors } from '@/constants/theme'
+import { Colors, FontFamily } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
+import { tabBarHidden } from '@/utils/tabBar'
 
-// ─── Spring configs ───────────────────────────────────────────────────────────
-// Bouncy = low damping → overshoot. The active icon pops + hops a touch.
-const BOUNCE_SPRING = { mass: 0.5, damping: 8,  stiffness: 230 }
-const PILL_SPRING   = { mass: 0.6, damping: 12, stiffness: 220 }
+const BAR_H    = 60
+const ACTIVE   = Colors.greenPrimary
+const INACTIVE = 'rgba(255,255,255,0.65)'   // readable, still clearly "inactive"
+const STROKE   = 2                           // one weight across every icon
 
-// ─── Wrapper: springs the icon + shows a glowing pill behind active tab ───────
-function AnimatedTabIcon({ focused, children }: { focused: boolean; children: React.ReactNode }) {
-  const scale       = useSharedValue(1)
-  const hop         = useSharedValue(0)
-  const pillOpacity = useSharedValue(0)
-  const pillScale   = useSharedValue(0.6)
+// ─── Unified icon set — all 2px-stroke line glyphs in a 20px box ───────────────
+function Glyph({ name, color }: { name: string; color: string }) {
+  switch (name) {
+    case 'index': // lenses — concentric rounded squares (an aperture / lens frame)
+      return (
+        <View style={g.box}>
+          <View style={[g.lensOuter, { borderColor: color }]}>
+            <View style={[g.lensInner, { borderColor: color }]} />
+          </View>
+        </View>
+      )
+    case 'compare': // three rounded strokes of increasing height
+      return (
+        <View style={[g.box, g.rowEnd]}>
+          <View style={[g.stroke, { height: 9,  backgroundColor: color }]} />
+          <View style={[g.stroke, { height: 16, backgroundColor: color }]} />
+          <View style={[g.stroke, { height: 12, backgroundColor: color }]} />
+        </View>
+      )
+    case 'wrapped': // vinyl ring + center dot
+      return (
+        <View style={g.box}>
+          <View style={[g.ring, { borderColor: color }]}>
+            <View style={[g.ringDot, { backgroundColor: color }]} />
+          </View>
+        </View>
+      )
+    case 'swipe': // two stacked cards
+      return (
+        <View style={g.box}>
+          <View style={[g.cardBehind, { borderColor: color }]} />
+          <View style={[g.cardFront,  { borderColor: color }]} />
+        </View>
+      )
+    default:
+      return <View style={g.box} />
+  }
+}
+
+// ─── One tab item — bouncy pop + hop + grounded active pill ─────────────────────
+const BOUNCE = { mass: 0.5, damping: 8,  stiffness: 230 }
+const SOFT   = { mass: 0.6, damping: 13, stiffness: 220 }
+
+function TabItem({ label, routeName, focused, onPress }: {
+  label: string; routeName: string; focused: boolean; onPress: () => void
+}) {
+  const scale = useSharedValue(1)
+  const hop   = useSharedValue(0)
+  const pill  = useSharedValue(focused ? 1 : 0)
 
   useEffect(() => {
     if (focused) {
-      // quick dip then a bouncy pop — gives the tap some life
-      scale.value = withSequence(
-        withTiming(0.86, { duration: 90 }),
-        withSpring(1.18, BOUNCE_SPRING),
-      )
-      hop.value = withSequence(
-        withSpring(-4, BOUNCE_SPRING),
-        withSpring(0,  BOUNCE_SPRING),
-      )
+      scale.value = withSequence(withTiming(0.86, { duration: 90 }), withSpring(1.12, BOUNCE))
+      hop.value   = withSequence(withSpring(-3, BOUNCE), withSpring(0, BOUNCE))
     } else {
-      scale.value = withSpring(1, PILL_SPRING)
+      scale.value = withSpring(1, SOFT)
       hop.value   = withTiming(0, { duration: 120 })
     }
-    pillOpacity.value = withSpring(focused ? 1 : 0,   PILL_SPRING)
-    pillScale.value   = withSpring(focused ? 1 : 0.6, PILL_SPRING)
+    pill.value = withTiming(focused ? 1 : 0, { duration: 200 })
   }, [focused])
 
-  const iconStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }, { translateY: hop.value }],
-  }))
+  const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }, { translateY: hop.value }] }))
+  const pillStyle = useAnimatedStyle(() => ({ opacity: pill.value, transform: [{ scale: 0.82 + pill.value * 0.18 }] }))
 
-  const pillStyle = useAnimatedStyle(() => ({
-    opacity:   pillOpacity.value,
-    transform: [{ scale: pillScale.value }],
+  const color = focused ? ACTIVE : INACTIVE
+
+  return (
+    <Pressable style={styles.item} onPress={onPress} hitSlop={6}>
+      <View style={styles.iconSlot}>
+        <Animated.View style={[styles.activePill, pillStyle]} />
+        <Animated.View style={iconStyle}><Glyph name={routeName} color={color} /></Animated.View>
+      </View>
+      <Text style={[styles.label, { color }]} numberOfLines={1}>{label}</Text>
+    </Pressable>
+  )
+}
+
+// Minimal structural type for the navigator props we actually use (avoids a
+// dependency on @react-navigation/bottom-tabs' types, which don't resolve here).
+interface TabBarProps {
+  state: { index: number; routes: { key: string; name: string }[] }
+  descriptors: Record<string, { options: { title?: string } }>
+  navigation: {
+    emit: (e: { type: 'tabPress'; target: string; canPreventDefault: boolean }) => { defaultPrevented: boolean }
+    navigate: (name: string) => void
+  }
+}
+
+// ─── The floating bar — auto-hides via the shared `tabBarHidden` value ──────────
+function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) {
+  const insets = useSafeAreaInsets()
+  // Any tab switch reveals the bar (in case it was auto-hidden by scroll).
+  useEffect(() => { tabBarHidden.value = withTiming(0, { duration: 200 }) }, [state.index])
+
+  const barStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: tabBarHidden.value * (BAR_H + insets.bottom + 40) }],
+    opacity:   1 - tabBarHidden.value * 0.25,
   }))
 
   return (
-    <Animated.View style={[iconStyles.base, iconStyle]}>
-      <Animated.View style={[iconStyles.pill, pillStyle]} />
-      {children}
+    <Animated.View
+      pointerEvents="box-none"
+      style={[styles.barWrap, { bottom: Math.max(insets.bottom, 8) + 10 }, barStyle]}
+    >
+      <View style={styles.bar}>
+        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+        <View style={styles.barInner}>
+          {state.routes.map((route, i) => {
+            const focused = state.index === i
+            const { options } = descriptors[route.key]
+            const label = (options.title ?? route.name) as string
+            const onPress = () => {
+              haptic.light()
+              const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true })
+              if (!focused && !event.defaultPrevented) navigation.navigate(route.name)
+            }
+            return <TabItem key={route.key} label={label} routeName={route.name} focused={focused} onPress={onPress} />
+          })}
+        </View>
+      </View>
     </Animated.View>
   )
 }
 
-// ─── Tab icons ────────────────────────────────────────────────────────────────
-function GridIcon({ focused }: { focused: boolean }) {
-  return (
-    <AnimatedTabIcon focused={focused}>
-      <View style={iconStyles.gridRow}>
-        <View style={[iconStyles.dot, focused && iconStyles.dotActive]} />
-        <View style={[iconStyles.dot, focused && iconStyles.dotActive]} />
-      </View>
-      <View style={iconStyles.gridRow}>
-        <View style={[iconStyles.dot, focused && iconStyles.dotActive]} />
-        <View style={[iconStyles.dot, focused && iconStyles.dotActive]} />
-      </View>
-    </AnimatedTabIcon>
-  )
-}
-
-function CompareIcon({ focused }: { focused: boolean }) {
-  return (
-    <AnimatedTabIcon focused={focused}>
-      <View style={iconStyles.row}>
-        <View style={[iconStyles.bar, focused && iconStyles.barActive]} />
-        <View style={[iconStyles.barTall, focused && iconStyles.barActive]} />
-        <View style={[iconStyles.barMid, focused && iconStyles.barActive]} />
-      </View>
-    </AnimatedTabIcon>
-  )
-}
-
-// Wrapped — a vinyl/record glyph (ring + center dot)
-function WrappedIcon({ focused }: { focused: boolean }) {
-  return (
-    <AnimatedTabIcon focused={focused}>
-      <View style={[iconStyles.ring, focused && iconStyles.ringActive]}>
-        <View style={[iconStyles.ringDot, focused && iconStyles.ringDotActive]} />
-      </View>
-    </AnimatedTabIcon>
-  )
-}
-
-// Swipe — two stacked cards
-function SwipeIcon({ focused }: { focused: boolean }) {
-  return (
-    <AnimatedTabIcon focused={focused}>
-      <View style={[iconStyles.cardBehind, focused && iconStyles.cardActive]} />
-      <View style={[iconStyles.cardFront, focused && iconStyles.cardActiveBorder]} />
-    </AnimatedTabIcon>
-  )
-}
-
 export default function TabLayout() {
-  const insets = useSafeAreaInsets()
   return (
     <Tabs
+      tabBar={(props: any) => <FloatingTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        // Prevents white flash on tab switch
-        sceneStyle: { backgroundColor: Colors.background },
-        // Compact floating pill — sits above the gesture area
-        tabBarStyle: [styles.tabBar, { bottom: Math.max(insets.bottom, 8) + 10 }],
-        tabBarItemStyle: styles.tabItem,
-        tabBarBackground: () => (
-          <BlurView
-            intensity={60}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-          />
-        ),
-        tabBarActiveTintColor:   Colors.greenPrimary,
-        tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle:        styles.tabLabel,
-        tabBarShowLabel:         true,
-        animation:               'fade',
-      }}
-      screenListeners={{
-        tabPress: () => haptic.light(),
+        sceneStyle:  { backgroundColor: Colors.background },
+        animation:   'fade',
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title:    'lenses',
-          tabBarIcon: ({ focused }) => <GridIcon focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="compare"
-        options={{
-          title:    'compare',
-          tabBarIcon: ({ focused }) => <CompareIcon focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="wrapped"
-        options={{
-          title:    'wrapped',
-          tabBarIcon: ({ focused }) => <WrappedIcon focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="swipe"
-        options={{
-          title:    'swipe',
-          tabBarIcon: ({ focused }) => <SwipeIcon focused={focused} />,
-        }}
-      />
+      <Tabs.Screen name="index"   options={{ title: 'lenses'  }} />
+      <Tabs.Screen name="compare" options={{ title: 'compare' }} />
+      <Tabs.Screen name="wrapped" options={{ title: 'wrapped' }} />
+      <Tabs.Screen name="swipe"   options={{ title: 'swipe'   }} />
     </Tabs>
   )
 }
 
+// ─── Bar + item layout ──────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  // Floating compact pill
-  tabBar: {
-    position:        'absolute',
-    left:            18,
-    right:           18,
-    height:          62,
-    borderRadius:    31,
-    borderWidth:     1,
-    borderColor:     Colors.glassBorder,
-    backgroundColor: 'rgba(18,18,22,0.72)',
-    overflow:        'hidden',
-    paddingHorizontal: 6,
+  barWrap: {
+    position: 'absolute', left: 18, right: 18, height: BAR_H,
+  },
+  bar: {
+    flex: 1,
+    borderRadius: BAR_H / 2,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    backgroundColor: 'rgba(18,18,22,0.82)', // uniform semi-opaque base under the blur
+    overflow: 'hidden',
     // float
-    elevation:       12,
-    shadowColor:     '#000',
-    shadowOffset:    { width: 0, height: 10 },
-    shadowOpacity:   0.45,
-    shadowRadius:    18,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
   },
-  tabItem: {
-    paddingTop: 8,
+  // Equal distribution — every item gets the same flex slot.
+  barInner: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
   },
-  tabLabel: {
-    fontFamily:   'DMMono_400Regular',
-    fontSize:     9,
-    marginBottom: 8,
+  item: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingVertical: 6,
+  },
+  iconSlot: {
+    width: 40, height: 26, alignItems: 'center', justifyContent: 'center',
+  },
+  activePill: {
+    position: 'absolute',
+    width: 40, height: 26, borderRadius: 13,
+    backgroundColor: 'rgba(83,224,118,0.14)',
+  },
+  label: {
+    fontFamily:    FontFamily.monoMedium, // weight 500
+    fontSize:      9.5,
+    letterSpacing: 0.4,                    // ~0.04em
   },
 })
 
-const iconStyles = StyleSheet.create({
-  base: {
-    width:           36,
-    height:          36,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
+// ─── Icon geometry (shared box; per-icon shapes) ───────────────────────────────
+const g = StyleSheet.create({
+  box:    { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  rowEnd: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
 
-  // Glowing pill behind active icon
-  pill: {
-    position:        'absolute',
-    width:           36,
-    height:          28,
-    borderRadius:    14,
-    backgroundColor: Colors.greenSubtle,
-    // iOS glow
-    shadowColor:     Colors.greenPrimary,
-    shadowOffset:    { width: 0, height: 0 },
-    shadowOpacity:   0.5,
-    shadowRadius:    8,
-  },
+  // lenses — aperture
+  lensOuter: { width: 18, height: 18, borderRadius: 5, borderWidth: STROKE, alignItems: 'center', justifyContent: 'center' },
+  lensInner: { width: 7,  height: 7,  borderRadius: 2, borderWidth: STROKE },
 
-  row:     { flexDirection: 'row', gap: 3, alignItems: 'flex-end' },
+  // compare — rounded strokes
+  stroke: { width: STROKE + 0.5, borderRadius: STROKE },
 
-  // Grid icon
-  gridRow:  { flexDirection: 'row', gap: 3, marginVertical: 1.5 },
-  dot:      { width: 7, height: 7, borderRadius: 2, backgroundColor: Colors.textMuted },
-  dotActive:{ backgroundColor: Colors.greenPrimary },
+  // wrapped — ring
+  ring:    { width: 18, height: 18, borderRadius: 9, borderWidth: STROKE, alignItems: 'center', justifyContent: 'center' },
+  ringDot: { width: 4, height: 4, borderRadius: 2 },
 
-  // Bar chart icon
-  bar:      { width: 5, height: 10, borderRadius: 2, backgroundColor: Colors.textMuted },
-  barTall:  { width: 5, height: 16, borderRadius: 2, backgroundColor: Colors.textMuted },
-  barMid:   { width: 5, height: 13, borderRadius: 2, backgroundColor: Colors.textMuted },
-  barActive:{ backgroundColor: Colors.greenPrimary },
-
-  // Profile icon
-  circle:       { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.textMuted, marginBottom: 1 },
-  circleActive: { backgroundColor: Colors.greenPrimary },
-  arc:          { width: 16, height: 8, borderRadius: 8, borderWidth: 1.5, borderColor: Colors.textMuted, borderBottomWidth: 0 },
-  arcActive:    { borderColor: Colors.greenPrimary },
-
-  // Friends icon (legacy, unused)
-  smCircle:       { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.textMuted },
-  smCircleOffset: { marginLeft: -3, marginTop: 4 },
-
-  // Wrapped icon (vinyl record)
-  ring:          { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: Colors.textMuted, alignItems: 'center', justifyContent: 'center' },
-  ringActive:    { borderColor: Colors.greenPrimary },
-  ringDot:       { width: 5, height: 5, borderRadius: 2.5, backgroundColor: Colors.textMuted },
-  ringDotActive: { backgroundColor: Colors.greenPrimary },
-
-  // Swipe icon (stacked cards)
-  cardBehind:      { position: 'absolute', width: 13, height: 17, borderRadius: 3, borderWidth: 1.5, borderColor: Colors.textMuted, transform: [{ rotate: '12deg' }, { translateX: 3 }] },
-  cardFront:       { width: 13, height: 17, borderRadius: 3, borderWidth: 1.5, borderColor: Colors.textMuted, backgroundColor: Colors.background, transform: [{ rotate: '-6deg' }] },
-  cardActive:      { borderColor: Colors.greenPrimary },
-  cardActiveBorder:{ borderColor: Colors.greenPrimary },
+  // swipe — stacked cards
+  cardBehind: { position: 'absolute', width: 13, height: 17, borderRadius: 3, borderWidth: STROKE, transform: [{ rotate: '12deg' }, { translateX: 3 }] },
+  cardFront:  { width: 13, height: 17, borderRadius: 3, borderWidth: STROKE, backgroundColor: Colors.background, transform: [{ rotate: '-6deg' }] },
 })
