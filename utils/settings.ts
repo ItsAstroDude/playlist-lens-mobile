@@ -53,7 +53,7 @@ export function setAccentId(id: string): void {
 }
 
 export function getFontId(): string {
-  return storage.getString(KEYS.fontId) ?? 'syne'
+  return storage.getString(KEYS.fontId) ?? 'dmmono'
 }
 export function setFontId(id: string): void {
   storage.set(KEYS.fontId, id)

@@ -26,22 +26,20 @@ export const DEFAULT_ACCENT_ID = 'green'
 export interface FontFamilySet {
   mono: string; monoMedium: string; syne: string; syneBold: string; display: string
 }
-export interface FontOption { id: string; label: string; family: FontFamilySet }
+// BRAND identity — the Syne display face is FIXED and never themed, so the
+// "playlist.lens" wordmark and every screen header (Your Lenses, Compare, Wrapped,
+// Swipe, and any future ones) stay on-brand regardless of the user's font choice.
+const BRAND = { syne: 'Syne_700Bold', syneBold: 'Syne_800ExtraBold', display: 'Syne_700Bold' } as const
+
+// The font picker swaps ONLY the mono/body face (labels, meta, data, body copy) —
+// which is the bulk of the UI text. Headlines stay Syne.
+export interface FontOption { id: string; label: string; mono: string; monoMedium: string }
 export const FONTS: FontOption[] = [
-  {
-    id: 'syne', label: 'Syne · DM Mono', // default — original pairing
-    family: { mono: 'DMMono_400Regular', monoMedium: 'DMMono_500Medium', syne: 'Syne_700Bold', syneBold: 'Syne_800ExtraBold', display: 'Syne_700Bold' },
-  },
-  {
-    id: 'grotesk', label: 'Space Grotesk · Space Mono',
-    family: { mono: 'SpaceMono_400Regular', monoMedium: 'SpaceMono_700Bold', syne: 'SpaceGrotesk_600SemiBold', syneBold: 'SpaceGrotesk_700Bold', display: 'SpaceGrotesk_700Bold' },
-  },
-  {
-    id: 'sora', label: 'Sora · IBM Plex Mono',
-    family: { mono: 'IBMPlexMono_400Regular', monoMedium: 'IBMPlexMono_500Medium', syne: 'Sora_600SemiBold', syneBold: 'Sora_700Bold', display: 'Sora_700Bold' },
-  },
+  { id: 'dmmono',    label: 'DM Mono',       mono: 'DMMono_400Regular',      monoMedium: 'DMMono_500Medium'  }, // default
+  { id: 'spacemono', label: 'Space Mono',    mono: 'SpaceMono_400Regular',   monoMedium: 'SpaceMono_700Bold' },
+  { id: 'plexmono',  label: 'IBM Plex Mono', mono: 'IBMPlexMono_400Regular', monoMedium: 'IBMPlexMono_500Medium' },
 ]
-export const DEFAULT_FONT_ID = 'syne'
+export const DEFAULT_FONT_ID = 'dmmono'
 
 function hexToRgb(hex: string): [number, number, number] {
   let h = hex.replace('#', '').trim()
@@ -59,7 +57,7 @@ export function alpha(hex: string, a: number): string {
 const _accentId = storage.getString('settings.accentId') ?? DEFAULT_ACCENT_ID
 const _fontId   = storage.getString('settings.fontId')   ?? DEFAULT_FONT_ID
 const _accent   = (ACCENTS.find(a => a.id === _accentId) ?? ACCENTS[0]).hex
-const _font     = (FONTS.find(f => f.id === _fontId)     ?? FONTS[0]).family
+const _fontOpt  = FONTS.find(f => f.id === _fontId) ?? FONTS[0]
 
 /** The accent/font ids actually in effect this launch (for the Settings UI). */
 export function activeAccentId(): string { return _accentId }
@@ -139,7 +137,12 @@ export const FontSize = {
 
 // The chosen font pairing (defaults to Syne · DM Mono — identical to before).
 // `display` is the alias used across the app as the headline font.
-export const FontFamily: FontFamilySet = _font
+// Body/mono face follows the picker; syne/syneBold/display are the fixed brand face.
+export const FontFamily: FontFamilySet = {
+  mono:       _fontOpt.mono,
+  monoMedium: _fontOpt.monoMedium,
+  ...BRAND,
+}
 
 export const LineHeight = {
   tight:   1.1,

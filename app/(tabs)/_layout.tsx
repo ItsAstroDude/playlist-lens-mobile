@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Tabs } from 'expo-router'
 import { BlurView } from 'expo-blur'
 import { Pressable, StyleSheet, View, Text } from 'react-native'
@@ -147,36 +147,25 @@ function FloatingTabBar({ state, descriptors, navigation, minimal }: TabBarProps
   )
 }
 
-// ─── Gestures-only mode — no bar; swipe the bottom strip to switch tabs ─────────
-// A thin hot-zone hugs the bottom edge with a dots indicator. Swipe left → next
-// tab, swipe right → previous. The strip is low enough to stay out of content.
-function GestureTabBar({ state, navigation }: TabBarProps) {
+// ─── Gestures-only mode — swipe ANYWHERE to switch tabs ─────────────────────────
+// The swipe is a full-screen pan in TabLayout (NOT a bottom hot-zone — that clashed
+// with the OS back/home gesture area on Android and iOS). This component renders
+// only a non-interactive dots position indicator, and publishes the live nav state
+// to the swipe via `navRef` (the detector lives outside the navigator and can't
+// otherwise reach `navigation`/`state`).
+type NavApi = { index: number; routes: { key: string; name: string }[]; navigate: (n: string) => void }
+
+function GestureDots({ state, navigation, navRef }: TabBarProps & { navRef: React.MutableRefObject<NavApi | null> }) {
   const insets = useSafeAreaInsets()
-
-  const go = (dir: 1 | -1) => {
-    const next = state.index + dir
-    if (next < 0 || next >= state.routes.length) return
-    haptic.light()
-    navigation.navigate(state.routes[next].name)
-  }
-
-  const swipe = Gesture.Pan()
-    .activeOffsetX([-16, 16])
-    .onEnd(e => {
-      if (e.translationX <= -36)     runOnJS(go)(1)
-      else if (e.translationX >= 36) runOnJS(go)(-1)
-    })
-
+  navRef.current = { index: state.index, routes: state.routes, navigate: navigation.navigate }
   return (
-    <GestureDetector gesture={swipe}>
-      <View style={[styles.gestureZone, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        <View style={styles.dotsRow}>
-          {state.routes.map((route, i) => (
-            <View key={route.key} style={[styles.dot, i === state.index && styles.dotActive]} />
-          ))}
-        </View>
+    <View pointerEvents="none" style={[styles.gestureZone, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+      <View style={styles.dotsRow}>
+        {state.routes.map((route, i) => (
+          <View key={route.key} style={[styles.dot, i === state.index && styles.dotActive]} />
+        ))}
       </View>
-    </GestureDetector>
+    </View>
   )
 }
 
@@ -184,11 +173,34 @@ export default function TabLayout() {
   // Read once per launch — changing the style in Settings applies after restart,
   // same as accent/font (see the Appearance section's restart row).
   const navStyle = getNavbarStyle()
-  return (
+
+  // Bridge: the full-screen swipe lives outside the navigator, so GestureDots
+  // publishes the current tab + navigate fn here on each render.
+  const navRef = useRef<NavApi | null>(null)
+  const switchTab = useCallback((dir: 1 | -1) => {
+    const api = navRef.current
+    if (!api) return
+    const next = api.index + dir
+    if (next < 0 || next >= api.routes.length) return
+    haptic.light()
+    api.navigate(api.routes[next].name)
+  }, [])
+  // Horizontal-only: yields to vertical scroll (failOffsetY) and only claims a
+  // clearly-horizontal swipe (activeOffsetX), so taps + list scrolling still work.
+  const swipe = useMemo(() => Gesture.Pan()
+    .activeOffsetX([-24, 24])
+    .failOffsetY([-20, 20])
+    .onEnd(e => {
+      'worklet'
+      if (Math.abs(e.translationX) < 56 || Math.abs(e.velocityX) < Math.abs(e.velocityY)) return
+      runOnJS(switchTab)(e.translationX < 0 ? 1 : -1)
+    }), [switchTab])
+
+  const tabs = (
     <Tabs
       tabBar={(props: any) =>
         navStyle === 'gestures'
-          ? <GestureTabBar {...props} />
+          ? <GestureDots {...props} navRef={navRef} />
           : <FloatingTabBar {...props} minimal={navStyle === 'minimal'} />}
       screenOptions={{
         headerShown: false,
@@ -202,10 +214,16 @@ export default function TabLayout() {
       <Tabs.Screen name="swipe"   options={{ title: 'swipe'   }} />
     </Tabs>
   )
+
+  // Gestures mode wraps the whole navigator so a swipe anywhere switches tabs.
+  return navStyle === 'gestures'
+    ? <GestureDetector gesture={swipe}><View style={styles.flex}>{tabs}</View></GestureDetector>
+    : tabs
 }
 
 // ─── Bar + item layout ──────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   barWrap: {
     position: 'absolute', left: 18, right: 18, height: BAR_H,
   },

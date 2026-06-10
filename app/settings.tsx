@@ -157,7 +157,7 @@ function FontPicker({ value, onPick }: { value: string; onPick: (id: string) => 
             activeOpacity={0.7}
             style={[styles.fontRow, i === FONTS.length - 1 && { borderBottomWidth: 0 }]}
           >
-            <Text style={[styles.fontSample, { fontFamily: f.family.display }, active && { color: Colors.greenPrimary }]}>
+            <Text style={[styles.fontSample, { fontFamily: f.mono }, active && { color: Colors.greenPrimary }]}>
               {f.label}
             </Text>
             {active && <Ionicons name="checkmark-circle" size={18} color={Colors.greenPrimary} />}
