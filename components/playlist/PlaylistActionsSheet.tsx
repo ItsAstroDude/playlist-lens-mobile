@@ -70,7 +70,7 @@ export function PlaylistActionsSheet({ playlist, onClose, onPin, onReanalyze, on
       </Animated.View>
 
       <Animated.View
-        style={[styles.sheet, { paddingBottom: insets.bottom + 24 }, sheetStyle]}
+        style={[styles.sheet, { paddingBottom: insets.bottom + 92 }, sheetStyle]}
         pointerEvents={isOpen ? 'auto' : 'none'}
       >
         <View style={styles.handle} />
