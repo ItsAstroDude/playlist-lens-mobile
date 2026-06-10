@@ -29,6 +29,8 @@ import { clearWrappedStats } from '@/hooks/useWrapped'
 import { loadArtReports } from '@/hooks/useArtwork'
 import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel } from '@/utils/updates'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
+import { emitOpenTutorial, emitOpenWhatsNew } from '@/utils/overlayEvents'
+import { latestPatch } from '@/utils/whatsNew'
 import type { SpotifyUser } from '@/types'
 
 const { width: W, height: H } = Dimensions.get('window')
@@ -337,6 +339,22 @@ export default function SettingsScreen() {
               label="Flagged covers"
               value={flaggedCount > 0 ? String(flaggedCount) : undefined}
               onPress={() => { haptic.light(); router.push('/flagged-covers') }}
+              last
+            />
+          </Section>
+
+          {/* Guide */}
+          <Section label="guide">
+            <SettingRow
+              icon="sparkles-outline"
+              label="What's new"
+              value={`v${latestPatch().version}`}
+              onPress={() => { haptic.light(); emitOpenWhatsNew() }}
+            />
+            <SettingRow
+              icon="school-outline"
+              label="Replay tutorial"
+              onPress={() => { haptic.light(); emitOpenTutorial() }}
               last
             />
           </Section>

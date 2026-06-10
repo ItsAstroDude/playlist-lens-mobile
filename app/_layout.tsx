@@ -14,12 +14,20 @@ import {
 import * as SecureStore from 'expo-secure-store'
 import { SecureKeys } from '@/utils/cache'
 import { onSessionExpired, onSignedIn } from '@/utils/authEvents'
+import { onOpenTutorial, onOpenWhatsNew } from '@/utils/overlayEvents'
+import { Tutorial } from '@/components/onboarding/Tutorial'
+import { WhatsNew } from '@/components/onboarding/WhatsNew'
+import {
+  shouldShowTutorial, markTutorialSeen, shouldShowWhatsNew, markWhatsNewSeen,
+} from '@/utils/whatsNew'
 import { View, StyleSheet } from 'react-native'
 import { Colors } from '@/constants/theme'
 
 export default function RootLayout() {
   const [isReady,        setIsReady]        = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [showTutorial,   setShowTutorial]   = useState(false)
+  const [showWhatsNew,   setShowWhatsNew]    = useState(false)
 
   const [fontsLoaded] = useFonts({
     DMMono_400Regular,
@@ -46,8 +54,21 @@ export default function RootLayout() {
     const unsubSignedIn = onSignedIn(() => {
       setIsAuthenticated(true)
     })
-    return () => { unsubExpired(); unsubSignedIn() }
+    // Settings can re-open onboarding / patch notes from anywhere.
+    const unsubTut = onOpenTutorial(() => setShowTutorial(true))
+    const unsubWN  = onOpenWhatsNew(() => setShowWhatsNew(true))
+    return () => { unsubExpired(); unsubSignedIn(); unsubTut(); unsubWN() }
   }, [])
+
+  // First-run onboarding, else patch notes after a version bump.
+  useEffect(() => {
+    if (!isReady || !isAuthenticated) return
+    if (shouldShowTutorial()) setShowTutorial(true)
+    else if (shouldShowWhatsNew()) setShowWhatsNew(true)
+  }, [isReady, isAuthenticated])
+
+  const onTutorialDone = () => { markTutorialSeen(); setShowTutorial(false) }
+  const onWhatsNewClose = () => { markWhatsNewSeen(); setShowWhatsNew(false) }
 
   // Don't render until fonts and auth check are done
   if (!fontsLoaded || !isReady) {
@@ -71,6 +92,10 @@ export default function RootLayout() {
         {/* OAuth redirect landing — always reachable, regardless of auth state */}
         <Stack.Screen name="callback" options={{ animation: 'fade' }} />
       </Stack>
+
+      {/* Root-mounted overlays (above the whole navigator) */}
+      <WhatsNew visible={showWhatsNew} onClose={onWhatsNewClose} />
+      {showTutorial && <Tutorial onDone={onTutorialDone} />}
     </GestureHandlerRootView>
   )
 }
