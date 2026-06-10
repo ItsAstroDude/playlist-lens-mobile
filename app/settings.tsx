@@ -28,6 +28,7 @@ import {
 import { clearWrappedStats } from '@/hooks/useWrapped'
 import { loadArtReports } from '@/hooks/useArtwork'
 import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel } from '@/utils/updates'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import type { SpotifyUser } from '@/types'
 
 const { width: W, height: H } = Dimensions.get('window')
@@ -125,6 +126,7 @@ export default function SettingsScreen() {
   const [cacheCleared, setCacheCleared] = useState(false)
   const [wrappedCleared, setWrappedCleared] = useState(false)
   const [updateMsg, setUpdateMsg]       = useState<string | null>(null)
+  const [showRestart, setShowRestart]   = useState(false)
   const flaggedCount = loadArtReports().length
 
   useEffect(() => { getMe().then(setMe) }, [])
@@ -173,14 +175,7 @@ export default function SettingsScreen() {
     const outcome = await checkForUpdate()
     if (outcome === 'ready') {
       setUpdateMsg('Update ready')
-      Alert.alert(
-        'Update downloaded',
-        'A new version is ready. Restart now to apply it?',
-        [
-          { text: 'Later', style: 'cancel', onPress: () => setUpdateMsg(null) },
-          { text: 'Restart', onPress: () => applyUpdate() },
-        ],
-      )
+      setShowRestart(true)
     } else if (outcome === 'none') {
       setUpdateMsg('Up to date ✓')
       setTimeout(() => setUpdateMsg(null), 2500)
@@ -384,6 +379,17 @@ export default function SettingsScreen() {
         </ScrollView>
 
       </Animated.View>
+
+      <ConfirmModal
+        visible={showRestart}
+        glyph="✦"
+        title="Update ready"
+        message="A fresh version is downloaded and ready to go. Restart now to apply it?"
+        confirmLabel="Restart"
+        cancelLabel="Later"
+        onConfirm={() => { setShowRestart(false); applyUpdate() }}
+        onCancel={() => { setShowRestart(false); setUpdateMsg(null) }}
+      />
     </SafeAreaView>
   )
 }
