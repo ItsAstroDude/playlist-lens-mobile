@@ -7,14 +7,16 @@ import { hapticsEnabled } from '@/utils/settings'
 export const Spring: Record<string, WithSpringConfig> = {
   // Default — weighted, intentional
   default: { mass: 1, damping: 18, stiffness: 200 },
-  // For large sheets expanding / collapsing
+  // For large sheets expanding / collapsing (kept calm — no overshoot on big surfaces)
   sheet:   { mass: 1, damping: 22, stiffness: 180 },
-  // For quick small interactions (button press, tag pop)
-  snappy:  { mass: 0.8, damping: 14, stiffness: 280 },
-  // For entrance animations (stagger, fade-up)
-  entrance:{ mass: 1, damping: 20, stiffness: 160 },
+  // For quick small interactions (button press, tag pop) — bouncier, with overshoot
+  snappy:  { mass: 0.7, damping: 12, stiffness: 300 },
+  // For entrance animations (stagger, fade-up) — gentle overshoot settle
+  entrance:{ mass: 1, damping: 15, stiffness: 170 },
   // For the pulsing auth orb
   pulse:   { mass: 1, damping: 10, stiffness: 80 },
+  // Extra-springy — for playful pops (pins, badges)
+  bouncy:  { mass: 0.5, damping: 8, stiffness: 230 },
 } as const
 
 // ─── Haptic Hierarchy ─────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { api } from '@/utils/api'
+import { api, ApiError } from '@/utils/api'
 import { getCache, setCache, CacheKeys } from '@/utils/cache'
 import { buildAnalysis } from '@/utils/analyze'
 import type {
@@ -28,7 +28,7 @@ export function useAnalysis() {
     playlistName: string,
     coverUrl:     string,
     palette:      PlaylistPalette | null,
-    opts?:        { onColdStart?: () => void },
+    opts?:        { onColdStart?: () => void; onGone?: () => void },
   ) => {
     // MMKV cache hit — instant
     const cacheKey = CacheKeys.playlistAnalysis(playlistId)
@@ -46,6 +46,8 @@ export function useAnalysis() {
         `/api/playlist/${playlistId}/tracks`,
         { onColdStart: opts?.onColdStart },
       )
+      // Deleted/unfollowed on Spotify → backend returns no items. Treat as gone.
+      if (!tracksRes || !Array.isArray(tracksRes.items)) throw new ApiError(404, 'PLAYLIST_GONE')
       const tracks = tracksRes.items.map(i => i.track).filter(Boolean)
 
       // ── 2. Rank artists by track count so genre lookup covers the most
@@ -105,6 +107,12 @@ export function useAnalysis() {
       return analysis
 
     } catch (err: any) {
+      // Playlist no longer exists on Spotify → let the caller self-heal (remove it).
+      if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
+        opts?.onGone?.()
+        setState(s => ({ ...s, status: 'error', error: 'This playlist no longer exists on Spotify.' }))
+        return null
+      }
       setState(s => ({ ...s, status: 'error', error: err.message ?? 'Analysis failed.' }))
       return null
     }

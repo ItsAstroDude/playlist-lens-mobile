@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
-import { View, Text, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, RefreshControl, TouchableOpacity, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
@@ -22,17 +22,43 @@ import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { RotatingStrip } from '@/components/ui/RotatingStrip'
+import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist'
+import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet'
+import { loadOrder, saveOrder, applyOrder, pinToTop } from '@/utils/playlistOrder'
 import type { SpotifyPlaylist } from '@/types'
 
 const SKELETON_COUNT = 4
 
 export default function PlaylistsTab() {
-  const { status, data, error, fetch } = usePlaylists()
+  const { status, data, error, fetch, removePlaylist } = usePlaylists()
   const { palettes, extract }          = usePalette()
 
   const [refreshing, setRefreshing]     = useState(false)
   const [coldStart, setColdStart]       = useState(false)
   const [selectedPlaylist, setSelected] = useState<SpotifyPlaylist | null>(null)
+
+  // ── Custom ordering + reorder mode + long-press actions ──
+  const [order, setOrder]               = useState<string[]>(() => loadOrder())
+  const [reorderMode, setReorderMode]   = useState(false)
+  const [actionsTarget, setActions]     = useState<SpotifyPlaylist | null>(null)
+
+  const orderedData = useMemo(() => applyOrder(data ?? [], order), [data, order])
+
+  const persistOrder = useCallback((ids: string[]) => { setOrder(ids); saveOrder(ids) }, [])
+
+  const openActions   = useCallback((pl: SpotifyPlaylist) => setActions(pl), [])
+  const handlePin     = useCallback((id: string) => persistOrder(pinToTop(orderedData.map(p => p.id), id)), [orderedData, persistOrder])
+  const handleReanalyze = useCallback((id: string) => {
+    deleteCache(CacheKeys.playlistAnalysis(id))
+    const pl = (data ?? []).find(p => p.id === id)
+    if (pl) setSelected(pl) // reopen → recomputes from fresh data
+  }, [data])
+  const handleGone = useCallback((id: string) => {
+    setSelected(null)
+    removePlaylist(id)
+    haptic.warning()
+    Alert.alert('Removed', 'That playlist no longer exists on Spotify — taken off your list.')
+  }, [removePlaylist])
 
   // ── Header entrance ──
   const headerY       = useSharedValue(12)
@@ -82,8 +108,22 @@ export default function PlaylistsTab() {
       palette={palettes[item.id] || null}
       index={index}
       onPress={handleCardPress}
+      onLongPress={openActions}
     />
-  ), [palettes, handleCardPress])
+  ), [palettes, handleCardPress, openActions])
+
+  // Reorder mode — same card, but long-press starts a drag instead of opening actions.
+  const renderDraggable = useCallback(({ item, drag, isActive }: RenderItemParams<SpotifyPlaylist>) => (
+    <ScaleDecorator activeScale={1.04}>
+      <PlaylistCard
+        playlist={item}
+        palette={palettes[item.id] || null}
+        index={0}
+        onPress={() => drag()}
+        onLongPress={() => drag()}
+      />
+    </ScaleDecorator>
+  ), [palettes])
 
   const keyExtractor = useCallback((item: SpotifyPlaylist) => item.id, [])
 
@@ -164,38 +204,74 @@ export default function PlaylistsTab() {
           </View>
         </Animated.View>
 
-        {/* ── Section title ── */}
+        {/* ── Section title (doubles as the reorder bar) ── */}
         <Animated.View style={[styles.sectionHeader, headerStyle]}>
-          <Text style={styles.sectionTitle}>Your Lenses</Text>
-          <Text style={styles.sectionSub}>Sonic profiles from your library.</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>{reorderMode ? 'Reorder' : 'Your Lenses'}</Text>
+            {reorderMode && (
+              <TouchableOpacity
+                style={styles.doneBtn}
+                onPress={() => { haptic.success(); setReorderMode(false) }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.doneBtnText}>Done</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.sectionSub}>
+            {reorderMode ? 'Long-press a lens and drag to arrange.' : 'Sonic profiles from your library.'}
+          </Text>
         </Animated.View>
 
         {/* ── Playlist list ── */}
-        <FlashList
-          data={data || []}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          numColumns={1}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={listHeader}
-          ListEmptyComponent={ListEmpty}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={Colors.greenPrimary}
-              colors={[Colors.greenPrimary]}
-              progressBackgroundColor={Colors.card}
-            />
-          }
-        />
+        {reorderMode ? (
+          <DraggableFlatList
+            data={orderedData}
+            renderItem={renderDraggable}
+            keyExtractor={keyExtractor}
+            onDragEnd={({ data: next }) => persistOrder(next.map(p => p.id))}
+            onDragBegin={() => haptic.medium()}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            activationDistance={12}
+          />
+        ) : (
+          <FlashList
+            data={orderedData}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            numColumns={1}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={listHeader}
+            ListEmptyComponent={ListEmpty}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={Colors.greenPrimary}
+                colors={[Colors.greenPrimary]}
+                progressBackgroundColor={Colors.card}
+              />
+            }
+          />
+        )}
 
         {/* ── Detail sheet ── */}
         <DetailSheet
           playlist={selectedPlaylist}
           palette={selectedPlaylist ? palettes[selectedPlaylist.id] ?? null : null}
           onClose={() => setSelected(null)}
+          onGone={handleGone}
+        />
+
+        {/* ── Long-press quick actions ── */}
+        <PlaylistActionsSheet
+          playlist={actionsTarget}
+          onClose={() => setActions(null)}
+          onPin={handlePin}
+          onReanalyze={handleReanalyze}
+          onReorder={() => setReorderMode(true)}
         />
 
       </SafeAreaView>
@@ -317,6 +393,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom:     Spacing.lg,
     gap:               3,
+  },
+  sectionTitleRow: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+  },
+  doneBtn: {
+    backgroundColor:   Colors.greenPrimary,
+    borderRadius:      Radius.full,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical:   Spacing.xs + 1,
+  },
+  doneBtnText: {
+    fontFamily: FontFamily.monoMedium,
+    fontSize:   FontSize.sm,
+    color:      Colors.background,
   },
   sectionTitle: {
     fontFamily:    FontFamily.syneBold,

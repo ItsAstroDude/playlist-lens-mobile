@@ -7,28 +7,45 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withSequence,
+  withTiming,
 } from 'react-native-reanimated'
 import { Colors } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 
 // ─── Spring configs ───────────────────────────────────────────────────────────
-const ICON_SPRING = { mass: 0.6, damping: 11, stiffness: 260 }
-const PILL_SPRING = { mass: 0.7, damping: 14, stiffness: 220 }
+// Bouncy = low damping → overshoot. The active icon pops + hops a touch.
+const BOUNCE_SPRING = { mass: 0.5, damping: 8,  stiffness: 230 }
+const PILL_SPRING   = { mass: 0.6, damping: 12, stiffness: 220 }
 
 // ─── Wrapper: springs the icon + shows a glowing pill behind active tab ───────
 function AnimatedTabIcon({ focused, children }: { focused: boolean; children: React.ReactNode }) {
   const scale       = useSharedValue(1)
+  const hop         = useSharedValue(0)
   const pillOpacity = useSharedValue(0)
   const pillScale   = useSharedValue(0.6)
 
   useEffect(() => {
-    scale.value       = withSpring(focused ? 1.18 : 1,   ICON_SPRING)
-    pillOpacity.value = withSpring(focused ? 1   : 0,   PILL_SPRING)
-    pillScale.value   = withSpring(focused ? 1   : 0.6, PILL_SPRING)
+    if (focused) {
+      // quick dip then a bouncy pop — gives the tap some life
+      scale.value = withSequence(
+        withTiming(0.86, { duration: 90 }),
+        withSpring(1.18, BOUNCE_SPRING),
+      )
+      hop.value = withSequence(
+        withSpring(-4, BOUNCE_SPRING),
+        withSpring(0,  BOUNCE_SPRING),
+      )
+    } else {
+      scale.value = withSpring(1, PILL_SPRING)
+      hop.value   = withTiming(0, { duration: 120 })
+    }
+    pillOpacity.value = withSpring(focused ? 1 : 0,   PILL_SPRING)
+    pillScale.value   = withSpring(focused ? 1 : 0.6, PILL_SPRING)
   }, [focused])
 
   const iconStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [{ scale: scale.value }, { translateY: hop.value }],
   }))
 
   const pillStyle = useAnimatedStyle(() => ({

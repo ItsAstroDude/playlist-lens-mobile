@@ -44,9 +44,10 @@ interface DetailSheetProps {
   playlist: SpotifyPlaylist | null
   palette:  PlaylistPalette | null
   onClose:  () => void
+  onGone?:  (id: string) => void
 }
 
-export function DetailSheet({ playlist, palette, onClose }: DetailSheetProps) {
+export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetProps) {
   const insets = useSafeAreaInsets()
   const isOpen = playlist !== null
   const { status, data, error, analyze, reset } = useAnalysis()
@@ -68,7 +69,8 @@ export function DetailSheet({ playlist, palette, onClose }: DetailSheetProps) {
 
   useEffect(() => {
     if (playlist) {
-      analyze(playlist.id, playlist.name, playlist.images?.[0]?.url ?? '', palette)
+      analyze(playlist.id, playlist.name, playlist.images?.[0]?.url ?? '', palette,
+        { onGone: () => onGone?.(playlist.id) })
     }
   }, [playlist?.id])
 
@@ -137,7 +139,8 @@ export function DetailSheet({ playlist, palette, onClose }: DetailSheetProps) {
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>
               <Pressable
-                onPress={() => playlist && analyze(playlist.id, playlist.name, playlist.images?.[0]?.url ?? '', palette)}
+                onPress={() => playlist && analyze(playlist.id, playlist.name, playlist.images?.[0]?.url ?? '', palette,
+                  { onGone: () => onGone?.(playlist.id) })}
                 style={[styles.retryBtn, { borderColor: accent }]}
               >
                 <Text style={[styles.retryBtnText, { color: accent }]}>Retry</Text>

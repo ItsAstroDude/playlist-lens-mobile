@@ -38,7 +38,17 @@ export function usePlaylists() {
     }
   }, [])
 
-  return { ...state, fetch }
+  // Drop a playlist that no longer exists on Spotify (404) — from state + cache.
+  const removePlaylist = useCallback((id: string) => {
+    setState(s => {
+      if (!s.data) return s
+      const next = s.data.filter(p => p.id !== id)
+      setCache(CacheKeys.playlists, next)
+      return { ...s, data: next }
+    })
+  }, [])
+
+  return { ...state, fetch, removePlaylist }
 }
 
 // ─── Tracks ───────────────────────────────────────────────────────────────────

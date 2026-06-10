@@ -4,6 +4,7 @@ import {
   TextInput, ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native'
 import { Image } from 'expo-image'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system/legacy'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated'
@@ -35,6 +36,9 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
   onResolved: (url: string) => void
 }) {
   const isOpen = target !== null
+  const insets = useSafeAreaInsets()
+  // Clear the floating navbar pill (height ~62, sits at insets.bottom + ~28).
+  const navClearance = insets.bottom + 92
   const [term, setTerm]       = useState('')
   const [items, setItems]     = useState<ArtCandidate[]>([])
   const [loading, setLoading] = useState(false)
@@ -151,7 +155,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
         ) : items.length === 0 ? (
           <View style={styles.center}><Text style={styles.empty}>No covers found. Try a different search, or upload your own.</Text></View>
         ) : (
-          <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
             {items.map(it => (
               <TouchableOpacity key={it.id} style={styles.cell} onPress={() => onPick(it.url)} activeOpacity={0.8}>
                 <Image source={{ uri: it.url }} style={styles.cellImg} contentFit="cover" transition={150} />
@@ -163,7 +167,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
         )}
 
         {/* Actions */}
-        <View style={styles.actions}>
+        <View style={[styles.actions, { paddingBottom: navClearance }]}>
           <TouchableOpacity style={[styles.uploadBtn, { borderColor: `${accent}66` }]} onPress={onUpload} activeOpacity={0.8}>
             <Text style={[styles.uploadText, { color: accent }]}>Upload your own</Text>
           </TouchableOpacity>
@@ -203,6 +207,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing['3xl'] },
   empty: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', paddingHorizontal: Spacing.xl },
 
+  scroll: { flex: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP, paddingBottom: Spacing.md },
   cell: { width: CELL },
   cellImg: { width: CELL, height: CELL, borderRadius: Radius.md, backgroundColor: Colors.glass },

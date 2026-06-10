@@ -28,13 +28,14 @@ const SIDE_PAD = Spacing.lg
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
 interface PlaylistCardProps {
-  playlist: SpotifyPlaylist
-  palette:  PlaylistPalette | null
-  index:    number
-  onPress:  (playlist: SpotifyPlaylist) => void
+  playlist:      SpotifyPlaylist
+  palette:       PlaylistPalette | null
+  index:         number
+  onPress:       (playlist: SpotifyPlaylist) => void
+  onLongPress?:  (playlist: SpotifyPlaylist) => void
 }
 
-export function PlaylistCard({ playlist, palette, index, onPress }: PlaylistCardProps) {
+export function PlaylistCard({ playlist, palette, index, onPress, onLongPress }: PlaylistCardProps) {
   const coverUrl = playlist.images?.[0]?.url
 
   // ── Check cache for a previously computed vibe label ──
@@ -68,7 +69,7 @@ export function PlaylistCard({ playlist, palette, index, onPress }: PlaylistCard
   }))
 
   const handlePressIn  = () => {
-    scale.value      = withSpring(0.97, Spring.snappy)
+    scale.value      = withSpring(0.95, Spring.snappy)
     shadowAnim.value = withSpring(0.55, Spring.snappy)
   }
   const handlePressOut = () => {
@@ -78,6 +79,11 @@ export function PlaylistCard({ playlist, palette, index, onPress }: PlaylistCard
   const handlePress = () => {
     haptic.medium()
     onPress(playlist)
+  }
+  const handleLongPress = () => {
+    if (!onLongPress) return
+    haptic.heavy()
+    onLongPress(playlist)
   }
 
   // ── Dynamic palette ──
@@ -90,6 +96,8 @@ export function PlaylistCard({ playlist, palette, index, onPress }: PlaylistCard
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         onPress={handlePress}
+        onLongPress={handleLongPress}
+        delayLongPress={300}
         style={[pressStyle, styles.card, { borderColor, shadowColor: glowColor }]}
       >
         {/* Cover art fills the card */}
