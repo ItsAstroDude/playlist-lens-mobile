@@ -26,6 +26,7 @@ import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-
 import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet'
 import { loadOrder, saveOrder, applyOrder, pinToTop } from '@/utils/playlistOrder'
 import { setTabBarHidden } from '@/utils/tabBar'
+import { getLensLayout, setLensLayout, type LensLayout } from '@/utils/settings'
 import type { SpotifyPlaylist } from '@/types'
 
 const SKELETON_COUNT = 4
@@ -42,6 +43,17 @@ export default function PlaylistsTab() {
   const [order, setOrder]               = useState<string[]>(() => loadOrder())
   const [reorderMode, setReorderMode]   = useState(false)
   const [actionsTarget, setActions]     = useState<SpotifyPlaylist | null>(null)
+
+  // ── Lens layout (full cards ↔ 2-col grid) — persisted, applies instantly ──
+  const [layout, setLayout] = useState<LensLayout>(getLensLayout)
+  const toggleLayout = useCallback(() => {
+    haptic.light()
+    setLayout(prev => {
+      const next = prev === 'full' ? 'grid' : 'full'
+      setLensLayout(next)
+      return next
+    })
+  }, [])
 
   const orderedData = useMemo(() => applyOrder(data ?? [], order), [data, order])
 
@@ -129,8 +141,9 @@ export default function PlaylistsTab() {
       index={index}
       onPress={handleCardPress}
       onLongPress={openActions}
+      layout={layout}
     />
-  ), [palettes, handleCardPress, openActions])
+  ), [palettes, handleCardPress, openActions, layout])
 
   // Reorder mode — same card, but long-press starts a drag instead of opening actions.
   const renderDraggable = useCallback(({ item, drag, isActive }: RenderItemParams<SpotifyPlaylist>) => (
@@ -228,13 +241,22 @@ export default function PlaylistsTab() {
         <Animated.View style={[styles.sectionHeader, headerStyle]}>
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionTitle}>{reorderMode ? 'Reorder' : 'Your Lenses'}</Text>
-            {reorderMode && (
+            {reorderMode ? (
               <TouchableOpacity
                 style={styles.doneBtn}
                 onPress={() => { haptic.success(); setReorderMode(false) }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.doneBtnText}>Done</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.layoutBtn}
+                onPress={toggleLayout}
+                activeOpacity={0.7}
+              >
+                {/* shows the layout you'd switch TO */}
+                <Text style={styles.layoutBtnIcon}>{layout === 'full' ? '▦' : '▤'}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -257,10 +279,11 @@ export default function PlaylistsTab() {
           />
         ) : (
           <FlashList
+            key={layout}   // numColumns changes need a clean remount
             data={orderedData}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
-            numColumns={1}
+            numColumns={layout === 'grid' ? 2 : 1}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             onScroll={onScroll}
@@ -426,6 +449,20 @@ const styles = StyleSheet.create({
     borderRadius:      Radius.full,
     paddingHorizontal: Spacing.lg,
     paddingVertical:   Spacing.xs + 1,
+  },
+  layoutBtn: {
+    width:           32,
+    height:          32,
+    borderRadius:    Radius.sm,
+    backgroundColor: Colors.glass,
+    borderWidth:     1,
+    borderColor:     Colors.glassBorder,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+  layoutBtnIcon: {
+    fontSize: 15,
+    color:    Colors.textMuted,
   },
   doneBtnText: {
     fontFamily: FontFamily.monoMedium,

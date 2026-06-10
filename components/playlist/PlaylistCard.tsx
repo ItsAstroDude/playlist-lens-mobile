@@ -24,6 +24,10 @@ import type { SpotifyPlaylist, PlaylistPalette, PlaylistAnalysis } from '@/types
 const { width: SCREEN_W } = Dimensions.get('window')
 const CARD_H   = 188
 const SIDE_PAD = Spacing.lg
+// Grid layout: two square cards per row. Cells are SCREEN_W/2 wide, so each card
+// hugs its outer edge (via alignSelf per column) to keep margins symmetric.
+const GRID_GAP = Spacing.md
+const GRID_W   = (SCREEN_W - SIDE_PAD * 2 - GRID_GAP) / 2
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
@@ -33,9 +37,12 @@ interface PlaylistCardProps {
   index:         number
   onPress:       (playlist: SpotifyPlaylist) => void
   onLongPress?:  (playlist: SpotifyPlaylist) => void
+  /** 'full' (default) = full-width 188dp card · 'grid' = square 2-column card */
+  layout?:       'full' | 'grid'
 }
 
-export function PlaylistCard({ playlist, palette, index, onPress, onLongPress }: PlaylistCardProps) {
+export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, layout = 'full' }: PlaylistCardProps) {
+  const grid = layout === 'grid'
   const coverUrl = playlist.images?.[0]?.url
 
   // ── Check cache for a previously computed vibe label ──
@@ -90,8 +97,17 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress }:
   const glowColor   = palette?.primary ?? Colors.greenPrimary
   const borderColor = palette ? `${palette.primary}40` : Colors.glassBorder
 
+  // In grid mode the FlashList cell is half the screen; pin left-column cards to
+  // the cell's right edge and right-column cards to the left so outer margins
+  // stay SIDE_PAD and the inner gap stays GRID_GAP.
+  const gridPos = grid
+    ? (index % 2 === 0
+        ? { alignSelf: 'flex-end'   as const, marginRight: GRID_GAP / 2 }
+        : { alignSelf: 'flex-start' as const, marginLeft:  GRID_GAP / 2 })
+    : null
+
   return (
-    <Animated.View style={[styles.wrapper, entranceStyle]}>
+    <Animated.View style={[grid ? styles.wrapperGrid : styles.wrapper, gridPos, entranceStyle]}>
       <AnimatedPressable
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -134,15 +150,19 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress }:
           </View>
         )}
 
-        {/* Bottom info */}
+        {/* Bottom info — grid cards drop the owner to fit the narrow width */}
         <View style={styles.bottomInfo}>
-          <Text style={styles.name} numberOfLines={1}>
+          <Text style={grid ? styles.nameGrid : styles.name} numberOfLines={1}>
             {playlist.name}
           </Text>
           <View style={styles.metaRow}>
             <Text style={styles.metaText}>{playlist.tracks.total} tracks</Text>
-            <Text style={styles.metaDot}>·</Text>
-            <Text style={styles.metaText}>{playlist.owner.display_name}</Text>
+            {!grid && (
+              <>
+                <Text style={styles.metaDot}>·</Text>
+                <Text style={styles.metaText}>{playlist.owner.display_name}</Text>
+              </>
+            )}
           </View>
         </View>
       </AnimatedPressable>
@@ -156,6 +176,11 @@ const styles = StyleSheet.create({
     height:       CARD_H,
     marginBottom: Spacing.md,
     alignSelf:    'center',
+  },
+  wrapperGrid: {
+    width:        GRID_W,
+    height:       GRID_W,   // square — cover art is square
+    marginBottom: Spacing.md,
   },
 
   card: {
@@ -215,6 +240,13 @@ const styles = StyleSheet.create({
     color:         Colors.text,
     letterSpacing: -0.5,
     lineHeight:    FontSize.lg * 1.2,
+  },
+  nameGrid: {
+    fontFamily:    FontFamily.syneBold,
+    fontSize:      FontSize.base,
+    color:         Colors.text,
+    letterSpacing: -0.3,
+    lineHeight:    FontSize.base * 1.2,
   },
   metaRow: {
     flexDirection: 'row',

@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { StyleSheet, Pressable, View, Text } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import { useFocusEffect } from 'expo-router'
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withSpring,
 } from 'react-native-reanimated'
@@ -8,7 +9,7 @@ import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme
 import { haptic } from '@/constants/animation'
 import { loadCachedWrapped } from '@/hooks/useWrapped'
 import { wrappedTeasers } from '@/utils/wrapped'
-import { reduceMotionEnabled } from '@/utils/settings'
+import { reduceMotionEnabled, getCustomQuote } from '@/utils/settings'
 
 /**
  * The Lenses top strip — tappable, stat-aware, alive.
@@ -43,8 +44,11 @@ function splitGlyph(line: string): [string, string] {
 /** Interleave teasers + quotes so a personal stat shows up early. */
 function buildPool(): string[] {
   const teasers = wrappedTeasers(loadCachedWrapped())
-  if (!teasers.length) return QUOTES
   const out: string[] = []
+  // The user's custom banner (Settings → Appearance) leads the rotation.
+  const custom = getCustomQuote()
+  if (custom) out.push(custom)
+  if (!teasers.length) return out.concat(QUOTES)
   const max = Math.max(teasers.length, QUOTES.length)
   for (let i = 0; i < max; i++) {
     if (i < teasers.length) out.push(teasers[i])
@@ -55,11 +59,24 @@ function buildPool(): string[] {
 
 export function RotatingStrip({ override }: { override?: string }) {
   const reduce = reduceMotionEnabled()
-  const pool   = useMemo(buildPool, [])
-  const [i, setI] = useState(() => Math.floor(Math.random() * pool.length))
+  const [pool, setPool] = useState(buildPool)
+  // With a custom banner, open on it; otherwise land somewhere random.
+  const [i, setI] = useState(() => (getCustomQuote() ? 0 : Math.floor(Math.random() * pool.length)))
   const op       = useSharedValue(1)
   const press    = useSharedValue(1)
   const timer    = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Re-read the custom banner when the screen regains focus (e.g. returning from
+  // Settings) so edits apply live without a restart.
+  const quoteRef = useRef(getCustomQuote())
+  useFocusEffect(useCallback(() => {
+    const q = getCustomQuote()
+    if (q !== quoteRef.current) {
+      quoteRef.current = q
+      setPool(buildPool())
+      setI(0)
+    }
+  }, []))
 
   const advance = (step = 1) => {
     if (reduce) { setI(p => (p + step + pool.length) % pool.length); return }

@@ -8,6 +8,11 @@ const KEYS = {
   haptics:      'settings.haptics',
   reduceMotion: 'settings.reduceMotion',
   artwork:      'settings.artwork',
+  accentId:     'settings.accentId',
+  fontId:       'settings.fontId',
+  customQuote:  'settings.customQuote',
+  lensLayout:   'settings.lensLayout',
+  navbarStyle:  'settings.navbarStyle',
 } as const
 
 // ── Haptics (default ON) ──
@@ -34,4 +39,61 @@ export function artworkEnabled(): boolean {
 }
 export function setArtworkEnabled(on: boolean): void {
   storage.set(KEYS.artwork, on)
+}
+
+// ── Appearance (Expressive Expressions) — accent + font ──
+// NOTE: these are read at app-startup by constants/theme.ts. Writing a new value
+// only takes effect after an app reload (see reloadApp in utils/updates). The keys
+// here MUST match the literals theme.ts reads ('settings.accentId'/'settings.fontId').
+export function getAccentId(): string {
+  return storage.getString(KEYS.accentId) ?? 'green'
+}
+export function setAccentId(id: string): void {
+  storage.set(KEYS.accentId, id)
+}
+
+export function getFontId(): string {
+  return storage.getString(KEYS.fontId) ?? 'syne'
+}
+export function setFontId(id: string): void {
+  storage.set(KEYS.fontId, id)
+}
+
+// ── Lenses layout — full-bleed cards (default) or a 2-column grid ──
+// Toggled from the Lenses screen itself; applies instantly.
+export type LensLayout = 'full' | 'grid'
+export function getLensLayout(): LensLayout {
+  return (storage.getString(KEYS.lensLayout) as LensLayout) ?? 'full'
+}
+export function setLensLayout(layout: LensLayout): void {
+  storage.set(KEYS.lensLayout, layout)
+}
+
+// ── Navbar style — read once per launch by the tab layout (restart to apply) ──
+export type NavbarStyle = 'legacy' | 'minimal' | 'gestures'
+export const NAVBAR_STYLES: { id: NavbarStyle; label: string; hint: string }[] = [
+  { id: 'legacy',   label: 'Legacy',        hint: 'The floating bar with labels' },
+  { id: 'minimal',  label: 'Minimal',       hint: 'Compact pill, icons only' },
+  { id: 'gestures', label: 'Gestures only', hint: 'No bar — swipe the bottom edge' },
+]
+export function getNavbarStyle(): NavbarStyle {
+  return (storage.getString(KEYS.navbarStyle) as NavbarStyle) ?? 'legacy'
+}
+export function setNavbarStyle(style: NavbarStyle): void {
+  storage.set(KEYS.navbarStyle, style)
+}
+// Captured at module load (≈ app launch) so Settings can tell whether the saved
+// choice differs from the bar actually on screen this session.
+const _launchNavbarStyle = getNavbarStyle()
+export function launchNavbarStyle(): NavbarStyle { return _launchNavbarStyle }
+
+// ── Custom home banner (empty = rotating tips, the default) ──
+// Joins the Lenses top-strip rotation pool; applied live on next screen focus.
+export function getCustomQuote(): string {
+  return storage.getString(KEYS.customQuote)?.trim() ?? ''
+}
+export function setCustomQuote(text: string): void {
+  const v = text.trim()
+  if (v) storage.set(KEYS.customQuote, v)
+  else   storage.remove(KEYS.customQuote)
 }

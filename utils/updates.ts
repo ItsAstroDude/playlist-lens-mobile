@@ -53,3 +53,13 @@ export async function checkForUpdate(
 export async function applyUpdate(): Promise<void> {
   if (Updates.isEnabled) await Updates.reloadAsync()
 }
+
+/**
+ * Relaunch the JS bundle to apply an Appearance change (accent/font/theme are
+ * baked at module load in constants/theme.ts, so they only update on reload).
+ * In dev / Expo Go where OTA is disabled, reloadAsync is unavailable — there the
+ * change applies on the next manual reload instead.
+ */
+export async function reloadApp(): Promise<void> {
+  if (Updates.isEnabled) await Updates.reloadAsync()
+}

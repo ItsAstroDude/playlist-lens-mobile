@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, Switch,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, Switch, TextInput,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
@@ -16,7 +16,10 @@ import Animated, {
   Easing,
   interpolate,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import {
+  Colors, FontFamily, FontSize, Spacing, Radius,
+  ACCENTS, FONTS, activeAccentId, activeFontId,
+} from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { useAuth } from '@/hooks/useAuth'
 import { clearCaches } from '@/utils/cache'
@@ -24,10 +27,13 @@ import {
   hapticsEnabled, setHapticsEnabled,
   reduceMotionEnabled, setReduceMotionEnabled,
   artworkEnabled, setArtworkEnabled,
+  getAccentId, setAccentId, getFontId, setFontId,
+  getCustomQuote, setCustomQuote,
+  NAVBAR_STYLES, getNavbarStyle, setNavbarStyle, launchNavbarStyle, type NavbarStyle,
 } from '@/utils/settings'
 import { clearWrappedStats } from '@/hooks/useWrapped'
 import { loadArtReports } from '@/hooks/useArtwork'
-import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel } from '@/utils/updates'
+import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel, reloadApp } from '@/utils/updates'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { emitOpenTutorial, emitOpenWhatsNew } from '@/utils/overlayEvents'
 import { latestPatch } from '@/utils/whatsNew'
@@ -117,6 +123,76 @@ function ToggleRow({
   )
 }
 
+// ─── Accent swatches ──────────────────────────────────────────────────────────
+function AccentPicker({ value, onPick }: { value: string; onPick: (id: string) => void }) {
+  return (
+    <View style={styles.swatchRow}>
+      {ACCENTS.map(a => {
+        const active = a.id === value
+        return (
+          <TouchableOpacity
+            key={a.id}
+            onPress={() => onPick(a.id)}
+            activeOpacity={0.7}
+            style={[styles.swatch, { backgroundColor: a.hex }, active && styles.swatchActive]}
+          >
+            {active && <Ionicons name="checkmark" size={16} color="#000" />}
+          </TouchableOpacity>
+        )
+      })}
+    </View>
+  )
+}
+
+// ─── Font options (each label rendered in its own face) ─────────────────────────
+function FontPicker({ value, onPick }: { value: string; onPick: (id: string) => void }) {
+  return (
+    <View>
+      {FONTS.map((f, i) => {
+        const active = f.id === value
+        return (
+          <TouchableOpacity
+            key={f.id}
+            onPress={() => onPick(f.id)}
+            activeOpacity={0.7}
+            style={[styles.fontRow, i === FONTS.length - 1 && { borderBottomWidth: 0 }]}
+          >
+            <Text style={[styles.fontSample, { fontFamily: f.family.display }, active && { color: Colors.greenPrimary }]}>
+              {f.label}
+            </Text>
+            {active && <Ionicons name="checkmark-circle" size={18} color={Colors.greenPrimary} />}
+          </TouchableOpacity>
+        )
+      })}
+    </View>
+  )
+}
+
+// ─── Navbar style options ───────────────────────────────────────────────────────
+function NavbarPicker({ value, onPick }: { value: NavbarStyle; onPick: (id: NavbarStyle) => void }) {
+  return (
+    <View>
+      {NAVBAR_STYLES.map((n, i) => {
+        const active = n.id === value
+        return (
+          <TouchableOpacity
+            key={n.id}
+            onPress={() => onPick(n.id)}
+            activeOpacity={0.7}
+            style={[styles.fontRow, i === NAVBAR_STYLES.length - 1 && { borderBottomWidth: 0 }]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.navbarLabel, active && { color: Colors.greenPrimary }]}>{n.label}</Text>
+              <Text style={styles.navbarHint}>{n.hint}</Text>
+            </View>
+            {active && <Ionicons name="checkmark-circle" size={18} color={Colors.greenPrimary} />}
+          </TouchableOpacity>
+        )
+      })}
+    </View>
+  )
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function SettingsScreen() {
   const { logout, getMe } = useAuth()
@@ -130,6 +206,24 @@ export default function SettingsScreen() {
   const [updateMsg, setUpdateMsg]       = useState<string | null>(null)
   const [showRestart, setShowRestart]   = useState(false)
   const flaggedCount = loadArtReports().length
+
+  // ── Appearance — selections persist immediately, apply on the next reload ──
+  const [pendingAccent, setPendingAccent] = useState(getAccentId)
+  const [pendingFont, setPendingFont]     = useState(getFontId)
+  const [pendingNavbar, setPendingNavbar] = useState<NavbarStyle>(getNavbarStyle)
+  const [showApplyRestart, setShowApplyRestart] = useState(false)
+  const appearanceDirty =
+    pendingAccent !== activeAccentId() ||
+    pendingFont   !== activeFontId()   ||
+    pendingNavbar !== launchNavbarStyle()
+
+  const onPickAccent = (id: string) => { haptic.light(); setAccentId(id); setPendingAccent(id) }
+  const onPickFont   = (id: string) => { haptic.light(); setFontId(id);   setPendingFont(id) }
+  const onPickNavbar = (id: NavbarStyle) => { haptic.light(); setNavbarStyle(id); setPendingNavbar(id) }
+
+  // Custom home banner — saved on blur/submit, applies live (no restart needed).
+  const [quote, setQuote] = useState(getCustomQuote)
+  const saveQuote = () => { setCustomQuote(quote); haptic.light() }
 
   useEffect(() => { getMe().then(setMe) }, [])
 
@@ -320,6 +414,46 @@ export default function SettingsScreen() {
             />
           </Section>
 
+          {/* Appearance */}
+          <Section label="appearance">
+            <View style={styles.appearanceBlock}>
+              <Text style={styles.pickerLabel}>Accent</Text>
+              <AccentPicker value={pendingAccent} onPick={onPickAccent} />
+            </View>
+            <View style={styles.appearanceBlock}>
+              <Text style={styles.pickerLabel}>Font</Text>
+              <FontPicker value={pendingFont} onPick={onPickFont} />
+            </View>
+            <View style={styles.appearanceBlock}>
+              <Text style={styles.pickerLabel}>Navigation</Text>
+              <NavbarPicker value={pendingNavbar} onPick={onPickNavbar} />
+            </View>
+            <View style={[styles.appearanceBlock, !appearanceDirty && { borderBottomWidth: 0 }]}>
+              <Text style={styles.pickerLabel}>Home banner</Text>
+              <TextInput
+                style={styles.quoteInput}
+                value={quote}
+                onChangeText={setQuote}
+                onBlur={saveQuote}
+                onSubmitEditing={saveQuote}
+                placeholder="Your own line on the home strip…"
+                placeholderTextColor={Colors.textDim}
+                maxLength={64}
+                returnKeyType="done"
+              />
+              <Text style={styles.quoteHint}>
+                {quote.trim() ? 'Joins the rotating tips — applies right away.' : 'Empty = the rotating tips only.'}
+              </Text>
+            </View>
+            {appearanceDirty && (
+              <TouchableOpacity style={styles.applyRow} onPress={() => { haptic.medium(); setShowApplyRestart(true) }} activeOpacity={0.7}>
+                <Ionicons name="refresh" size={16} color={Colors.greenPrimary} />
+                <Text style={styles.applyText}>Restart to apply your new look</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.greenPrimary} />
+              </TouchableOpacity>
+            )}
+          </Section>
+
           {/* Data */}
           <Section label="data">
             <SettingRow
@@ -407,6 +541,17 @@ export default function SettingsScreen() {
         cancelLabel="Later"
         onConfirm={() => { setShowRestart(false); applyUpdate() }}
         onCancel={() => { setShowRestart(false); setUpdateMsg(null) }}
+      />
+
+      <ConfirmModal
+        visible={showApplyRestart}
+        glyph="✦"
+        title="Restart to apply"
+        message="Your new look is saved. Restart the app now to see it?"
+        confirmLabel="Restart"
+        cancelLabel="Later"
+        onConfirm={() => { setShowApplyRestart(false); reloadApp() }}
+        onCancel={() => setShowApplyRestart(false)}
       />
     </SafeAreaView>
   )
@@ -504,6 +649,92 @@ const styles = StyleSheet.create({
   },
   rowLabelDanger: { color: Colors.error },
   rowValue: {
+    fontFamily: FontFamily.mono,
+    fontSize:   FontSize.xs,
+    color:      Colors.textDim,
+  },
+
+  // ── Appearance ──
+  appearanceBlock: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical:   Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.glassBorder,
+    gap:               Spacing.md,
+  },
+  pickerLabel: {
+    fontFamily:    FontFamily.mono,
+    fontSize:      FontSize.xs,
+    color:         Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    gap:           Spacing.sm,
+    flexWrap:      'wrap',
+  },
+  swatch: {
+    width:          34,
+    height:         34,
+    borderRadius:   Radius.full,
+    alignItems:     'center',
+    justifyContent: 'center',
+    borderWidth:    2,
+    borderColor:    'transparent',
+  },
+  swatchActive: {
+    borderColor: Colors.text,
+  },
+  fontRow: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:    'space-between',
+    paddingVertical:   Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.glassBorder,
+  },
+  fontSample: {
+    fontSize: FontSize.md,
+    color:    Colors.textSecondary,
+  },
+  navbarLabel: {
+    fontFamily: FontFamily.monoMedium,
+    fontSize:   FontSize.sm,
+    color:      Colors.textSecondary,
+  },
+  navbarHint: {
+    fontFamily: FontFamily.mono,
+    fontSize:   FontSize.xs,
+    color:      Colors.textDim,
+    marginTop:  1,
+  },
+  applyRow: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical:   Spacing.md,
+    backgroundColor:   Colors.greenSubtle,
+  },
+  applyText: {
+    flex:       1,
+    fontFamily: FontFamily.monoMedium,
+    fontSize:   FontSize.sm,
+    color:      Colors.greenPrimary,
+  },
+  quoteInput: {
+    fontFamily:        FontFamily.mono,
+    fontSize:          FontSize.sm,
+    color:             Colors.text,
+    backgroundColor:   Colors.glass,
+    borderWidth:       1,
+    borderColor:       Colors.glassBorder,
+    borderRadius:      Radius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical:   Spacing.sm,
+  },
+  quoteHint: {
     fontFamily: FontFamily.mono,
     fontSize:   FontSize.xs,
     color:      Colors.textDim,

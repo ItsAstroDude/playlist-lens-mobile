@@ -3,12 +3,14 @@ import { Tabs } from 'expo-router'
 import { BlurView } from 'expo-blur'
 import { Pressable, StyleSheet, View, Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence,
+  useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence, runOnJS,
 } from 'react-native-reanimated'
 import { Colors, FontFamily } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { tabBarHidden } from '@/utils/tabBar'
+import { getNavbarStyle } from '@/utils/settings'
 
 const BAR_H    = 60
 const ACTIVE   = Colors.greenPrimary
@@ -58,8 +60,8 @@ function Glyph({ name, color }: { name: string; color: string }) {
 const BOUNCE = { mass: 0.5, damping: 8,  stiffness: 230 }
 const SOFT   = { mass: 0.6, damping: 13, stiffness: 220 }
 
-function TabItem({ label, routeName, focused, onPress }: {
-  label: string; routeName: string; focused: boolean; onPress: () => void
+function TabItem({ label, routeName, focused, onPress, minimal }: {
+  label: string; routeName: string; focused: boolean; onPress: () => void; minimal?: boolean
 }) {
   const scale = useSharedValue(1)
   const hop   = useSharedValue(0)
@@ -87,7 +89,7 @@ function TabItem({ label, routeName, focused, onPress }: {
         <Animated.View style={[styles.activePill, pillStyle]} />
         <Animated.View style={iconStyle}><Glyph name={routeName} color={color} /></Animated.View>
       </View>
-      <Text style={[styles.label, { color }]} numberOfLines={1}>{label}</Text>
+      {!minimal && <Text style={[styles.label, { color }]} numberOfLines={1}>{label}</Text>}
     </Pressable>
   )
 }
@@ -104,7 +106,8 @@ interface TabBarProps {
 }
 
 // ─── The floating bar — auto-hides via the shared `tabBarHidden` value ──────────
-function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) {
+// `minimal` = the icons-only variant: a narrower, shorter centered pill.
+function FloatingTabBar({ state, descriptors, navigation, minimal }: TabBarProps & { minimal?: boolean }) {
   const insets = useSafeAreaInsets()
   // Any tab switch reveals the bar (in case it was auto-hidden by scroll).
   useEffect(() => { tabBarHidden.value = withTiming(0, { duration: 200 }) }, [state.index])
@@ -117,9 +120,14 @@ function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) {
   return (
     <Animated.View
       pointerEvents="box-none"
-      style={[styles.barWrap, { bottom: Math.max(insets.bottom, 8) + 10 }, barStyle]}
+      style={[
+        styles.barWrap,
+        minimal && styles.barWrapMinimal,
+        { bottom: Math.max(insets.bottom, 8) + 10 },
+        barStyle,
+      ]}
     >
-      <View style={styles.bar}>
+      <View style={[styles.bar, minimal && styles.barMinimal]}>
         <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
         <View style={styles.barInner}>
           {state.routes.map((route, i) => {
@@ -131,7 +139,7 @@ function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) {
               const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true })
               if (!focused && !event.defaultPrevented) navigation.navigate(route.name)
             }
-            return <TabItem key={route.key} label={label} routeName={route.name} focused={focused} onPress={onPress} />
+            return <TabItem key={route.key} label={label} routeName={route.name} focused={focused} onPress={onPress} minimal={minimal} />
           })}
         </View>
       </View>
@@ -139,10 +147,49 @@ function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) {
   )
 }
 
+// ─── Gestures-only mode — no bar; swipe the bottom strip to switch tabs ─────────
+// A thin hot-zone hugs the bottom edge with a dots indicator. Swipe left → next
+// tab, swipe right → previous. The strip is low enough to stay out of content.
+function GestureTabBar({ state, navigation }: TabBarProps) {
+  const insets = useSafeAreaInsets()
+
+  const go = (dir: 1 | -1) => {
+    const next = state.index + dir
+    if (next < 0 || next >= state.routes.length) return
+    haptic.light()
+    navigation.navigate(state.routes[next].name)
+  }
+
+  const swipe = Gesture.Pan()
+    .activeOffsetX([-16, 16])
+    .onEnd(e => {
+      if (e.translationX <= -36)     runOnJS(go)(1)
+      else if (e.translationX >= 36) runOnJS(go)(-1)
+    })
+
+  return (
+    <GestureDetector gesture={swipe}>
+      <View style={[styles.gestureZone, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <View style={styles.dotsRow}>
+          {state.routes.map((route, i) => (
+            <View key={route.key} style={[styles.dot, i === state.index && styles.dotActive]} />
+          ))}
+        </View>
+      </View>
+    </GestureDetector>
+  )
+}
+
 export default function TabLayout() {
+  // Read once per launch — changing the style in Settings applies after restart,
+  // same as accent/font (see the Appearance section's restart row).
+  const navStyle = getNavbarStyle()
   return (
     <Tabs
-      tabBar={(props: any) => <FloatingTabBar {...props} />}
+      tabBar={(props: any) =>
+        navStyle === 'gestures'
+          ? <GestureTabBar {...props} />
+          : <FloatingTabBar {...props} minimal={navStyle === 'minimal'} />}
       screenOptions={{
         headerShown: false,
         sceneStyle:  { backgroundColor: Colors.background },
@@ -202,6 +249,39 @@ const styles = StyleSheet.create({
     fontFamily:    FontFamily.monoMedium, // weight 500
     fontSize:      9.5,
     letterSpacing: 0.4,                    // ~0.04em
+  },
+
+  // ── Minimal variant — narrower, shorter, icons only ──
+  barWrapMinimal: {
+    left: 80, right: 80, height: 50,
+  },
+  barMinimal: {
+    borderRadius: 25,
+  },
+
+  // ── Gestures-only variant — bottom hot-zone + dots ──
+  gestureZone: {
+    position:   'absolute',
+    left:       0,
+    right:      0,
+    bottom:     0,
+    paddingTop: 14,
+    alignItems: 'center',
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           7,
+  },
+  dot: {
+    width:           6,
+    height:          6,
+    borderRadius:    3,
+    backgroundColor: 'rgba(255,255,255,0.28)',
+  },
+  dotActive: {
+    width:           18,
+    backgroundColor: Colors.greenPrimary,
   },
 })
 

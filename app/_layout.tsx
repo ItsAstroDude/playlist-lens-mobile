@@ -11,6 +11,11 @@ import {
   Syne_700Bold,
   Syne_800ExtraBold,
 } from '@expo-google-fonts/syne'
+// Alternate font pairings for Expressive Expressions (see FONTS in theme.ts)
+import { SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk'
+import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono'
+import { Sora_600SemiBold, Sora_700Bold } from '@expo-google-fonts/sora'
+import { IBMPlexMono_400Regular, IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono'
 import * as SecureStore from 'expo-secure-store'
 import { SecureKeys } from '@/utils/cache'
 import { onSessionExpired, onSignedIn } from '@/utils/authEvents'
@@ -37,6 +42,14 @@ export default function RootLayout() {
     DMMono_500Medium,
     Syne_700Bold,
     Syne_800ExtraBold,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+    SpaceMono_400Regular,
+    SpaceMono_700Bold,
+    Sora_600SemiBold,
+    Sora_700Bold,
+    IBMPlexMono_400Regular,
+    IBMPlexMono_500Medium,
   })
 
   useEffect(() => {
