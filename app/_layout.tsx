@@ -17,6 +17,8 @@ import { onSessionExpired, onSignedIn } from '@/utils/authEvents'
 import { onOpenTutorial, onOpenWhatsNew } from '@/utils/overlayEvents'
 import { Tutorial } from '@/components/onboarding/Tutorial'
 import { WhatsNew } from '@/components/onboarding/WhatsNew'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
+import { checkForUpdate, applyUpdate } from '@/utils/updates'
 import {
   shouldShowTutorial, markTutorialSeen, shouldShowWhatsNew, markWhatsNewSeen,
 } from '@/utils/whatsNew'
@@ -28,6 +30,7 @@ export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [showTutorial,   setShowTutorial]   = useState(false)
   const [showWhatsNew,   setShowWhatsNew]    = useState(false)
+  const [showUpdate,     setShowUpdate]      = useState(false)
 
   const [fontsLoaded] = useFonts({
     DMMono_400Regular,
@@ -67,7 +70,14 @@ export default function RootLayout() {
     else if (shouldShowWhatsNew()) setShowWhatsNew(true)
   }, [isReady, isAuthenticated])
 
-  const onTutorialDone = () => { markTutorialSeen(); setShowTutorial(false) }
+  const onTutorialDone = () => {
+    markTutorialSeen()
+    setShowTutorial(false)
+    // A fresh install from a Release APK boots the build-time bundle; pull the
+    // latest OTA right after onboarding so new users start current. If one is
+    // ready, offer the on-brand restart (no-op when already up to date / in dev).
+    checkForUpdate().then(outcome => { if (outcome === 'ready') setShowUpdate(true) })
+  }
   const onWhatsNewClose = () => { markWhatsNewSeen(); setShowWhatsNew(false) }
 
   // Don't render until fonts and auth check are done
@@ -96,6 +106,16 @@ export default function RootLayout() {
       {/* Root-mounted overlays (above the whole navigator) */}
       <WhatsNew visible={showWhatsNew} onClose={onWhatsNewClose} />
       {showTutorial && <Tutorial onDone={onTutorialDone} />}
+      <ConfirmModal
+        visible={showUpdate}
+        glyph="✦"
+        title="You're almost set"
+        message="There's a newer version available. Restart now to grab the latest — or do it later from Settings."
+        confirmLabel="Update now"
+        cancelLabel="Later"
+        onConfirm={() => { setShowUpdate(false); applyUpdate() }}
+        onCancel={() => setShowUpdate(false)}
+      />
     </GestureHandlerRootView>
   )
 }

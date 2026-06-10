@@ -17,7 +17,7 @@ const SLIDES: Slide[] = [
   { glyph: '◎', tint: Colors.greenPrimary, title: 'Lenses', body: 'Tap a lens to break down its sound, genres and era. Long-press one for quick actions — Pin to top, Share, Re-analyze, or Reorder.' },
   { glyph: '◐', tint: Colors.lavender,     title: 'Wrapped', body: 'Import your Spotify history for all-time stats. Tap any artist, track or album to see its artwork — and fix it yourself if it’s wrong.' },
   { glyph: '◍', tint: Colors.pink,         title: 'Compare', body: 'Put two playlists head-to-head and see how their vibes stack up.' },
-  { glyph: '⟳', tint: Colors.greenPrimary, title: 'Always fresh', body: 'Updates now arrive on their own — no reinstalling. Pull them anytime from Settings › Check for updates.' },
+  { glyph: '⟳', tint: Colors.greenPrimary, title: 'Always fresh', body: 'Updates arrive on their own — no reinstalling. We’ll grab the latest for you now; after this you can pull them anytime from Settings › Check for updates.' },
 ]
 
 export function Tutorial({ onDone }: { onDone: () => void }) {
