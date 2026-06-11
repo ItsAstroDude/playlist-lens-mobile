@@ -52,42 +52,83 @@ export function alpha(hex: string, a: number): string {
   const [r, g, b] = hexToRgb(hex)
   return `rgba(${r},${g},${b},${a})`
 }
+/** Scale a hex toward black by factor `f` (0..1) — darkens an accent for light mode. */
+function darken(hex: string, f: number): string {
+  const [r, g, b] = hexToRgb(hex)
+  const c = (x: number) => Math.round(x * f).toString(16).padStart(2, '0')
+  return `#${c(r)}${c(g)}${c(b)}`
+}
+
+export type ThemeMode = 'dark' | 'light'
+export const DEFAULT_THEME_MODE: ThemeMode = 'dark'
 
 // ── Read the persisted selection ONCE at startup (sync MMKV read) ──
 const _accentId = storage.getString('settings.accentId') ?? DEFAULT_ACCENT_ID
 const _fontId   = storage.getString('settings.fontId')   ?? DEFAULT_FONT_ID
-const _accent   = (ACCENTS.find(a => a.id === _accentId) ?? ACCENTS[0]).hex
+const _mode     = (storage.getString('settings.themeMode') as ThemeMode) ?? DEFAULT_THEME_MODE
+const _isLight  = _mode === 'light'
+const _accentHex = (ACCENTS.find(a => a.id === _accentId) ?? ACCENTS[0]).hex
 const _fontOpt  = FONTS.find(f => f.id === _fontId) ?? FONTS[0]
 
-/** The accent/font ids actually in effect this launch (for the Settings UI). */
+// On a light background the raw neon accent is too pale for foreground text/active
+// states, so the UI accent is darkened in light mode (swatches still show the true
+// hue). On dark it's the accent as-is.
+const _accent = _isLight ? darken(_accentHex, 0.62) : _accentHex
+
+/** The selections actually in effect this launch (for the Settings UI). */
 export function activeAccentId(): string { return _accentId }
 export function activeFontId():   string { return _fontId }
+export function activeThemeMode(): ThemeMode { return _mode }
 
 // ─── Color Palette ────────────────────────────────────────────────────────────
-// Neutral tokens are fixed; the six accent-derived tokens come from `_accent`.
-export const Colors = {
-  background: '#131315',
-
-  // ── Glass surfaces ──
+// Neutral tokens (surfaces, text, scrims) swap with the theme mode. Accent-derived
+// tokens come from `_accent` (already darkened for light mode above). Vibe/brand
+// colours (violet/pink/lavender/compare, Spotify greens) are mode-independent.
+// NOTE: vibe badges sit on a dark scrim regardless of mode, so vibe colours stay
+// bright; only the accent green darkens for light. The light palette is a first
+// pass — tune contrasts/glows from on-device screenshots.
+const NEUTRALS = _isLight ? {
+  background:     '#F6F5F8',                 // soft near-white, faint cool tint
+  glass:          'rgba(22,20,32,0.04)',
+  glassBorder:    'rgba(22,20,32,0.12)',
+  glassHighlight: 'rgba(255,255,255,0.75)',  // specular top edge (light)
+  card:           'rgba(22,20,32,0.035)',
+  cardHover:      'rgba(22,20,32,0.07)',
+  border:         'rgba(22,20,32,0.12)',
+  text:           '#191820',
+  textSecondary:  '#4A4853',
+  textMuted:      '#6E6B78',
+  textDim:        '#A7A3B0',
+  auroraBot:      'rgba(246,245,248,0.00)',
+  overlay:        'rgba(22,20,32,0.45)',     // scrim stays dark to dim modals
+  overlayLight:   'rgba(22,20,32,0.25)',
+  error:          '#B3261E',
+} : {
+  background:     '#131315',
   glass:          'rgba(255,255,255,0.04)',
   glassBorder:    'rgba(255,255,255,0.10)',
-  glassHighlight: 'rgba(255,255,255,0.13)',  // specular top edge
+  glassHighlight: 'rgba(255,255,255,0.13)',
+  card:           'rgba(255,255,255,0.04)',
+  cardHover:      'rgba(255,255,255,0.08)',
+  border:         'rgba(255,255,255,0.10)',
+  text:           '#E5E1E4',
+  textSecondary:  '#BCCBB9',
+  textMuted:      '#869585',
+  textDim:        '#3D4A3D',
+  auroraBot:      'rgba(19,19,21,0.00)',
+  overlay:        'rgba(19,19,21,0.75)',
+  overlayLight:   'rgba(19,19,21,0.4)',
+  error:          '#ffb4ab',
+}
 
-  // ── Generic surfaces ──
-  card:         'rgba(255,255,255,0.04)',
-  cardHover:    'rgba(255,255,255,0.08)',
-  border:       'rgba(255,255,255,0.10)',
+export const Colors = {
+  ...NEUTRALS,
+
   borderActive: alpha(_accent, 0.4),
-
-  // ── Text ──
-  text:          '#E5E1E4',
-  textSecondary: '#BCCBB9',
-  textMuted:     '#869585',
-  textDim:       '#3D4A3D',
 
   // ── Brand greens ──
   green:        '#1DB954',  // Spotify brand (login button) — NOT themed
-  greenPrimary: _accent,    // design primary — the chosen accent, used for all UI
+  greenPrimary: _accent,    // design primary — the chosen accent (darkened in light)
   green2:       '#1ed760',  // Spotify brand variant — NOT themed
   greenNeon:    _accent,
   greenGlow:    alpha(_accent, 0.15),
@@ -95,7 +136,6 @@ export const Colors = {
 
   // ── Aurora ──
   auroraTop:    alpha(_accent, 0.06),
-  auroraBot:    'rgba(19,19,21,0.00)',
 
   // ── Violet ambient (top-left glow) ──
   violet:      '#4E03D0',
@@ -113,13 +153,8 @@ export const Colors = {
   compareB:    '#F06292',
 
   // ── Semantic ──
-  error:       '#ffb4ab',
   errorSubtle: 'rgba(255,80,80,0.08)',
   warning:     '#FFB347',
-
-  // ── Overlays ──
-  overlay:      'rgba(19,19,21,0.75)',
-  overlayLight: 'rgba(19,19,21,0.4)',
 } as const
 
 // ─── Typography ───────────────────────────────────────────────────────────────

@@ -27,7 +27,7 @@ import {
   shouldShowTutorial, markTutorialSeen, shouldShowWhatsNew, markWhatsNewSeen,
 } from '@/utils/whatsNew'
 import { View, StyleSheet } from 'react-native'
-import { Colors } from '@/constants/theme'
+import { Colors, activeThemeMode } from '@/constants/theme'
 
 export default function RootLayout() {
   const [isReady,        setIsReady]        = useState(false)
@@ -95,7 +95,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <StatusBar style="light" />
+      <StatusBar style={activeThemeMode() === 'light' ? 'dark' : 'light'} />
       <Stack screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <>

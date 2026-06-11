@@ -10,6 +10,7 @@ const KEYS = {
   artwork:      'settings.artwork',
   accentId:     'settings.accentId',
   fontId:       'settings.fontId',
+  themeMode:    'settings.themeMode',
   customQuote:  'settings.customQuote',
   lensLayout:   'settings.lensLayout',
   navbarStyle:  'settings.navbarStyle',
@@ -57,6 +58,15 @@ export function getFontId(): string {
 }
 export function setFontId(id: string): void {
   storage.set(KEYS.fontId, id)
+}
+
+// Theme mode (read at startup by constants/theme.ts; applies on next reload).
+export type ThemeMode = 'dark' | 'light'
+export function getThemeMode(): ThemeMode {
+  return (storage.getString(KEYS.themeMode) as ThemeMode) ?? 'dark'
+}
+export function setThemeMode(mode: ThemeMode): void {
+  storage.set(KEYS.themeMode, mode)
 }
 
 // ── Lenses layout — full-bleed cards (default) or a 2-column grid ──

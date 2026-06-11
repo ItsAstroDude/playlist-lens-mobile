@@ -18,7 +18,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import {
   Colors, FontFamily, FontSize, Spacing, Radius,
-  ACCENTS, FONTS, activeAccentId, activeFontId,
+  ACCENTS, FONTS, activeAccentId, activeFontId, activeThemeMode,
 } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { useAuth } from '@/hooks/useAuth'
@@ -28,6 +28,7 @@ import {
   reduceMotionEnabled, setReduceMotionEnabled,
   artworkEnabled, setArtworkEnabled,
   getAccentId, setAccentId, getFontId, setFontId,
+  getThemeMode, setThemeMode, type ThemeMode,
   getCustomQuote, setCustomQuote,
   NAVBAR_STYLES, getNavbarStyle, setNavbarStyle, launchNavbarStyle, type NavbarStyle,
 } from '@/utils/settings'
@@ -208,15 +209,18 @@ export default function SettingsScreen() {
   const flaggedCount = loadArtReports().length
 
   // ── Appearance — selections persist immediately, apply on the next reload ──
+  const [pendingMode, setPendingMode]     = useState<ThemeMode>(getThemeMode)
   const [pendingAccent, setPendingAccent] = useState(getAccentId)
   const [pendingFont, setPendingFont]     = useState(getFontId)
   const [pendingNavbar, setPendingNavbar] = useState<NavbarStyle>(getNavbarStyle)
   const [showApplyRestart, setShowApplyRestart] = useState(false)
   const appearanceDirty =
+    pendingMode   !== activeThemeMode() ||
     pendingAccent !== activeAccentId() ||
     pendingFont   !== activeFontId()   ||
     pendingNavbar !== launchNavbarStyle()
 
+  const onPickMode   = (m: ThemeMode) => { haptic.light(); setThemeMode(m); setPendingMode(m) }
   const onPickAccent = (id: string) => { haptic.light(); setAccentId(id); setPendingAccent(id) }
   const onPickFont   = (id: string) => { haptic.light(); setFontId(id);   setPendingFont(id) }
   const onPickNavbar = (id: NavbarStyle) => { haptic.light(); setNavbarStyle(id); setPendingNavbar(id) }
@@ -416,6 +420,31 @@ export default function SettingsScreen() {
 
           {/* Appearance */}
           <Section label="appearance">
+            <View style={styles.appearanceBlock}>
+              <Text style={styles.pickerLabel}>Theme</Text>
+              <View style={styles.segment}>
+                {(['dark', 'light'] as ThemeMode[]).map(m => {
+                  const active = pendingMode === m
+                  return (
+                    <TouchableOpacity
+                      key={m}
+                      onPress={() => onPickMode(m)}
+                      activeOpacity={0.8}
+                      style={[styles.segItem, active && styles.segItemActive]}
+                    >
+                      <Ionicons
+                        name={m === 'dark' ? 'moon' : 'sunny'}
+                        size={14}
+                        color={active ? Colors.background : Colors.textMuted}
+                      />
+                      <Text style={[styles.segText, active && styles.segTextActive]}>
+                        {m === 'dark' ? 'Dark' : 'Light'}
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </View>
             <View style={styles.appearanceBlock}>
               <Text style={styles.pickerLabel}>Accent</Text>
               <AccentPicker value={pendingAccent} onPick={onPickAccent} />
@@ -668,6 +697,34 @@ const styles = StyleSheet.create({
     color:         Colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 1.5,
+  },
+  segment: {
+    flexDirection:   'row',
+    gap:             Spacing.sm,
+  },
+  segItem: {
+    flex:            1,
+    flexDirection:   'row',
+    alignItems:      'center',
+    justifyContent:  'center',
+    gap:             Spacing.xs + 2,
+    paddingVertical: Spacing.sm + 1,
+    borderRadius:    Radius.md,
+    backgroundColor: Colors.glass,
+    borderWidth:     1,
+    borderColor:     Colors.glassBorder,
+  },
+  segItemActive: {
+    backgroundColor: Colors.greenPrimary,
+    borderColor:     Colors.greenPrimary,
+  },
+  segText: {
+    fontFamily: FontFamily.monoMedium,
+    fontSize:   FontSize.sm,
+    color:      Colors.textMuted,
+  },
+  segTextActive: {
+    color: Colors.background,
   },
   swatchRow: {
     flexDirection: 'row',
