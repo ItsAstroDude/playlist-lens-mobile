@@ -58,7 +58,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={onScroll}
-          style={{ flexGrow: 0 }}
+          style={styles.scroll}
         >
           {SLIDES.map((s, idx) => (
             <View key={idx} style={styles.slide}>
@@ -95,7 +95,9 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
   skip: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted },
 
-  slide: { width: W, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing['2xl'], flex: 1 },
+  scroll: { flex: 1 },
+  // width = one page; cross-axis stretches to the ScrollView height so content centres.
+  slide: { width: W, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing['2xl'] },
   glyphWrap: {
     width: 104, height: 104, borderRadius: 32, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xl,

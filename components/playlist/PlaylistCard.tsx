@@ -15,7 +15,7 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, OnDark } from '@/constants/theme'
 import { Spring, STAGGER_DELAY_MS, haptic } from '@/constants/animation'
 import { getCache, CacheKeys } from '@/utils/cache'
 import { vibeColor } from '@/utils/color'
@@ -237,14 +237,14 @@ const styles = StyleSheet.create({
   name: {
     fontFamily:    FontFamily.syneBold,
     fontSize:      FontSize.lg,
-    color:         Colors.text,
+    color:         OnDark.text,   // card is always a dark cover gradient
     letterSpacing: -0.5,
     lineHeight:    FontSize.lg * 1.2,
   },
   nameGrid: {
     fontFamily:    FontFamily.syneBold,
     fontSize:      FontSize.base,
-    color:         Colors.text,
+    color:         OnDark.text,
     letterSpacing: -0.3,
     lineHeight:    FontSize.base * 1.2,
   },
@@ -256,11 +256,11 @@ const styles = StyleSheet.create({
   metaText: {
     fontFamily: FontFamily.mono,
     fontSize:   FontSize.xs,
-    color:      Colors.textMuted,
+    color:      OnDark.textMuted,
   },
   metaDot: {
     fontFamily: FontFamily.mono,
     fontSize:   FontSize.xs,
-    color:      Colors.textDim,
+    color:      OnDark.textDim,
   },
 })

@@ -59,7 +59,7 @@ export function ConfirmModal({
 
       <Animated.View style={[styles.card, cardStyle]}>
         <View style={styles.specular} />
-        {glyph ? <Text style={styles.glyph}>{glyph}</Text> : null}
+        {glyph ? <Text style={[styles.glyph, { color: accent }]}>{glyph}</Text> : null}
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.message}>{message}</Text>
 
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%', maxWidth: 360,
-    backgroundColor: '#1b1b20',
+    backgroundColor: Colors.sheet,
     borderRadius: Radius['2xl'], borderWidth: 1, borderColor: Colors.glassBorder,
     paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.lg,
     overflow: 'hidden',

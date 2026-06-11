@@ -84,7 +84,7 @@ export type NavbarStyle = 'legacy' | 'minimal' | 'gestures'
 export const NAVBAR_STYLES: { id: NavbarStyle; label: string; hint: string }[] = [
   { id: 'legacy',   label: 'Legacy',        hint: 'The floating bar with labels' },
   { id: 'minimal',  label: 'Minimal',       hint: 'Compact pill, icons only' },
-  { id: 'gestures', label: 'Gestures only', hint: 'No bar — swipe the bottom edge' },
+  { id: 'gestures', label: 'Gestures only', hint: 'No bar — swipe anywhere to switch' },
 ]
 export function getNavbarStyle(): NavbarStyle {
   return (storage.getString(KEYS.navbarStyle) as NavbarStyle) ?? 'legacy'

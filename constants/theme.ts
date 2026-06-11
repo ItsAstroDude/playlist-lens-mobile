@@ -157,6 +157,12 @@ export const Colors = {
   warning:     '#FFB347',
 } as const
 
+// Text colours for surfaces that are ALWAYS dark regardless of theme mode —
+// playlist-card cover gradients and the detail-sheet hero. Using the themed text
+// there would flip to dark in light mode and vanish on the dark artwork. These are
+// fixed to the dark-theme values, so dark mode is unchanged.
+export const OnDark = { text: '#E5E1E4', textMuted: '#869585', textDim: '#3D4A3D' } as const
+
 // ─── Typography ───────────────────────────────────────────────────────────────
 export const FontSize = {
   xs:    10,

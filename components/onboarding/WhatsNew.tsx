@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%', maxWidth: 380, maxHeight: SH * 0.78,
-    backgroundColor: '#1b1b20', borderRadius: Radius['2xl'], borderWidth: 1, borderColor: Colors.glassBorder,
+    backgroundColor: Colors.sheet, borderRadius: Radius['2xl'], borderWidth: 1, borderColor: Colors.glassBorder,
     paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.lg, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.5, shadowRadius: 30, elevation: 20,
   },

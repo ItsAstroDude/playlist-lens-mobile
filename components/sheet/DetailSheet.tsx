@@ -24,7 +24,7 @@ import Animated, {
   runOnJS,
   Easing,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, OnDark } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { fmtDuration } from '@/utils/analyze'
@@ -540,14 +540,14 @@ const styles = StyleSheet.create({
   heroName: {
     fontFamily:    FontFamily.syneBold,
     fontSize:      FontSize['2xl'],
-    color:         Colors.text,
+    color:         OnDark.text,   // hero sits on the dark blurred-cover gradient
     letterSpacing: -1,
     lineHeight:    FontSize['2xl'] * 1.15,
   },
   heroOwner: {
     fontFamily: FontFamily.mono,
     fontSize:   FontSize.xs,
-    color:      Colors.textMuted,
+    color:      OnDark.textMuted,
     marginTop:  3,
   },
 
