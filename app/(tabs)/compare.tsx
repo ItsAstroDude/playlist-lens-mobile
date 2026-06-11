@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
 
   // Picker modal
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalSheet:    { backgroundColor: '#0f0f18', borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderTopWidth: 1, borderColor: Colors.glassBorder, maxHeight: '75%', paddingTop: Spacing.sm },
+  modalSheet:    { backgroundColor: Colors.sheet, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderTopWidth: 1, borderColor: Colors.glassBorder, maxHeight: '75%', paddingTop: Spacing.sm },
   modalHandle:   { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.glassBorder, alignSelf: 'center', marginBottom: Spacing.md },
   modalTitle:    { fontFamily: FontFamily.display, fontSize: FontSize.lg, fontWeight: '700', color: Colors.text, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md, letterSpacing: -0.5 },
   pickerRow:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, borderBottomWidth: 1, borderColor: Colors.glassBorder },

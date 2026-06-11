@@ -89,6 +89,7 @@ export function activeThemeMode(): ThemeMode { return _mode }
 // pass — tune contrasts/glows from on-device screenshots.
 const NEUTRALS = _isLight ? {
   background:     '#F6F5F8',                 // soft near-white, faint cool tint
+  sheet:          '#FFFFFF',                 // bottom sheets lift to pure white
   glass:          'rgba(22,20,32,0.04)',
   glassBorder:    'rgba(22,20,32,0.12)',
   glassHighlight: 'rgba(255,255,255,0.75)',  // specular top edge (light)
@@ -103,8 +104,11 @@ const NEUTRALS = _isLight ? {
   overlay:        'rgba(22,20,32,0.45)',     // scrim stays dark to dim modals
   overlayLight:   'rgba(22,20,32,0.25)',
   error:          '#B3261E',
+  violetGlow:     'rgba(78,3,208,0.05)',     // ambient blobs much softer on white
+  pinkGlow:       'rgba(255,112,165,0.045)',
 } : {
   background:     '#131315',
+  sheet:          '#17171b',                 // slightly lifted off the bg
   glass:          'rgba(255,255,255,0.04)',
   glassBorder:    'rgba(255,255,255,0.10)',
   glassHighlight: 'rgba(255,255,255,0.13)',
@@ -119,6 +123,8 @@ const NEUTRALS = _isLight ? {
   overlay:        'rgba(19,19,21,0.75)',
   overlayLight:   'rgba(19,19,21,0.4)',
   error:          '#ffb4ab',
+  violetGlow:     'rgba(78,3,208,0.14)',
+  pinkGlow:       'rgba(255,112,165,0.09)',
 }
 
 export const Colors = {
@@ -137,15 +143,9 @@ export const Colors = {
   // ── Aurora ──
   auroraTop:    alpha(_accent, 0.06),
 
-  // ── Violet ambient (top-left glow) ──
+  // ── Violet / pink / lavender accents (glows are mode-specific, in NEUTRALS) ──
   violet:      '#4E03D0',
-  violetGlow:  'rgba(78,3,208,0.14)',
-
-  // ── Pink / tertiary accent ──
   pink:        '#FF70A5',
-  pinkGlow:    'rgba(255,112,165,0.09)',
-
-  // ── Lavender / secondary ──
   lavender:    '#CCBDFF',
 
   // ── Compare palette ──

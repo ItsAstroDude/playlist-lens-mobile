@@ -7,7 +7,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence, runOnJS,
 } from 'react-native-reanimated'
-import { Colors, FontFamily } from '@/constants/theme'
+import { Colors, FontFamily, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { tabBarHidden } from '@/utils/tabBar'
 import { getNavbarStyle } from '@/utils/settings'
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   activePill: {
     position: 'absolute',
     width: 40, height: 26, borderRadius: 13,
-    backgroundColor: 'rgba(83,224,118,0.14)',
+    backgroundColor: alpha(Colors.greenPrimary, 0.14),
   },
   label: {
     fontFamily:    FontFamily.monoMedium, // weight 500

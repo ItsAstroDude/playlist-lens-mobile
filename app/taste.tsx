@@ -11,7 +11,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withDelay,
   withTiming, withRepeat, Easing, FadeIn,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { usePlaylists } from '@/hooks/useSpotify'
@@ -421,7 +421,7 @@ const my_styles = StyleSheet.create({
   card: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.xl, overflow: 'hidden', padding: Spacing.lg, gap: Spacing.md, alignItems: 'center' },
   specular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
   hint: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', lineHeight: FontSize.sm * 1.6 },
-  codeBox: { backgroundColor: 'rgba(83,224,118,0.08)', borderWidth: 1, borderColor: 'rgba(83,224,118,0.25)', borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing['2xl'] },
+  codeBox: { backgroundColor: alpha(Colors.greenPrimary, 0.08), borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.25), borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing['2xl'] },
   code: { fontFamily: FontFamily.monoMedium, fontSize: 28, color: Colors.greenPrimary, letterSpacing: 6 },
   shareBtn: { backgroundColor: Colors.greenPrimary, borderRadius: Radius.full, paddingVertical: Spacing.sm, paddingHorizontal: Spacing['2xl'], minWidth: 160, minHeight: 36, alignItems: 'center', justifyContent: 'center' },
   shareBtnText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.background },
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
 
   scanBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, justifyContent: 'center', paddingVertical: Spacing.sm },
   scanText: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted },
-  scanBtn: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: 'rgba(83,224,118,0.2)', borderRadius: Radius.full, paddingVertical: Spacing.sm, alignItems: 'center', marginTop: Spacing.xs },
+  scanBtn: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.2), borderRadius: Radius.full, paddingVertical: Spacing.sm, alignItems: 'center', marginTop: Spacing.xs },
   scanBtnText: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.greenPrimary },
 
   inputCard: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.xl, overflow: 'hidden', padding: Spacing.lg, gap: Spacing.md },

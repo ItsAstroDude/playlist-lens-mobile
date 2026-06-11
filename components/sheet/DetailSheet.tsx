@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     left:                 0,
     right:                0,
     height:               SHEET_H,
-    backgroundColor:      Colors.background,
+    backgroundColor:      Colors.sheet,
     borderTopLeftRadius:  Radius['2xl'],
     borderTopRightRadius: Radius['2xl'],
     borderTopWidth:       1,

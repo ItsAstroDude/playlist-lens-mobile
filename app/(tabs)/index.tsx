@@ -12,7 +12,7 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { deleteCache, CacheKeys } from '@/utils/cache'
 import { usePlaylists } from '@/hooks/useSpotify'
@@ -421,9 +421,9 @@ const styles = StyleSheet.create({
     marginBottom:      Spacing.md,
     paddingVertical:   Spacing.md,
     paddingHorizontal: Spacing.lg,
-    backgroundColor:   'rgba(83,224,118,0.07)',
+    backgroundColor:   alpha(Colors.greenPrimary, 0.07),
     borderWidth:       1,
-    borderColor:       'rgba(83,224,118,0.28)',
+    borderColor:       alpha(Colors.greenPrimary, 0.28),
     borderRadius:      Radius.lg,
     overflow:          'hidden',
   },

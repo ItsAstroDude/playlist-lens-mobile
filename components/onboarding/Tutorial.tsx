@@ -5,7 +5,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 
 const { width: W } = Dimensions.get('window')
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   root: { ...StyleSheet.absoluteFillObject, zIndex: 70, backgroundColor: Colors.background },
   glowTop: {
     position: 'absolute', top: -120, alignSelf: 'center', width: 320, height: 320, borderRadius: 160,
-    backgroundColor: 'rgba(83,224,118,0.10)',
+    backgroundColor: alpha(Colors.greenPrimary, 0.10),
   },
   safe: { flex: 1 },
   topBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },

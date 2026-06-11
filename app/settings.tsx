@@ -17,7 +17,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated'
 import {
-  Colors, FontFamily, FontSize, Spacing, Radius,
+  Colors, FontFamily, FontSize, Spacing, Radius, alpha,
   ACCENTS, FONTS, activeAccentId, activeFontId, activeThemeMode,
 } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
@@ -116,7 +116,7 @@ function ToggleRow({
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: Colors.glassBorder, true: 'rgba(83,224,118,0.45)' }}
+        trackColor={{ false: Colors.glassBorder, true: alpha(Colors.greenPrimary, 0.45) }}
         thumbColor={value ? Colors.greenPrimary : '#9a9a9a'}
         ios_backgroundColor={Colors.glassBorder}
       />

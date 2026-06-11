@@ -10,7 +10,7 @@ import Animated, {
   Easing,
   interpolate,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { Spring } from '@/constants/animation'
 import { Button } from './Button'
 
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     gap:               Spacing.sm,
     backgroundColor:   Colors.greenSubtle,
     borderWidth:       1,
-    borderColor:       'rgba(83,224,118,0.22)',
+    borderColor:       alpha(Colors.greenPrimary, 0.22),
     borderRadius:      Radius.full,
     paddingVertical:   Spacing.sm,
     paddingHorizontal: Spacing.md,
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   elapsed: {
     fontFamily: FontFamily.mono,
     fontSize:   FontSize.xs,
-    color:      'rgba(83,224,118,0.45)',
+    color:      alpha(Colors.greenPrimary, 0.45),
   },
   sub: {
     fontFamily: FontFamily.mono,

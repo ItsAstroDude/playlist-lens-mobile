@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 
 export default function SwipeTab() {
   // gentle pulse on the placeholder glyph
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, paddingBottom: 80 },
   glyphWrap: { width: 140, height: 160, alignItems: 'center', justifyContent: 'center' },
   cardBack: { position: 'absolute', width: 110, height: 150, borderRadius: Radius.xl, backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, transform: [{ rotate: '8deg' }, { translateX: 14 }] },
-  cardFront: { width: 110, height: 150, borderRadius: Radius.xl, backgroundColor: 'rgba(83,224,118,0.08)', borderWidth: 1, borderColor: 'rgba(83,224,118,0.3)', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-5deg' }] },
+  cardFront: { width: 110, height: 150, borderRadius: Radius.xl, backgroundColor: alpha(Colors.greenPrimary, 0.08), borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.3), alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-5deg' }] },
   heart: { fontSize: 48, color: Colors.greenPrimary },
   soon: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.textSecondary, letterSpacing: -0.5 },
   blurb: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', lineHeight: FontSize.sm * 1.6 },

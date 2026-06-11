@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 25 },
   sheet: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: '#17171b', borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'],
+    backgroundColor: Colors.sheet, borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'],
     borderTopWidth: 1, borderColor: Colors.glassBorder, zIndex: 26,
     paddingTop: Spacing.sm, paddingHorizontal: Spacing.lg,
   },

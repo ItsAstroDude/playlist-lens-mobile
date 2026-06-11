@@ -5,7 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { FlashList } from '@shopify/flash-list'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { useWrapped } from '@/hooks/useWrapped'
 import { fmtHours, type WrappedStats, type NameMs, type TrackStat } from '@/utils/wrapped'
@@ -53,7 +53,7 @@ const Clock = React.memo(function Clock({ clock }: { clock: number[] }) {
       <View style={styles.clockRow}>
         {clock.map((ms, h) => (
           <View key={h} style={styles.clockCol}>
-            <View style={[styles.clockBar, { height: `${Math.max(3, (ms / max) * 100)}%`, backgroundColor: h === peak ? Colors.greenPrimary : 'rgba(83,224,118,0.35)' }]} />
+            <View style={[styles.clockBar, { height: `${Math.max(3, (ms / max) * 100)}%`, backgroundColor: h === peak ? Colors.greenPrimary : alpha(Colors.greenPrimary, 0.35) }]} />
           </View>
         ))}
       </View>
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   emptyDesc: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, lineHeight: FontSize.sm * 1.6 },
   link: { color: Colors.greenPrimary, textDecorationLine: 'underline' },
   step: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
-  stepNum: { width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(83,224,118,0.12)', borderWidth: 1, borderColor: 'rgba(83,224,118,0.3)', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  stepNum: { width: 20, height: 20, borderRadius: 10, backgroundColor: alpha(Colors.greenPrimary, 0.12), borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.3), alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   stepNumText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.greenPrimary },
   stepText: { flex: 1, fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: FontSize.sm * 1.5 },
   importBtn: { backgroundColor: Colors.greenPrimary, borderRadius: Radius.full, paddingVertical: Spacing.md, alignItems: 'center', marginTop: Spacing.xs },

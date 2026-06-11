@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 20 },
   sheet: {
     position: 'absolute', bottom: 0, left: 0, right: 0, height: SHEET_H,
-    backgroundColor: '#17171b', borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'],
+    backgroundColor: Colors.sheet, borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'],
     borderTopWidth: 1, borderColor: Colors.glassBorder, zIndex: 21,
     alignItems: 'center', paddingTop: Spacing.sm, paddingHorizontal: Spacing.xl,
   },
