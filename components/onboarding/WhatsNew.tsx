@@ -4,7 +4,7 @@ import { BlurView } from 'expo-blur'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
-import { latestPatch, type ChangeKind } from '@/utils/whatsNew'
+import { latestPatch, CHANGELOG, type ChangeKind } from '@/utils/whatsNew'
 
 const { height: SH } = Dimensions.get('window')
 
@@ -14,8 +14,9 @@ const KIND_COLOR: Record<ChangeKind, string> = {
   Fixed:    Colors.pink,
 }
 
-export function WhatsNew({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const patch = latestPatch()
+export function WhatsNew({ visible, all, onClose }: { visible: boolean; all?: boolean; onClose: () => void }) {
+  // `all` (opened from Settings) lists the full history; otherwise just the newest.
+  const patches  = all ? CHANGELOG : [latestPatch()]
   const scale    = useSharedValue(0.92)
   const opacity  = useSharedValue(0)
   const backdrop = useSharedValue(0)
@@ -50,21 +51,26 @@ export function WhatsNew({ visible, onClose }: { visible: boolean; onClose: () =
       <Animated.View style={[styles.card, cardStyle]}>
         <View style={styles.specular} />
 
-        <Text style={styles.eyebrow}>WHAT'S NEW</Text>
-        <Text style={styles.title}>
-          v{patch.version} <Text style={styles.titleName}>· {patch.name}</Text>
-        </Text>
+        <Text style={styles.eyebrow}>{all ? 'CHANGELOG' : "WHAT'S NEW"}</Text>
 
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          {patch.sections.map(sec => (
-            <View key={sec.label} style={styles.section}>
-              <View style={[styles.tag, { borderColor: `${KIND_COLOR[sec.label]}66` }]}>
-                <Text style={[styles.tagText, { color: KIND_COLOR[sec.label] }]}>{sec.label}</Text>
-              </View>
-              {sec.items.map((it, i) => (
-                <View key={i} style={styles.item}>
-                  <View style={[styles.dot, { backgroundColor: KIND_COLOR[sec.label] }]} />
-                  <Text style={styles.itemText}>{it}</Text>
+          {patches.map((patch, pi) => (
+            <View key={patch.version} style={pi > 0 ? styles.patchBlock : undefined}>
+              <Text style={styles.title}>
+                v{patch.version} <Text style={styles.titleName}>· {patch.name}</Text>
+              </Text>
+              <Text style={styles.date}>{patch.date}</Text>
+              {patch.sections.map(sec => (
+                <View key={sec.label} style={styles.section}>
+                  <View style={[styles.tag, { borderColor: `${KIND_COLOR[sec.label]}66` }]}>
+                    <Text style={[styles.tagText, { color: KIND_COLOR[sec.label] }]}>{sec.label}</Text>
+                  </View>
+                  {sec.items.map((it, i) => (
+                    <View key={i} style={styles.item}>
+                      <View style={[styles.dot, { backgroundColor: KIND_COLOR[sec.label] }]} />
+                      <Text style={styles.itemText}>{it}</Text>
+                    </View>
+                  ))}
                 </View>
               ))}
             </View>
@@ -72,7 +78,7 @@ export function WhatsNew({ visible, onClose }: { visible: boolean; onClose: () =
         </ScrollView>
 
         <Pressable style={styles.btn} onPress={() => { haptic.success(); onClose() }}>
-          <Text style={styles.btnText}>Got it</Text>
+          <Text style={styles.btnText}>{all ? 'Close' : 'Got it'}</Text>
         </Pressable>
       </Animated.View>
     </Animated.View>
@@ -96,6 +102,8 @@ const styles = StyleSheet.create({
   title: { fontFamily: FontFamily.syneBold, fontSize: FontSize['2xl'], color: Colors.text, letterSpacing: -1, marginTop: 2 },
   titleName: { color: Colors.greenPrimary },
   scroll: { marginTop: Spacing.lg },
+  date: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2, marginBottom: Spacing.md },
+  patchBlock: { marginTop: Spacing.lg, paddingTop: Spacing.xl, borderTopWidth: 1, borderTopColor: Colors.glassBorder },
   section: { marginBottom: Spacing.lg, gap: Spacing.sm },
   tag: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   tagText: { fontFamily: FontFamily.monoMedium, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' },

@@ -34,6 +34,7 @@ export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [showTutorial,   setShowTutorial]   = useState(false)
   const [showWhatsNew,   setShowWhatsNew]    = useState(false)
+  const [whatsNewAll,    setWhatsNewAll]     = useState(false)  // Settings = full history
   const [showUpdate,     setShowUpdate]      = useState(false)
 
   const [fontsLoaded] = useFonts({
@@ -67,7 +68,8 @@ export default function RootLayout() {
     })
     // Settings can re-open onboarding / patch notes from anywhere.
     const unsubTut = onOpenTutorial(() => setShowTutorial(true))
-    const unsubWN  = onOpenWhatsNew(() => setShowWhatsNew(true))
+    // Opened from Settings → show the full patch-note history.
+    const unsubWN  = onOpenWhatsNew(() => { setWhatsNewAll(true); setShowWhatsNew(true) })
     return () => { unsubExpired(); unsubSignedIn(); unsubTut(); unsubWN() }
   }, [])
 
@@ -75,7 +77,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isReady || !isAuthenticated) return
     if (shouldShowTutorial()) setShowTutorial(true)
-    else if (shouldShowWhatsNew()) setShowWhatsNew(true)
+    // Auto-fire after a version bump → just the newest entry, not the whole history.
+    else if (shouldShowWhatsNew()) { setWhatsNewAll(false); setShowWhatsNew(true) }
   }, [isReady, isAuthenticated])
 
   const onTutorialDone = () => {
@@ -112,7 +115,7 @@ export default function RootLayout() {
       </Stack>
 
       {/* Root-mounted overlays (above the whole navigator) */}
-      <WhatsNew visible={showWhatsNew} onClose={onWhatsNewClose} />
+      <WhatsNew visible={showWhatsNew} all={whatsNewAll} onClose={onWhatsNewClose} />
       {showTutorial && <Tutorial onDone={onTutorialDone} />}
       <ConfirmModal
         visible={showUpdate}
