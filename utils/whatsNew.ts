@@ -19,6 +19,31 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.2',
+    name:    'Expressive Expressions',
+    date:    '2026-06-11',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Light mode — a bright new theme for the whole app. Flip between Dark and Light in Settings › Appearance.',
+          'Accent colours — six to choose from. Your pick flows through every screen, button and highlight.',
+          'Fonts — swap the body typeface (DM Mono, Space Mono or IBM Plex Mono). The playlist.lens wordmark and headers stay on-brand.',
+          'Pick your navigation — the floating bar, a minimal icons-only pill, or no bar at all (swipe anywhere to switch tabs).',
+          'Grid or list — view your lenses as full-width cards or a compact two-column grid, toggled right on the Lenses screen.',
+          'Custom home banner — add your own line to the home screen’s rotating tips.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Everything you pick is saved instantly and applies with a quick restart — accent, font, theme and navigation all in one new Appearance section.',
+          'Your accent automatically adapts between dark and light so it always stays readable.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.1',
     name:    'Polish & Power',
     date:    '2026-06-09',
