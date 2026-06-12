@@ -33,6 +33,42 @@ interface FetchOptions extends RequestInit {
   retries?:     number
 }
 
+// ─── Token refresh (single-flight) ───────────────────────────────────────────
+// Spotify access tokens expire after 1h. Before v1.3 a 401 always force-logged
+// the user out; now we exchange the stored refresh token via the backend (the
+// client secret lives there) and retry once. One refresh at a time — parallel
+// 401s (e.g. the now-playing poll racing a user action) share the same promise.
+let refreshInFlight: Promise<boolean> | null = null
+
+async function tryRefreshToken(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const rt = await SecureStore.getItemAsync(SecureKeys.refreshToken)
+        if (!rt) return false
+        const res = await fetch(`${BACKEND_URL}/api/refresh`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ refresh_token: rt }),
+        })
+        if (!res.ok) return false
+        const data = await res.json()
+        if (!data.access_token) return false
+        await SecureStore.setItemAsync(SecureKeys.accessToken, data.access_token)
+        // Spotify may rotate the refresh token — keep the newest one.
+        if (data.refresh_token) {
+          await SecureStore.setItemAsync(SecureKeys.refreshToken, data.refresh_token)
+        }
+        return true
+      } catch {
+        return false
+      }
+    })()
+    refreshInFlight.finally(() => { refreshInFlight = null })
+  }
+  return refreshInFlight
+}
+
 // ─── Core fetch wrapper ───────────────────────────────────────────────────────
 export async function apiFetch<T>(
   path: string,
@@ -48,7 +84,7 @@ export async function apiFetch<T>(
     coldStartTimer = setTimeout(onColdStart, COLD_START_THRESHOLD_MS)
   }
 
-  const attemptFetch = async (attempt: number): Promise<T> => {
+  const attemptFetch = async (attempt: number, refreshed = false): Promise<T> => {
     try {
       const token = await SecureStore.getItemAsync(SecureKeys.accessToken)
       const headers: HeadersInit = {
@@ -65,13 +101,16 @@ export async function apiFetch<T>(
         if (attempt < MAX_RETRIES) {
           onRetry?.(attempt + 1)
           await delay(retryAfter * 1000)
-          return attemptFetch(attempt + 1)
+          return attemptFetch(attempt + 1, refreshed)
         }
         throw new ApiError(429, 'Rate limited. Please wait a moment and try again.')
       }
 
-      // Handle auth expired — clear stored token and signal the app to re-route
+      // Handle auth expired — refresh once, retry; only log out if that fails
       if (response.status === 401) {
+        if (!refreshed && await tryRefreshToken()) {
+          return attemptFetch(attempt, true)
+        }
         await SecureStore.deleteItemAsync(SecureKeys.accessToken).catch(() => {})
         emitSessionExpired()
         throw new ApiError(401, 'Session expired. Please log in again.')
@@ -95,7 +134,7 @@ export async function apiFetch<T>(
       if (attempt < (retries || MAX_RETRIES)) {
         onRetry?.(attempt + 1)
         await delay(RETRY_DELAY_MS * Math.pow(2, attempt)) // exponential backoff
-        return attemptFetch(attempt + 1)
+        return attemptFetch(attempt + 1, refreshed)
       }
 
       throw new ApiError(0, 'Connection failed. Check your network and try again.')

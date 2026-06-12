@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking'
 import { SecureKeys, flush } from '@/utils/cache'
 import { api, BACKEND_URL } from '@/utils/api'
 import { emitSessionExpired, emitSignedIn } from '@/utils/authEvents'
+import { setScopeStatus } from '@/utils/scopeStatus'
 import type { SpotifyUser } from '@/types'
 
 WebBrowser.maybeCompleteAuthSession()
@@ -69,6 +70,10 @@ export async function finalizeAuthFromParams(params: {
   if (refresh) await SecureStore.setItemAsync(SecureKeys.refreshToken, refresh)
   // One-time state — clear so it can't be replayed.
   await SecureStore.deleteItemAsync(SecureKeys.oauthState)
+
+  // Any login through the v1.3 backend grants the full scope set (now-playing
+  // + playlist writes) — clear any pending "reconnect Spotify" prompts.
+  setScopeStatus('ok')
 
   // Tell the root layout we're authed → it purges the auth screen from the
   // navigator so a back-gesture can't pop back to login.

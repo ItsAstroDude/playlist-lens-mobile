@@ -11,6 +11,7 @@ import { Colors, FontFamily, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { tabBarHidden } from '@/utils/tabBar'
 import { getNavbarStyle } from '@/utils/settings'
+import { NowPlayingBar } from '@/components/nowplaying/NowPlayingBar'
 
 const BAR_H    = 60
 const ACTIVE   = Colors.greenPrimary
@@ -215,10 +216,18 @@ export default function TabLayout() {
     </Tabs>
   )
 
+  // The live now-playing bar floats above whichever navbar variant is active.
+  const content = (
+    <View style={styles.flex}>
+      {tabs}
+      <NowPlayingBar navStyle={navStyle} />
+    </View>
+  )
+
   // Gestures mode wraps the whole navigator so a swipe anywhere switches tabs.
   return navStyle === 'gestures'
-    ? <GestureDetector gesture={swipe}><View style={styles.flex}>{tabs}</View></GestureDetector>
-    : tabs
+    ? <GestureDetector gesture={swipe}>{content}</GestureDetector>
+    : content
 }
 
 // ─── Bar + item layout ──────────────────────────────────────────────────────────

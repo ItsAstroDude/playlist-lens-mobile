@@ -196,7 +196,7 @@ function NavbarPicker({ value, onPick }: { value: NavbarStyle; onPick: (id: Navb
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function SettingsScreen() {
-  const { logout, getMe } = useAuth()
+  const { login, logout, getMe } = useAuth()
 
   const [haptics, setHaptics]           = useState(hapticsEnabled())
   const [reduceMotion, setReduceMotion] = useState(reduceMotionEnabled())
@@ -283,6 +283,18 @@ export default function SettingsScreen() {
       setUpdateMsg('Check failed')
       setTimeout(() => setUpdateMsg(null), 2500)
     }
+  }
+
+  // ── Reconnect Spotify (v1.3) — re-runs OAuth to pick up the new scopes
+  // (now-playing + playlist editing). Safe to do anytime; tokens just refresh.
+  const [reconnectMsg, setReconnectMsg] = useState<string | null>(null)
+  const onReconnect = async () => {
+    haptic.medium()
+    setReconnectMsg('Opening Spotify…')
+    const ok = await login()
+    setReconnectMsg(ok ? 'Connected ✓' : 'Cancelled')
+    if (ok) haptic.success()
+    setTimeout(() => setReconnectMsg(null), 2500)
   }
 
   const onClearCache = () => {
@@ -545,6 +557,12 @@ export default function SettingsScreen() {
               icon="person-circle-outline"
               label={me?.display_name || 'Spotify account'}
               value={me ? 'Connected' : '…'}
+            />
+            <SettingRow
+              icon="sync-outline"
+              label="Reconnect Spotify"
+              value={reconnectMsg ?? undefined}
+              onPress={onReconnect}
             />
             <SettingRow
               icon="log-out-outline"
