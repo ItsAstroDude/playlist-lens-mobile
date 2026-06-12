@@ -8,12 +8,15 @@ import Animated, {
   Easing, cancelAnimation, useAnimatedStyle, useSharedValue,
   withRepeat, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated'
-import { ACCENTS, Colors, FontFamily, OnDark, activeAccentId, alpha } from '@/constants/theme'
+import { ACCENTS, Colors, FontFamily, OnDark, activeAccentId, activeThemeMode, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { tabBarHidden } from '@/utils/tabBar'
-import { reduceMotionEnabled, type NavbarStyle } from '@/utils/settings'
+import {
+  getNowPlayingPos, onNowPlayingPos, reduceMotionEnabled, type NavbarStyle,
+} from '@/utils/settings'
 import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { useAuth } from '@/hooks/useAuth'
+import { onOpenNowPlaying } from '@/utils/overlayEvents'
 import { NowPlayingSheet } from './NowPlayingSheet'
 
 // ─── Live now-playing bar (v1.3 "Pulse") ─────────────────────────────────────
@@ -22,14 +25,22 @@ import { NowPlayingSheet } from './NowPlayingSheet'
 // stats sheet. When the token predates the v1.3 scopes it becomes the inline
 // "Reconnect Spotify" prompt instead (dismissible for the session).
 //
-// Like the tab bar, this surface is ALWAYS dark regardless of theme mode — so
-// text uses the fixed OnDark tokens and the accent is the RAW hue (the light-
-// mode darkened accent would vanish on a dark pill).
+// Unlike the (deliberately always-dark) tab bar, this pill FOLLOWS the theme —
+// white in light mode to match the sheets (Astro 2026-06-12). Dark mode keeps
+// OnDark text + the RAW accent hue; light mode uses themed text + the darkened
+// accent so everything reads on white.
 
 const BAR_H = 48
 
-// The bright accent as picked (NOT darkened for light mode — see note above).
+const IS_LIGHT   = activeThemeMode() === 'light'
 const RAW_ACCENT = (ACCENTS.find(a => a.id === activeAccentId()) ?? ACCENTS[0]).hex
+// Surface-aware tokens for the pill.
+const ACCENT    = IS_LIGHT ? Colors.greenPrimary : RAW_ACCENT
+const TXT       = IS_LIGHT ? Colors.text      : OnDark.text
+const TXT_MUTED = IS_LIGHT ? Colors.textMuted : OnDark.textMuted
+const PILL_BG   = IS_LIGHT ? 'rgba(255,255,255,0.93)' : 'rgba(18,18,22,0.82)'
+const BLUR_TINT = IS_LIGHT ? 'light' as const : 'dark' as const
+const TRACK_BG  = IS_LIGHT ? 'rgba(22,20,32,0.10)' : 'rgba(255,255,255,0.12)'
 
 // ── Animated 3-bar equalizer — the "this is live" signal ──
 function Equalizer({ playing }: { playing: boolean }) {
@@ -77,9 +88,18 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
   const [dismissed, setDismissed] = useState(false)   // reconnect pill only, per session
   const [sheetOpen, setSheetOpen] = useState(false)
 
+  // User-selectable placement (Settings → Appearance) — applies live. When the
+  // user parks now-playing in the home strip, this bottom pill stands down.
+  const [pos, setPos] = useState(getNowPlayingPos)
+  useEffect(() => onNowPlayingPos(setPos), [])
+
+  // The stats sheet lives HERE (always mounted at the layout level) no matter
+  // the placement — the home strip opens it via this event.
+  useEffect(() => onOpenNowPlaying(() => setSheetOpen(true)), [])
+
   const isTrack = !!np?.item && np.type === 'track'
   const showReconnect = needsReconnect && !dismissed
-  const visible = showReconnect || isTrack
+  const visible = pos === 'bottom' && (showReconnect || isTrack)
 
   // Sits just above whichever navbar variant is active.
   const bottom = useMemo(() => {
@@ -139,12 +159,12 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
         style={[styles.wrap, { bottom }, wrapStyle]}
       >
         <View style={styles.pill}>
-          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={30} tint={BLUR_TINT} style={StyleSheet.absoluteFill} />
 
           {showReconnect ? (
             <Pressable style={styles.inner} onPress={onReconnect} disabled={isLoading}>
               <View style={styles.reconnectIcon}>
-                <Ionicons name="sync" size={15} color={RAW_ACCENT} />
+                <Ionicons name="sync" size={15} color={ACCENT} />
               </View>
               <View style={styles.textCol}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -154,13 +174,13 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
                   New features need a quick re-auth
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={14} color={OnDark.textMuted} />
+              <Ionicons name="chevron-forward" size={14} color={TXT_MUTED} />
               <TouchableOpacity
                 onPress={() => { haptic.light(); setDismissed(true) }}
                 hitSlop={10}
                 style={styles.dismiss}
               >
-                <Ionicons name="close" size={14} color={OnDark.textMuted} />
+                <Ionicons name="close" size={14} color={TXT_MUTED} />
               </TouchableOpacity>
             </Pressable>
           ) : (
@@ -169,7 +189,7 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
                 <Image source={{ uri: art }} style={styles.art} contentFit="cover" transition={150} />
               ) : (
                 <View style={[styles.art, styles.artFallback]}>
-                  <Ionicons name="musical-note" size={14} color={RAW_ACCENT} />
+                  <Ionicons name="musical-note" size={14} color={ACCENT} />
                 </View>
               )}
               <View style={styles.textCol}>
@@ -205,7 +225,7 @@ const styles = StyleSheet.create({
     borderRadius: BAR_H / 2,
     borderWidth: 1,
     borderColor: Colors.glassBorder,
-    backgroundColor: 'rgba(18,18,22,0.82)', // always-dark, docks with the tab bar
+    backgroundColor: PILL_BG, // follows the theme — white pill in light mode
     overflow: 'hidden',
     elevation: 10,
     shadowColor: '#000',
@@ -224,20 +244,20 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 16,
   },
   artFallback: {
-    backgroundColor: alpha(RAW_ACCENT, 0.12),
+    backgroundColor: alpha(ACCENT, 0.12),
     alignItems: 'center', justifyContent: 'center',
   },
   reconnectIcon: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: alpha(RAW_ACCENT, 0.12),
+    backgroundColor: alpha(ACCENT, 0.12),
     alignItems: 'center', justifyContent: 'center',
   },
   textCol: { flex: 1, gap: 1 },
   title: {
-    fontFamily: FontFamily.monoMedium, fontSize: 12, color: OnDark.text,
+    fontFamily: FontFamily.monoMedium, fontSize: 12, color: TXT,
   },
   subtitle: {
-    fontFamily: FontFamily.mono, fontSize: 10, color: OnDark.textMuted,
+    fontFamily: FontFamily.mono, fontSize: 10, color: TXT_MUTED,
   },
   dismiss: {
     width: 26, height: 26, borderRadius: 13,
@@ -246,10 +266,10 @@ const styles = StyleSheet.create({
   progressTrack: {
     position: 'absolute', left: 22, right: 22, bottom: 5,
     height: 2, borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: TRACK_BG,
   },
   progressFill: {
-    height: 2, borderRadius: 1, backgroundColor: RAW_ACCENT,
+    height: 2, borderRadius: 1, backgroundColor: ACCENT,
   },
 })
 
@@ -258,5 +278,5 @@ const eq = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-end', gap: 2.5,
     height: 16, marginRight: 6,
   },
-  bar: { width: 3, borderRadius: 1.5, backgroundColor: RAW_ACCENT },
+  bar: { width: 3, borderRadius: 1.5, backgroundColor: ACCENT },
 })

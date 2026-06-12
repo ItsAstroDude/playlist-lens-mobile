@@ -21,7 +21,7 @@ import { PlaylistCard } from '@/components/playlist/PlaylistCard'
 import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
-import { RotatingStrip } from '@/components/ui/RotatingStrip'
+import { HomeTopStrip } from '@/components/nowplaying/NowPlayingStrip'
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist'
 import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet'
 import { loadOrder, saveOrder, applyOrder, pinToTop } from '@/utils/playlistOrder'
@@ -175,7 +175,7 @@ export default function PlaylistsTab() {
   // the quotes jump/skip on refresh. Only re-derives when cold-start flips.
   const listHeader = useMemo(() => (
     <>
-      {coldStart ? <ColdStartOverlay visible /> : <RotatingStrip />}
+      {coldStart ? <ColdStartOverlay visible /> : <HomeTopStrip />}
       <TouchableOpacity style={styles.tastePill} onPress={openTaste} activeOpacity={0.85}>
         <View style={styles.tastePillSpecular} />
         <Text style={styles.tastePillIcon}>◎</Text>

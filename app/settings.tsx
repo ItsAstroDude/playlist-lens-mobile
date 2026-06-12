@@ -31,6 +31,7 @@ import {
   getThemeMode, setThemeMode, type ThemeMode,
   getCustomQuote, setCustomQuote,
   NAVBAR_STYLES, getNavbarStyle, setNavbarStyle, launchNavbarStyle, type NavbarStyle,
+  getNowPlayingPos, setNowPlayingPos, type NowPlayingPos,
 } from '@/utils/settings'
 import { clearWrappedStats } from '@/hooks/useWrapped'
 import { loadArtReports } from '@/hooks/useArtwork'
@@ -219,6 +220,10 @@ export default function SettingsScreen() {
     pendingAccent !== activeAccentId() ||
     pendingFont   !== activeFontId()   ||
     pendingNavbar !== launchNavbarStyle()
+
+  // Now-playing placement applies LIVE (the bar/strip subscribe) — no restart row.
+  const [npPos, setNpPos] = useState<NowPlayingPos>(getNowPlayingPos)
+  const onPickNpPos = (p: NowPlayingPos) => { haptic.light(); setNowPlayingPos(p); setNpPos(p) }
 
   const onPickMode   = (m: ThemeMode) => { haptic.light(); setThemeMode(m); setPendingMode(m) }
   const onPickAccent = (id: string) => { haptic.light(); setAccentId(id); setPendingAccent(id) }
@@ -468,6 +473,31 @@ export default function SettingsScreen() {
             <View style={styles.appearanceBlock}>
               <Text style={styles.pickerLabel}>Navigation</Text>
               <NavbarPicker value={pendingNavbar} onPick={onPickNavbar} />
+            </View>
+            <View style={styles.appearanceBlock}>
+              <Text style={styles.pickerLabel}>Now playing</Text>
+              <View style={styles.segment}>
+                {([
+                  { id: 'bottom', icon: 'chevron-down-circle-outline', label: 'Above nav' },
+                  { id: 'top',    icon: 'chevron-up-circle-outline',   label: 'Home strip' },
+                ] as Array<{ id: NowPlayingPos; icon: keyof typeof Ionicons.glyphMap; label: string }>).map(o => {
+                  const active = npPos === o.id
+                  return (
+                    <TouchableOpacity
+                      key={o.id}
+                      onPress={() => onPickNpPos(o.id)}
+                      activeOpacity={0.8}
+                      style={[styles.segItem, active && styles.segItemActive]}
+                    >
+                      <Ionicons name={o.icon} size={14} color={active ? Colors.background : Colors.textMuted} />
+                      <Text style={[styles.segText, active && styles.segTextActive]}>{o.label}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+              <Text style={styles.quoteHint}>
+                Where the live bar lives — docked above the nav, or up in the home tips strip.
+              </Text>
             </View>
             <View style={[styles.appearanceBlock, !appearanceDirty && { borderBottomWidth: 0 }]}>
               <Text style={styles.pickerLabel}>Home banner</Text>

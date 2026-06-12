@@ -14,6 +14,7 @@ const KEYS = {
   customQuote:  'settings.customQuote',
   lensLayout:   'settings.lensLayout',
   navbarStyle:  'settings.navbarStyle',
+  nowPlayingPos: 'settings.nowPlayingPos',
 } as const
 
 // ── Haptics (default ON) ──
@@ -96,6 +97,24 @@ export function setNavbarStyle(style: NavbarStyle): void {
 // choice differs from the bar actually on screen this session.
 const _launchNavbarStyle = getNavbarStyle()
 export function launchNavbarStyle(): NavbarStyle { return _launchNavbarStyle }
+
+// ── Now-playing bar position (v1.3) — applies LIVE, no restart ──
+// 'bottom' = glass pill docked above the floating tab bar (every tab);
+// 'top'    = lives in the Lenses quote-strip slot (quotes return when idle).
+// Both the bar and the strip subscribe, so flipping it in Settings is instant.
+export type NowPlayingPos = 'bottom' | 'top'
+const npPosListeners = new Set<(p: NowPlayingPos) => void>()
+export function getNowPlayingPos(): NowPlayingPos {
+  return (storage.getString(KEYS.nowPlayingPos) as NowPlayingPos) ?? 'bottom'
+}
+export function setNowPlayingPos(pos: NowPlayingPos): void {
+  storage.set(KEYS.nowPlayingPos, pos)
+  npPosListeners.forEach(cb => cb(pos))
+}
+export function onNowPlayingPos(cb: (p: NowPlayingPos) => void): () => void {
+  npPosListeners.add(cb)
+  return () => { npPosListeners.delete(cb) }
+}
 
 // ── Custom home banner (empty = rotating tips, the default) ──
 // Joins the Lenses top-strip rotation pool; applied live on next screen focus.
