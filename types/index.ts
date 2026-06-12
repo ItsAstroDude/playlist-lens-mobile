@@ -10,7 +10,8 @@ export interface SpotifyPlaylist {
   name:   string
   images: Array<{ url: string }>
   tracks: { total: number }
-  owner:  { display_name: string }
+  owner:  { display_name: string; id?: string }
+  collaborative?: boolean   // collaborative playlists are also swipe-editable
 }
 
 export interface SpotifyTrack {
@@ -25,6 +26,11 @@ export interface SpotifyTrack {
     images:       Array<{ url: string }>
   }
   external_urls: { spotify: string }
+  // Present in the raw Spotify payload all along — typed for swipe-refresh
+  // (writes need uri, the preview resolver wants the ISRC).
+  uri?:          string
+  is_local?:     boolean
+  external_ids?: { isrc?: string }
 }
 
 export interface SpotifyAudioFeatures {
