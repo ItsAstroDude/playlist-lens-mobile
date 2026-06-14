@@ -61,7 +61,7 @@ export function usePlaylistTracks() {
     plId: string,
     opts?: { onColdStart?: () => void; onRetry?: (n: number) => void }
   ) => {
-    const cacheKey = CacheKeys.playlistAnalysis(plId)
+    const cacheKey = CacheKeys.playlistTracks(plId)
     const cached = getCache<SpotifyTrack[]>(cacheKey)
     if (cached) {
       setState({ status: 'success', data: cached, error: null, partial: null })

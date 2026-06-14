@@ -11,6 +11,7 @@ import {
   normalizeGenre,
   fmtDuration,
   fmtTempo,
+  isPlaylistAnalysis,
 } from '../utils/analyze'
 import { makeTrack, makeFeatures } from './fixtures'
 import type { SpotifyTrack, SpotifyAudioFeatures, GenreCount } from '../types'
@@ -31,6 +32,11 @@ describe('buildAnalysis', () => {
     expect(result.topArtists).toHaveLength(1)
     expect(result.audioFeatures).not.toBeNull()
     expect(result.vibe).toBeTruthy()
+  })
+
+  it('produces an object that passes the analysis shape guard', () => {
+    const result = buildAnalysis('pl', 'pl', '', null, [makeTrack()], [], {})
+    expect(isPlaylistAnalysis(result)).toBe(true)
   })
 
   it('counts artist appearances correctly', () => {
@@ -82,6 +88,31 @@ describe('buildAnalysis', () => {
   it('returns null audioFeatures when no features provided', () => {
     const result = buildAnalysis('pl', 'pl', '', null, [makeTrack()], [], {})
     expect(result.audioFeatures).toBeNull()
+  })
+})
+
+// ─── isPlaylistAnalysis — guards the analysis: cache namespace ──────────────────
+// Regression: swipe-refresh once wrote raw track ARRAYS into analysis:* keys,
+// which the taste aggregator read as PlaylistAnalysis → "length of undefined"
+// gray-screen crash on the taste + compare screens.
+describe('isPlaylistAnalysis', () => {
+  it('accepts a real analysis', () => {
+    const a = buildAnalysis('pl', 'pl', '', null, [makeTrack()], [], {})
+    expect(isPlaylistAnalysis(a)).toBe(true)
+  })
+
+  it('rejects a raw track array (the poison shape)', () => {
+    expect(isPlaylistAnalysis([makeTrack(), makeTrack()])).toBe(false)
+  })
+
+  it('rejects null / undefined / primitives', () => {
+    expect(isPlaylistAnalysis(null)).toBe(false)
+    expect(isPlaylistAnalysis(undefined)).toBe(false)
+    expect(isPlaylistAnalysis('nope')).toBe(false)
+  })
+
+  it('rejects an object missing the list fields', () => {
+    expect(isPlaylistAnalysis({ playlistId: 'x', tracks: [] })).toBe(false)
   })
 
   it('computes total duration correctly', () => {

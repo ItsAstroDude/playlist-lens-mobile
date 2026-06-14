@@ -10,6 +10,18 @@ import type {
   PopBucket,
 } from '@/types'
 
+/**
+ * Shape guard for cached analyses. The `analysis:*` MMKV namespace was once
+ * poisoned by raw track ARRAYS (v1.3 swipe bug) — readers that trusted the
+ * cache crashed taste/compare with "length of undefined". Validate before use;
+ * callers should treat a failure as a cache miss and delete the entry.
+ */
+export function isPlaylistAnalysis(v: unknown): v is PlaylistAnalysis {
+  const a = v as PlaylistAnalysis | null
+  return !!a && typeof a === 'object' && !Array.isArray(v) &&
+    Array.isArray(a.tracks) && Array.isArray(a.topArtists) && Array.isArray(a.topGenres)
+}
+
 // ─── Main builder ─────────────────────────────────────────────────────────────
 export function buildAnalysis(
   playlistId:   string,

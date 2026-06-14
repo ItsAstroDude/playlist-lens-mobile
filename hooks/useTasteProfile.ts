@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import * as SecureStore from 'expo-secure-store'
 import { api } from '@/utils/api'
 import { storage, CacheKeys } from '@/utils/cache'
-import { buildAnalysis, computeVibe, computeVibeFromGenres } from '@/utils/analyze'
+import { buildAnalysis, computeVibe, computeVibeFromGenres, isPlaylistAnalysis } from '@/utils/analyze'
 import type {
   SpotifyPlaylist, SpotifyTrack, SpotifyAudioFeatures,
   PlaylistAnalysis, TasteProfile, ArtistCount, GenreCount, AudioProfile,
@@ -27,7 +27,12 @@ function readCachedAnalyses(): PlaylistAnalysis[] {
       if (!raw) continue
       try {
         const { data, ts } = JSON.parse(raw)
-        if (data && Date.now() - ts < CACHE_TTL) out.push(data as PlaylistAnalysis)
+        if (data && Date.now() - ts < CACHE_TTL) {
+          // Self-heal: anything in `analysis:*` that isn't a real analysis (the
+          // v1.3 raw-tracks poisoning) crashed aggregate() → taste gray-screen.
+          if (isPlaylistAnalysis(data)) out.push(data)
+          else storage.remove(key)
+        }
       } catch {}
     }
     return out

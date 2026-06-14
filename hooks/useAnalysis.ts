@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { api, ApiError } from '@/utils/api'
-import { getCache, setCache, CacheKeys } from '@/utils/cache'
-import { buildAnalysis } from '@/utils/analyze'
+import { getCache, setCache, deleteCache, CacheKeys } from '@/utils/cache'
+import { buildAnalysis, isPlaylistAnalysis } from '@/utils/analyze'
 import type {
   SpotifyTrack,
   SpotifyAudioFeatures,
@@ -30,13 +30,14 @@ export function useAnalysis() {
     palette:      PlaylistPalette | null,
     opts?:        { onColdStart?: () => void; onGone?: () => void },
   ) => {
-    // MMKV cache hit — instant
+    // MMKV cache hit — instant. Self-heal poisoned entries (see isPlaylistAnalysis).
     const cacheKey = CacheKeys.playlistAnalysis(playlistId)
     const cached   = getCache<PlaylistAnalysis>(cacheKey)
-    if (cached) {
+    if (cached && isPlaylistAnalysis(cached)) {
       setState({ status: 'success', data: cached, error: null, partial: null })
       return cached
     }
+    if (cached) deleteCache(cacheKey)   // malformed — drop it and re-analyze
 
     setState({ status: 'loading', data: null, error: null, partial: null })
 

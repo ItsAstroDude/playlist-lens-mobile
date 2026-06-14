@@ -41,6 +41,10 @@ export function deleteCache(key: string): void {
 export const CacheKeys = {
   playlists:         'playlists',
   playlistAnalysis:  (id: string) => `analysis:${id}`,
+  // Raw track lists (swipe-refresh) — MUST stay out of the `analysis:` namespace:
+  // the taste profile aggregates EVERY `analysis:*` key as a PlaylistAnalysis,
+  // and a raw array there crashed taste/compare (v1.3 gray-screen bug).
+  playlistTracks:    (id: string) => `tracks:${id}`,
   playlistPalette:   (id: string) => `palette:${id}`,
   tasteProfile:      'taste_profile',
 }
