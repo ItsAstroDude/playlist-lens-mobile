@@ -5,9 +5,8 @@ import {
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import Svg, { Defs, Mask, Rect } from 'react-native-svg'
 import Animated, {
-  useSharedValue, useAnimatedStyle, useAnimatedProps,
+  useSharedValue, useAnimatedStyle,
   withRepeat, withTiming, FadeIn, Easing,
 } from 'react-native-reanimated'
 import {
@@ -23,15 +22,13 @@ import { loadCachedWrapped } from '@/hooks/useWrapped'
 // bar on its dark surface — it uses the RAW accent hue + OnDark text rather than
 // the light-mode-darkened Colors.greenPrimary, which would wash out on the dim.
 const RAW_ACCENT  = (ACCENTS.find(a => a.id === activeAccentId()) ?? ACCENTS[0]).hex
-const SCRIM       = '#070709'
+const SCRIM_RGBA  = 'rgba(7,7,9,0.93)'
 const BODY_TXT    = 'rgba(231,228,236,0.74)'
 const HOLE_RADIUS = 16
 
 // Glide between spotlights / collapse when there's nothing to highlight.
 const GLIDE    = { duration: 460, easing: Easing.out(Easing.cubic) }
 const COLLAPSE = { duration: 300, easing: Easing.in(Easing.cubic) }
-
-const AnimatedRect = Animated.createAnimatedComponent(Rect)
 
 type TabRoute = 'index' | 'compare' | 'wrapped' | 'swipe'
 const ROUTE_INDEX: Record<TabRoute, number> = { index: 0, compare: 1, wrapped: 2, swipe: 3 }
@@ -190,10 +187,14 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
     if (width && height) setSize({ width, height })
   }
 
-  const holeProps = useAnimatedProps(() => ({
-    x: hx.value, y: hy.value, width: hw.value, height: hh.value,
-  }))
-  const ringStyle = useAnimatedStyle(() => ({
+  // Scrim = four dark bands framing the hole. Animating plain Views on the UI
+  // thread stays smooth even while the next tab screen mounts; an animated SVG
+  // mask re-rasterized the full screen every frame and stuttered.
+  const bandTop    = useAnimatedStyle(() => ({ height: Math.max(0, hy.value) }))
+  const bandBottom = useAnimatedStyle(() => ({ top: hy.value + hh.value }))
+  const bandLeft   = useAnimatedStyle(() => ({ top: hy.value, height: hh.value, width: Math.max(0, hx.value) }))
+  const bandRight  = useAnimatedStyle(() => ({ top: hy.value, height: hh.value, left: hx.value + hw.value }))
+  const ringStyle  = useAnimatedStyle(() => ({
     left: hx.value, top: hy.value, width: hw.value, height: hh.value,
     opacity:   ringO.value * (0.6 + pulse.value * 0.4),
     transform: [{ scale: 1 + pulse.value * 0.035 }],
@@ -207,16 +208,11 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
 
   return (
     <View style={styles.root} onLayout={onRootLayout}>
-      {/* Dimming scrim with a rounded cut-out punched over the target */}
-      <Svg width={W} height={H} style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Defs>
-          <Mask id="tourHole">
-            <Rect x={0} y={0} width={W} height={H} fill="#fff" />
-            <AnimatedRect animatedProps={holeProps} rx={HOLE_RADIUS} ry={HOLE_RADIUS} fill="#000" />
-          </Mask>
-        </Defs>
-        <Rect x={0} y={0} width={W} height={H} fill={SCRIM} fillOpacity={0.93} mask="url(#tourHole)" />
-      </Svg>
+      {/* Dimming scrim — four bands framing the cut-out (UI-thread cheap) */}
+      <Animated.View pointerEvents="none" style={[styles.bandTop, bandTop]} />
+      <Animated.View pointerEvents="none" style={[styles.bandBottom, bandBottom]} />
+      <Animated.View pointerEvents="none" style={[styles.bandLeft, bandLeft]} />
+      <Animated.View pointerEvents="none" style={[styles.bandRight, bandRight]} />
 
       {/* Tap anywhere to advance (sits above the scrim, below the controls) */}
       <Pressable style={StyleSheet.absoluteFill} onPress={next} />
@@ -267,6 +263,11 @@ function go(route: TabRoute) {
 
 const styles = StyleSheet.create({
   root: { ...StyleSheet.absoluteFillObject, zIndex: 70 },
+
+  bandTop:    { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: SCRIM_RGBA },
+  bandBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: SCRIM_RGBA },
+  bandLeft:   { position: 'absolute', left: 0, backgroundColor: SCRIM_RGBA },
+  bandRight:  { position: 'absolute', right: 0, backgroundColor: SCRIM_RGBA },
 
   ring: {
     position: 'absolute',
