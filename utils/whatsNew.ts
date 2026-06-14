@@ -19,6 +19,35 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.3',
+    name:    'Pulse & Lively',
+    date:    '2026-06-14',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Now playing — a live bar shows the track you’re streaming on Spotify. Tap it for your personal play count, listening time and rank for that song.',
+          'Swipe to refresh — tidy any playlist Tinder-style with 30-second previews. Swipe to keep or cut, then save the keepers as a new playlist or trim the original (a backup is made first). Nothing changes until you confirm.',
+          'Guided tour — a hands-on walkthrough that spotlights each part of the app and steps you through it. Replay anytime from Settings › Replay tutorial.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Place the now-playing bar where you like it — above the tab bar or up top on the Lenses screen (Settings › Appearance › Now playing).',
+          'Reconnect Spotify right where you need it — an inline prompt on the now-playing bar and the Swipe tab, plus a permanent entry in Settings.',
+        ],
+      },
+      {
+        label: 'Fixed',
+        items: [
+          'No more surprise logouts — your session now refreshes quietly in the background.',
+          'Cleaning up a playlist no longer disturbs your lens analyses or Compare.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2',
     name:    'Expressive Expressions',
     date:    '2026-06-11',
