@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, Pressable, BackHandler, Dimensions,
   type LayoutChangeEvent,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import Svg, { Defs, Mask, Rect } from 'react-native-svg'
 import Animated, {
-  useSharedValue, useAnimatedStyle, withRepeat, withTiming, FadeIn,
+  useSharedValue, useAnimatedStyle, useAnimatedProps,
+  withRepeat, withTiming, FadeIn, Easing,
 } from 'react-native-reanimated'
 import {
   ACCENTS, Colors, FontFamily, FontSize, Spacing, Radius, OnDark,
@@ -15,31 +16,37 @@ import {
 } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { setTabBarHidden } from '@/utils/tabBar'
-import { measureTourTarget, type TourRect } from '@/utils/tourTargets'
+import { getNavbarStyle } from '@/utils/settings'
 import { loadCachedWrapped } from '@/hooks/useWrapped'
 
 // The tour scrim is always dark (it dims the live app), so — like the now-playing
 // bar on its dark surface — it uses the RAW accent hue + OnDark text rather than
 // the light-mode-darkened Colors.greenPrimary, which would wash out on the dim.
-const RAW_ACCENT = (ACCENTS.find(a => a.id === activeAccentId()) ?? ACCENTS[0]).hex
-const SCRIM      = '#070709'
-const BODY_TXT   = 'rgba(231,228,236,0.74)'
-const HOLE_PAD   = 10
-const HOLE_RADIUS = 18
+const RAW_ACCENT  = (ACCENTS.find(a => a.id === activeAccentId()) ?? ACCENTS[0]).hex
+const SCRIM       = '#070709'
+const BODY_TXT    = 'rgba(231,228,236,0.74)'
+const HOLE_RADIUS = 16
+
+// Glide between spotlights / collapse when there's nothing to highlight.
+const GLIDE    = { duration: 460, easing: Easing.out(Easing.cubic) }
+const COLLAPSE = { duration: 300, easing: Easing.in(Easing.cubic) }
+
+const AnimatedRect = Animated.createAnimatedComponent(Rect)
 
 type TabRoute = 'index' | 'compare' | 'wrapped' | 'swipe'
+const ROUTE_INDEX: Record<TabRoute, number> = { index: 0, compare: 1, wrapped: 2, swipe: 3 }
 
 interface Step {
   route:    TabRoute
-  targetId: string | null   // tour target to spotlight; null = centred card
+  spotlight: boolean        // false = centred card, no cut-out (welcome / closing)
   glyph:    string
   tint:     string
   title:    string
   body:     string
 }
 
-// Tab routes are navigated imperatively from this root overlay (the bar items
-// register themselves as tour targets; see utils/tourTargets).
+// Tab routes are navigated imperatively from this root overlay so the live app
+// behind the scrim shows the screen each step is describing.
 const ROUTE_HREF: Record<TabRoute, string> = {
   index:   '/(tabs)',
   compare: '/compare',
@@ -53,35 +60,35 @@ function buildSteps(): Step[] {
   const hasWrapped = !!loadCachedWrapped()
   const steps: Step[] = [
     {
-      route: 'index', targetId: null, glyph: '✦', tint: RAW_ACCENT,
+      route: 'index', spotlight: false, glyph: '✦', tint: RAW_ACCENT,
       title: 'Welcome to playlist.lens',
       body:  'Your library, seen in a new light. Here’s a quick guided tour — tap anywhere or Next to move along.',
     },
     {
-      route: 'index', targetId: 'tab:index', glyph: '◎', tint: RAW_ACCENT,
+      route: 'index', spotlight: true, glyph: '◎', tint: RAW_ACCENT,
       title: 'Lenses',
       body:  'Every playlist you own, analysed. Tap a lens for its sound, genres and era — long-press one for quick actions: Pin, Share or Re-analyze.',
     },
     {
-      route: 'compare', targetId: 'tab:compare', glyph: '◍', tint: Colors.pink,
+      route: 'compare', spotlight: true, glyph: '◍', tint: Colors.pink,
       title: 'Compare',
       body:  'Put two playlists head-to-head and see how their vibes stack up.',
     },
   ]
   if (hasWrapped) {
     steps.push({
-      route: 'wrapped', targetId: 'tab:wrapped', glyph: '◐', tint: Colors.lavender,
+      route: 'wrapped', spotlight: true, glyph: '◐', tint: Colors.lavender,
       title: 'Wrapped',
       body:  'Your all-time listening stats. Tap any artist, track or album for its artwork — and fix it yourself if it’s ever wrong.',
     })
   }
   steps.push({
-    route: 'swipe', targetId: 'tab:swipe', glyph: '◆', tint: RAW_ACCENT,
+    route: 'swipe', spotlight: true, glyph: '◆', tint: RAW_ACCENT,
     title: 'Swipe — new',
     body:  'Tidy a playlist Tinder-style: swipe to keep or cut, with 30-second previews. Nothing changes until you confirm — save the keepers as a new playlist, or trim the original with a backup.',
   })
   steps.push({
-    route: 'index', targetId: null, glyph: '⟳', tint: RAW_ACCENT,
+    route: 'index', spotlight: false, glyph: '⟳', tint: RAW_ACCENT,
     title: 'You’re all set',
     body:  'When Spotify’s playing, a live bar shows your track — tap it for your personal stats. Updates arrive on their own; grab them anytime from Settings › Check for updates.',
   })
@@ -89,15 +96,46 @@ function buildSteps(): Step[] {
 }
 
 export function Tutorial({ onDone }: { onDone: () => void }) {
-  const steps = useMemo(buildSteps, [])
+  const steps   = useMemo(buildSteps, [])
+  const insets  = useSafeAreaInsets()
+  const navStyle = getNavbarStyle()
   const [i, setI]       = useState(0)
-  const [rect, setRect] = useState<TourRect | null>(null)
   const [size, setSize] = useState(() => {
     const { width, height } = Dimensions.get('window')
     return { width, height }
   })
   const step = steps[i]
   const last = i === steps.length - 1
+  const { width: W, height: H } = size
+
+  // The floating bar is a fixed, known layout — derive each tab's rect from the
+  // same safe-area insets the bar itself uses (utils/tabBar + (tabs)/_layout), so
+  // the cut-out lands dead-on the icon. Measuring the live node instead drifts on
+  // Android under edge-to-edge (window coords vs the full-screen overlay). null =
+  // gestures-only navbar (no bar to spotlight) → centred card.
+  const tabHole = useCallback((route: TabRoute) => {
+    if (navStyle === 'gestures') return null
+    const barBottom = Math.max(insets.bottom, 8) + 10
+    const barH = navStyle === 'minimal' ? 50 : 60
+    const side = navStyle === 'minimal' ? 80 : 18
+    const innerPad = 6
+    const barTop  = H - barBottom - barH
+    const innerW  = W - side * 2 - innerPad * 2
+    const itemW   = innerW / 4
+    const cx = side + innerPad + (ROUTE_INDEX[route] + 0.5) * itemW
+    const cy = barTop + barH / 2
+    const sz = Math.min(itemW - 6, 58)
+    return { x: cx - sz / 2, y: cy - sz / 2, w: sz, h: sz }
+  }, [navStyle, insets.bottom, W, H])
+
+  // ── Animated spotlight (glides between steps; collapses on centred steps) ──
+  const hx = useSharedValue(0)
+  const hy = useSharedValue(0)
+  const hw = useSharedValue(0)
+  const hh = useSharedValue(0)
+  const ringO = useSharedValue(0)
+  const pulse = useSharedValue(0)
+  useEffect(() => { pulse.value = withRepeat(withTiming(1, { duration: 1100 }), -1, true) }, [])
 
   const finish = useCallback(() => {
     haptic.success()
@@ -117,24 +155,34 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
     try { if (router.canDismiss?.()) router.dismissAll() } catch {}
   }, [])
 
-  // Per step: navigate to its tab, reveal the bar, then measure the target. The
-  // bar mounts every item regardless of the active tab, so this resolves quickly;
-  // we still retry once in case the reveal animation is mid-flight.
+  // Per step: navigate to its tab, reveal the bar, then glide the spotlight.
   useEffect(() => {
-    let cancelled = false
-    setRect(null)
     go(step.route)
     setTabBarHidden(false)
-    if (!step.targetId) return
-
-    const attempt = async () => {
-      const r = await measureTourTarget(step.targetId!)
-      if (!cancelled && r) setRect(r)
+    const hole = step.spotlight ? tabHole(step.route) : null
+    if (hole) {
+      // First appearance (currently collapsed): seed at the hole's centre so it
+      // grows outward in place rather than sliding in from the corner.
+      if (hw.value === 0 && hh.value === 0) {
+        hx.value = hole.x + hole.w / 2
+        hy.value = hole.y + hole.h / 2
+      }
+      hx.value = withTiming(hole.x, GLIDE)
+      hy.value = withTiming(hole.y, GLIDE)
+      hw.value = withTiming(hole.w, GLIDE)
+      hh.value = withTiming(hole.h, GLIDE)
+      ringO.value = withTiming(1, GLIDE)
+    } else {
+      // Collapse toward the current centre so it shrinks away in place.
+      const cx = hx.value + hw.value / 2
+      const cy = hy.value + hh.value / 2
+      hx.value = withTiming(cx, COLLAPSE)
+      hy.value = withTiming(cy, COLLAPSE)
+      hw.value = withTiming(0, COLLAPSE)
+      hh.value = withTiming(0, COLLAPSE)
+      ringO.value = withTiming(0, COLLAPSE)
     }
-    const t1 = setTimeout(attempt, 360)
-    const t2 = setTimeout(attempt, 720)
-    return () => { cancelled = true; clearTimeout(t1); clearTimeout(t2) }
-  }, [i])
+  }, [i, navStyle, W, H, insets.bottom])
 
   const next = () => { if (last) finish(); else { haptic.light(); setI(i + 1) } }
   const onRootLayout = (e: LayoutChangeEvent) => {
@@ -142,24 +190,20 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
     if (width && height) setSize({ width, height })
   }
 
-  // ── Spotlight ring pulse ──
-  const pulse = useSharedValue(0)
-  useEffect(() => { pulse.value = withRepeat(withTiming(1, { duration: 1100 }), -1, true) }, [])
+  const holeProps = useAnimatedProps(() => ({
+    x: hx.value, y: hy.value, width: hw.value, height: hh.value,
+  }))
   const ringStyle = useAnimatedStyle(() => ({
-    opacity:   0.55 + pulse.value * 0.45,
-    transform: [{ scale: 1 + pulse.value * 0.045 }],
+    left: hx.value, top: hy.value, width: hw.value, height: hh.value,
+    opacity:   ringO.value * (0.6 + pulse.value * 0.4),
+    transform: [{ scale: 1 + pulse.value * 0.035 }],
   }))
 
-  const { width: W, height: H } = size
-  const hole = rect
-    ? { x: rect.x - HOLE_PAD, y: rect.y - HOLE_PAD, w: rect.width + HOLE_PAD * 2, h: rect.height + HOLE_PAD * 2 }
-    : null
-
-  // Tabs sit at the bottom, so anchor the caption above the hole; centre it when
-  // there's nothing to spotlight (welcome / closing steps).
-  const cardWrapStyle = hole
-    ? { position: 'absolute' as const, left: Spacing.xl, right: Spacing.xl, bottom: H - hole.y + Spacing.lg }
-    : { position: 'absolute' as const, left: Spacing.xl, right: Spacing.xl, top: 0, bottom: 0, justifyContent: 'center' as const }
+  // Caption card sits just above the navbar, fixed across steps so only its
+  // content cross-fades (no jump) while the spotlight glides beneath it.
+  const cardBottom = navStyle === 'gestures'
+    ? insets.bottom + Spacing.xl
+    : Math.max(insets.bottom, 8) + 10 + (navStyle === 'minimal' ? 50 : 60) + Spacing.lg
 
   return (
     <View style={styles.root} onLayout={onRootLayout}>
@@ -168,9 +212,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
         <Defs>
           <Mask id="tourHole">
             <Rect x={0} y={0} width={W} height={H} fill="#fff" />
-            {hole && (
-              <Rect x={hole.x} y={hole.y} width={hole.w} height={hole.h} rx={HOLE_RADIUS} ry={HOLE_RADIUS} fill="#000" />
-            )}
+            <AnimatedRect animatedProps={holeProps} rx={HOLE_RADIUS} ry={HOLE_RADIUS} fill="#000" />
           </Mask>
         </Defs>
         <Rect x={0} y={0} width={W} height={H} fill={SCRIM} fillOpacity={0.93} mask="url(#tourHole)" />
@@ -180,20 +222,14 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
       <Pressable style={StyleSheet.absoluteFill} onPress={next} />
 
       {/* Spotlight ring around the cut-out */}
-      {hole && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.ring,
-            ringStyle,
-            { left: hole.x, top: hole.y, width: hole.w, height: hole.h, borderColor: step.tint, shadowColor: step.tint },
-          ]}
-        />
-      )}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.ring, { borderColor: step.tint, shadowColor: step.tint }, ringStyle]}
+      />
 
       {/* Caption card */}
-      <View style={cardWrapStyle} pointerEvents="box-none">
-        <Animated.View key={i} entering={FadeIn.duration(220)}>
+      <View style={[styles.cardWrap, { bottom: cardBottom }]} pointerEvents="box-none">
+        <Animated.View key={i} entering={FadeIn.duration(240)}>
           <Pressable style={styles.card} onPress={next}>
             <View style={[styles.glyphChip, { borderColor: alpha(step.tint, 0.5), backgroundColor: alpha(step.tint, 0.12) }]}>
               <Text style={[styles.glyph, { color: step.tint }]}>{step.glyph}</Text>
@@ -242,6 +278,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
 
+  cardWrap: { position: 'absolute', left: Spacing.xl, right: Spacing.xl },
   card: {
     backgroundColor: 'rgba(23,23,27,0.98)',
     borderRadius: Radius.lg,

@@ -11,7 +11,6 @@ import { Colors, FontFamily, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { tabBarHidden } from '@/utils/tabBar'
 import { getNavbarStyle } from '@/utils/settings'
-import { registerTourTarget, measureRef } from '@/utils/tourTargets'
 import { NowPlayingBar } from '@/components/nowplaying/NowPlayingBar'
 
 const BAR_H    = 60
@@ -69,11 +68,6 @@ function TabItem({ label, routeName, focused, onPress, minimal }: {
   const hop   = useSharedValue(0)
   const pill  = useSharedValue(focused ? 1 : 0)
 
-  // Expose this item to the guided tour so it can spotlight the tab it's
-  // introducing (the bar mounts all items regardless of the active tab).
-  const ref = useRef<View>(null)
-  useEffect(() => registerTourTarget(`tab:${routeName}`, measureRef(ref)), [routeName])
-
   useEffect(() => {
     if (focused) {
       scale.value = withSequence(withTiming(0.86, { duration: 90 }), withSpring(1.12, BOUNCE))
@@ -91,7 +85,7 @@ function TabItem({ label, routeName, focused, onPress, minimal }: {
   const color = focused ? ACTIVE : INACTIVE
 
   return (
-    <Pressable ref={ref} style={styles.item} onPress={onPress} hitSlop={6}>
+    <Pressable style={styles.item} onPress={onPress} hitSlop={6}>
       <View style={styles.iconSlot}>
         <Animated.View style={[styles.activePill, pillStyle]} />
         <Animated.View style={iconStyle}><Glyph name={routeName} color={color} /></Animated.View>
