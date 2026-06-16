@@ -27,6 +27,8 @@ import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet
 import { loadOrder, saveOrder, applyOrder, pinToTop } from '@/utils/playlistOrder'
 import { setTabBarHidden } from '@/utils/tabBar'
 import { getLensLayout, setLensLayout, type LensLayout } from '@/utils/settings'
+import { TopFade } from '@/components/ui/TopFade'
+import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import type { SpotifyPlaylist } from '@/types'
 
 const SKELETON_COUNT = 4
@@ -38,6 +40,7 @@ export default function PlaylistsTab() {
   const [refreshing, setRefreshing]     = useState(false)
   const [coldStart, setColdStart]       = useState(false)
   const [selectedPlaylist, setSelected] = useState<SpotifyPlaylist | null>(null)
+  const gutter = useNowPlayingGutter()
 
   // ── Custom ordering + reorder mode + long-press actions ──
   const [order, setOrder]               = useState<string[]>(() => loadOrder())
@@ -75,9 +78,11 @@ export default function PlaylistsTab() {
 
   // ── Auto-hide the floating navbar on scroll-down, reveal on scroll-up / at top ──
   const lastY = useRef(0)
+  const scrollY = useSharedValue(0)
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (reorderMode) return
     const y  = e.nativeEvent.contentOffset.y
+    scrollY.value = y
+    if (reorderMode) return
     const dy = y - lastY.current
     if (y < 40)       setTabBarHidden(false)
     else if (dy > 10) setTabBarHidden(true)
@@ -266,6 +271,7 @@ export default function PlaylistsTab() {
         </Animated.View>
 
         {/* ── Playlist list ── */}
+        <View style={styles.listWrap}>
         {reorderMode ? (
           <DraggableFlatList
             data={orderedData}
@@ -273,7 +279,7 @@ export default function PlaylistsTab() {
             keyExtractor={keyExtractor}
             onDragEnd={({ data: next }) => persistOrder(next.map(p => p.id))}
             onDragBegin={() => haptic.medium()}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: 130 + gutter }]}
             showsVerticalScrollIndicator={false}
             activationDistance={12}
           />
@@ -284,7 +290,7 @@ export default function PlaylistsTab() {
             renderItem={renderItem}
             keyExtractor={keyExtractor}
             numColumns={layout === 'grid' ? 2 : 1}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: 130 + gutter }]}
             showsVerticalScrollIndicator={false}
             onScroll={onScroll}
             scrollEventThrottle={16}
@@ -301,6 +307,8 @@ export default function PlaylistsTab() {
             }
           />
         )}
+        <TopFade scrollY={scrollY} />
+        </View>
 
         {/* ── Detail sheet ── */}
         <DetailSheet
@@ -317,6 +325,7 @@ export default function PlaylistsTab() {
           onPin={handlePin}
           onReanalyze={handleReanalyze}
           onReorder={() => setReorderMode(true)}
+          onCompare={(id) => router.push(`/compare?from=${id}`)}
         />
 
       </SafeAreaView>
@@ -483,6 +492,7 @@ const styles = StyleSheet.create({
   },
 
   // List content padding — clears the floating pill navbar
+  listWrap: { flex: 1 },
   listContent: {
     paddingBottom: 130,
   },

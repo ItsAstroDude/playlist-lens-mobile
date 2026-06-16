@@ -29,12 +29,15 @@ function Glyph({ name, color }: { name: string; color: string }) {
           </View>
         </View>
       )
-    case 'compare': // three rounded strokes of increasing height
+    case 'queue': // a play-queue — stacked lines with a little play triangle
       return (
-        <View style={[g.box, g.rowEnd]}>
-          <View style={[g.stroke, { height: 9,  backgroundColor: color }]} />
-          <View style={[g.stroke, { height: 16, backgroundColor: color }]} />
-          <View style={[g.stroke, { height: 12, backgroundColor: color }]} />
+        <View style={[g.box, g.qStack]}>
+          <View style={[g.qLine, { width: 16, backgroundColor: color }]} />
+          <View style={[g.qLine, { width: 16, backgroundColor: color }]} />
+          <View style={g.qBottom}>
+            <View style={[g.qLine, { width: 9, backgroundColor: color }]} />
+            <View style={[g.qTri, { borderLeftColor: color }]} />
+          </View>
         </View>
       )
     case 'wrapped': // vinyl ring + center dot
@@ -210,7 +213,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen name="index"   options={{ title: 'lenses'  }} />
-      <Tabs.Screen name="compare" options={{ title: 'compare' }} />
+      <Tabs.Screen name="queue"   options={{ title: 'queue'   }} />
       <Tabs.Screen name="wrapped" options={{ title: 'wrapped' }} />
       <Tabs.Screen name="swipe"   options={{ title: 'swipe'   }} />
     </Tabs>
@@ -321,8 +324,14 @@ const g = StyleSheet.create({
   lensOuter: { width: 18, height: 18, borderRadius: 5, borderWidth: STROKE, alignItems: 'center', justifyContent: 'center' },
   lensInner: { width: 7,  height: 7,  borderRadius: 2, borderWidth: STROKE },
 
-  // compare — rounded strokes
+  // compare — rounded strokes (kept; unused now that compare left the tab bar)
   stroke: { width: STROKE + 0.5, borderRadius: STROKE },
+
+  // queue — stacked lines + play triangle
+  qStack:  { gap: 3 },
+  qLine:   { height: STROKE, borderRadius: STROKE },
+  qBottom: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  qTri:    { width: 0, height: 0, borderTopWidth: 3, borderBottomWidth: 3, borderLeftWidth: 5, borderTopColor: 'transparent', borderBottomColor: 'transparent' },
 
   // wrapped — ring
   ring:    { width: 18, height: 18, borderRadius: 9, borderWidth: STROKE, alignItems: 'center', justifyContent: 'center' },

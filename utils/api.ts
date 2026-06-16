@@ -153,6 +153,9 @@ export const api = {
 
   post: <T>(path: string, body: unknown, opts?: FetchOptions) =>
     apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body), ...opts }),
+
+  put: <T>(path: string, body: unknown, opts?: FetchOptions) =>
+    apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body), ...opts }),
 }
 
 // ─── Custom error class ───────────────────────────────────────────────────────

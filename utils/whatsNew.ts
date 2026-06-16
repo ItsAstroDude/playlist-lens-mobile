@@ -19,6 +19,69 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.5',
+    name:    'Custom Queues',
+    date:    '2026-06-16',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Custom Queues — build a queue from anywhere and play it straight on your Spotify. There’s a new Queue tab with a queue cart, a ＋ on tracks across the app, and a smart device hand-off (it’ll even wake Spotify for you). Spotify Premium required for playback.',
+          'Rediscovery — let the Queue tab resurface music for you: Fading favorites (loved, then forgotten), Second chances (the ones that almost stuck), and a Time machine to a past season.',
+          'Pull from your playlists — pick songs out of any playlist straight into your queue.',
+          'Recap notifications — opt in from Settings › Recap notifications for a nudge when your weekly, monthly, seasonal or yearly recap is ready.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Compare now lives in a playlist’s long-press menu (“Compare with…”), making room for the Queue tab.',
+          'A softer, fading top edge as you scroll — and the now-playing bar no longer covers the bottom of your lists.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.4',
+    name:    'Rewind & Refresh',
+    date:    '2026-06-15',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Recaps — your listening by week, month, season and year, each with its own top artists, tracks and albums. Keep a season as a keepsake, archive a year, and revisit any of them from the Wrapped tab.',
+          'Auto-updating Wrapped — your recent plays now top themselves up automatically, so your stats and the current week, month and season stay fresh between imports.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Recaps open straight from the Wrapped tab, with a quick switch between week, month, season and year.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.3.1',
+    name:    'Faces & Facets',
+    date:    '2026-06-14',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Real artist faces — Wrapped now shows actual artist photos instead of album-cover stand-ins.',
+          'Tap to go deeper, everywhere — open the full panel for any artist straight from your Taste profile and an expanded playlist, just like Wrapped already does.',
+        ],
+      },
+      {
+        label: 'Fixed',
+        items: [
+          'Tidied the expanded-playlist stats — the duration now lines up neatly with the numbers beside it.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.3',
     name:    'Pulse & Lively',
     date:    '2026-06-14',

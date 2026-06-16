@@ -263,13 +263,15 @@ const styles = StyleSheet.create({
     width: 26, height: 26, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center',
   },
+  // Inset to clear the stadium pill's rounded caps; sits as a baseline underline.
   progressTrack: {
-    position: 'absolute', left: 22, right: 22, bottom: 5,
-    height: 2, borderRadius: 1,
+    position: 'absolute', left: 16, right: 16, bottom: 6,
+    height: 3, borderRadius: 1.5,
     backgroundColor: TRACK_BG,
+    overflow: 'hidden',
   },
   progressFill: {
-    height: 2, borderRadius: 1, backgroundColor: ACCENT,
+    height: 3, borderRadius: 1.5, backgroundColor: ACCENT,
   },
 })
 

@@ -29,3 +29,12 @@ export function onOpenNowPlaying(cb: Cb): () => void {
   return () => { const i = nowPlayingSubs.indexOf(cb); if (i >= 0) nowPlayingSubs.splice(i, 1) }
 }
 export function emitOpenNowPlaying(): void { nowPlayingSubs.forEach(c => c()) }
+
+// Start-queue sheet (v1.5 Custom Queues) — owned by the root layout so it floats
+// above the whole navigator; the floating queue tray opens it from anywhere.
+const startQueueSubs: Cb[] = []
+export function onOpenStartQueue(cb: Cb): () => void {
+  startQueueSubs.push(cb)
+  return () => { const i = startQueueSubs.indexOf(cb); if (i >= 0) startQueueSubs.splice(i, 1) }
+}
+export function emitOpenStartQueue(): void { startQueueSubs.forEach(c => c()) }

@@ -16,6 +16,8 @@ import { Spring, haptic } from '@/constants/animation'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { RadarChart } from '@/components/ui/RadarChart'
+import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
+import { withMemorialMark } from '@/utils/tribute'
 import { vibeColor } from '@/utils/color'
 import type { TasteProfile } from '@/types'
 
@@ -78,12 +80,12 @@ const s_styles = StyleSheet.create({
 })
 
 // ─── Artist bar ───────────────────────────────────────────────────────────────
-function ArtistBar({ name, count, maxCount, rank }: { name: string; count: number; maxCount: number; rank: number }) {
+function ArtistBar({ name, count, maxCount, rank, onPress }: { name: string; count: number; maxCount: number; rank: number; onPress?: () => void }) {
   const w = useSharedValue(0)
   const frac = count / Math.max(maxCount, 1)
   const barStyle = useAnimatedStyle(() => ({ width: `${w.value}%` as any }))
   useEffect(() => { w.value = withDelay(rank * 60, withSpring(frac * 100, { mass: 1, damping: 20, stiffness: 100 })) }, [frac])
-  return (
+  const inner = (
     <View style={a_styles.row}>
       <Text style={a_styles.rank}>{rank}</Text>
       <View style={{ flex: 1, gap: 4 }}>
@@ -93,6 +95,7 @@ function ArtistBar({ name, count, maxCount, rank }: { name: string; count: numbe
       <Text style={a_styles.count}>{count}</Text>
     </View>
   )
+  return onPress ? <TouchableOpacity onPress={onPress} activeOpacity={0.6}>{inner}</TouchableOpacity> : inner
 }
 const a_styles = StyleSheet.create({
   row:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 3 },
@@ -217,7 +220,7 @@ const f_styles = StyleSheet.create({
 })
 
 // ─── Profile (playlist aggregate) ─────────────────────────────────────────────
-function ProfileContent({ profile }: { profile: TasteProfile }) {
+function ProfileContent({ profile, onSelectArtist }: { profile: TasteProfile; onSelectArtist: (s: WrappedSelection) => void }) {
   const maxArtistCount = profile.topArtists[0]?.count ?? 1
   const genreAccents   = [Colors.greenPrimary, Colors.pink, Colors.lavender]
   const artistCount    = profile.artistCount ?? profile.topArtists.length
@@ -257,7 +260,8 @@ function ProfileContent({ profile }: { profile: TasteProfile }) {
           <View style={styles.cardSpecular} />
           <Text style={styles.sectionLabel}>CORE ARCHITECTS</Text>
           {profile.topArtists.slice(0, 10).map((a, i) => (
-            <ArtistBar key={a.id} rank={i + 1} name={a.name} count={a.count} maxCount={maxArtistCount} />
+            <ArtistBar key={a.id} rank={i + 1} name={withMemorialMark(a.name)} count={a.count} maxCount={maxArtistCount}
+              onPress={() => onSelectArtist({ kind: 'artist', name: a.name, rank: i + 1, tracks: a.count, accent: Colors.greenPrimary })} />
           ))}
         </View>
       )}
@@ -285,6 +289,7 @@ export default function TasteScreen() {
 
   const [scanBtnVisible, setScanBtnVisible] = useState(false)
   const [codeInput, setCodeInput]           = useState('')
+  const [sel, setSel]                       = useState<WrappedSelection | null>(null)
 
   useEffect(() => {
     buildFromCache()
@@ -349,7 +354,7 @@ export default function TasteScreen() {
             </View>
           )}
 
-          {profile ? <ProfileContent profile={profile} /> : !isScanning ? <EmptyState /> : null}
+          {profile ? <ProfileContent profile={profile} onSelectArtist={setSel} /> : !isScanning ? <EmptyState /> : null}
 
           {!isScanning && scanBtnVisible && uncachedCount > 0 && (
             <TouchableOpacity style={styles.scanBtn} onPress={handleScanAll} activeOpacity={0.75}>
@@ -412,6 +417,8 @@ export default function TasteScreen() {
           {friendProfile && <FriendCard theirs={friendProfile} mine={profile} />}
         </ScrollView>
       </SafeAreaView>
+
+      <WrappedItemSheet selection={sel} onClose={() => setSel(null)} />
     </View>
   )
 }

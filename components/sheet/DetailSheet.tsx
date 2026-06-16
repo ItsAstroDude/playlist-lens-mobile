@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react'
+import React, { useEffect, useCallback, useState } from 'react'
 import {
   View,
   Text,
@@ -27,10 +27,13 @@ import Animated, {
 import { Colors, FontFamily, FontSize, Spacing, Radius, OnDark } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { useAnalysis } from '@/hooks/useAnalysis'
+import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import { fmtDuration } from '@/utils/analyze'
 import { ensureReadable } from '@/utils/color'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { RadarChart } from '@/components/ui/RadarChart'
+import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
+import { withMemorialMark } from '@/utils/tribute'
 import type { SpotifyPlaylist, PlaylistAnalysis, PlaylistPalette } from '@/types'
 
 const { width: SW, height: SH } = Dimensions.get('window')
@@ -49,8 +52,12 @@ interface DetailSheetProps {
 
 export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetProps) {
   const insets = useSafeAreaInsets()
+  const gutter = useNowPlayingGutter()
   const isOpen = playlist !== null
   const { status, data, error, analyze, reset } = useAnalysis()
+  // Tap a top artist → expand the same item sheet Wrapped uses (mounted at the
+  // sheet ROOT, not inside the ScrollView, so it anchors to the screen).
+  const [sel, setSel] = useState<WrappedSelection | null>(null)
 
   const translateY      = useSharedValue(SHEET_H)
   const backdropOpacity = useSharedValue(0)
@@ -62,6 +69,7 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
     } else {
       translateY.value      = withSpring(SHEET_H, Spring.sheet)
       backdropOpacity.value = withTiming(0, { duration: 200 })
+      setSel(null)
       const t = setTimeout(reset, 360)
       return () => clearTimeout(t)
     }
@@ -126,7 +134,7 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 96 + gutter }}
           bounces
         >
           {/* ── Hero Section ── */}
@@ -149,10 +157,12 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
           )}
 
           {status === 'success' && data && (
-            <AnalysisContent data={data} accent={accent} trackTotal={playlist?.tracks.total} />
+            <AnalysisContent data={data} accent={accent} trackTotal={playlist?.tracks.total} onSelectArtist={setSel} />
           )}
         </ScrollView>
       </Animated.View>
+
+      <WrappedItemSheet selection={sel} onClose={() => setSel(null)} />
     </>
   )
 }
@@ -207,7 +217,7 @@ function HeroSection({ playlist, palette }: { playlist: SpotifyPlaylist; palette
 }
 
 // ─── Analysis Content ─────────────────────────────────────────────────────────
-function AnalysisContent({ data, accent, trackTotal }: { data: PlaylistAnalysis; accent: string; trackTotal?: number }) {
+function AnalysisContent({ data, accent, trackTotal, onSelectArtist }: { data: PlaylistAnalysis; accent: string; trackTotal?: number; onSelectArtist: (s: WrappedSelection) => void }) {
   // Only the backend's 500-track cap is a real truncation worth estimating
   // around (and we flag it with "~"). For everything else show the exact summed
   // duration of the tracks we analysed — extrapolating over a few unavailable
@@ -295,12 +305,13 @@ function AnalysisContent({ data, accent, trackTotal }: { data: PlaylistAnalysis;
           {data.topArtists.slice(0, 6).map((artist, i) => (
             <BarRow
               key={artist.id}
-              label={artist.name}
+              label={withMemorialMark(artist.name)}
               count={artist.count}
               max={data.topArtists[0].count}
               color={accent}
               valueLabel={artist.count === 1 ? '1 track' : `${artist.count} tracks`}
               delay={i * 50}
+              onPress={() => onSelectArtist({ kind: 'artist', name: artist.name, rank: i + 1, tracks: artist.count, accent })}
             />
           ))}
         </GlassPanel>
@@ -385,14 +396,18 @@ function QuickStat({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.quickStatCard}>
       <View style={styles.quickStatSpecular} />
-      <Text
-        style={styles.quickStatValue}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.85}
-      >
-        {value}
-      </Text>
+      {/* Fixed-height centering box so an auto-shrunk value (e.g. "10h 34m")
+          stays vertically aligned with the full-size numbers beside it. */}
+      <View style={styles.quickStatValueBox}>
+        <Text
+          style={styles.quickStatValue}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+        >
+          {value}
+        </Text>
+      </View>
       <Text style={styles.quickStatLabel}>{label}</Text>
     </View>
   )
@@ -410,13 +425,14 @@ function GlassPanel({ title, children }: { title: string; children: React.ReactN
 }
 
 // ─── Bar Row ──────────────────────────────────────────────────────────────────
-function BarRow({ label, count, max, color, valueLabel, delay }: {
+function BarRow({ label, count, max, color, valueLabel, delay, onPress }: {
   label:      string
   count:      number
   max:        number
   color:      string
   valueLabel: string
   delay:      number
+  onPress?:   () => void
 }) {
   const barW = useSharedValue(0)
   const pct  = max > 0 ? count / max : 0
@@ -428,7 +444,7 @@ function BarRow({ label, count, max, color, valueLabel, delay }: {
 
   const fillStyle = useAnimatedStyle(() => ({ width: barW.value }))
 
-  return (
+  const inner = (
     <View style={styles.barRow}>
       <Text style={styles.barLabel} numberOfLines={1}>{label}</Text>
       <View style={styles.barTrack}>
@@ -437,6 +453,7 @@ function BarRow({ label, count, max, color, valueLabel, delay }: {
       <Text style={styles.barValue}>{valueLabel}</Text>
     </View>
   )
+  return onPress ? <Pressable onPress={onPress} hitSlop={6}>{inner}</Pressable> : inner
 }
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
@@ -601,6 +618,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.glassHighlight,
     marginBottom:    Spacing.sm,
   },
+  quickStatValueBox: {
+    alignSelf:       'stretch',
+    height:          22,
+    justifyContent:  'center',
+  },
   quickStatValue: {
     fontFamily:    FontFamily.syneBold,
     fontSize:      16,
@@ -608,7 +630,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     alignSelf:     'stretch',
     textAlign:     'center',
-    paddingHorizontal: 2,
+    paddingHorizontal:  2,
+    includeFontPadding: false,  // Android: drop the extra glyph padding that skews centering
   },
   quickStatLabel: {
     fontFamily: FontFamily.mono,

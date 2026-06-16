@@ -1,14 +1,16 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, FlatList, Image, Pressable,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { router, useLocalSearchParams } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, FadeIn,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import { haptic } from '@/constants/animation'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { usePalette } from '@/hooks/usePalette'
@@ -159,8 +161,9 @@ function AudioBar({ label, valA, valB, colorA, colorB }: {
   )
 }
 
-// ─── Main screen ──────────────────────────────────────────────────────────────
-export default function CompareTab() {
+// ─── Main screen (pushed route — opened from a playlist's "Compare with…") ──────
+export default function CompareScreen() {
+  const { from } = useLocalSearchParams<{ from?: string }>()
   const { fetch: fetchPlaylists, ...plState } = usePlaylists()
   const { analyze }                           = useAnalysis()
   const { palettes, extract }                 = usePalette()
@@ -199,6 +202,15 @@ export default function CompareTab() {
     else              { setDataB(result ?? null); setLoadingB(false) }
   }, [analyze, palettes, extract])
 
+  // Pre-seed slot A from the playlist we were opened on ("Compare with…").
+  const seededRef = useRef(false)
+  useEffect(() => { if (from && !playlists.length) fetchPlaylists() }, [from])
+  useEffect(() => {
+    if (seededRef.current || !from || !playlists.length) return
+    const pl = playlists.find(p => p.id === from)
+    if (pl) { seededRef.current = true; onSelect('a', pl) }
+  }, [from, playlists, onSelect])
+
   const sharedGenres = useMemo(() => {
     if (!dataA || !dataB) return []
     const setB = new Set(dataB.topGenres.map(g => g.genre))
@@ -230,8 +242,11 @@ export default function CompareTab() {
           />
         )}
 
-        {/* Branded header */}
+        {/* Branded header with back */}
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => { haptic.light(); router.back() }} hitSlop={10} style={styles.back}>
+            <Text style={styles.backGlyph}>←</Text>
+          </TouchableOpacity>
           <Text style={styles.logo}>
             playlist<Text style={styles.dot}>.</Text>lens
           </Text>
@@ -371,8 +386,11 @@ const styles = StyleSheet.create({
 
   // Branded header
   header: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.xs,
   },
+  back: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  backGlyph: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text },
   logo: {
     fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -1,
   },

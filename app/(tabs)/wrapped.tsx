@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, Alert,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { router } from 'expo-router'
 import { FlashList } from '@shopify/flash-list'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
@@ -11,6 +12,10 @@ import { useWrapped } from '@/hooks/useWrapped'
 import { fmtHours, type WrappedStats, type NameMs, type TrackStat } from '@/utils/wrapped'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
+import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
+import { TopFade } from '@/components/ui/TopFade'
+import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
+import type { QueueItem } from '@/utils/queueCart'
 import type { ArtKind } from '@/hooks/useArtwork'
 
 const PRIVACY_URL = 'https://www.spotify.com/account/privacy/'
@@ -18,20 +23,23 @@ const PRIVACY_URL = 'https://www.spotify.com/account/privacy/'
 type Block =
   | { t: 'hero'; ms: number; since: string }
   | { t: 'pills'; streams: number; artists: number; tracks: number }
+  | { t: 'recaps' }
   | { t: 'list'; key: string; title: string; kind: ArtKind; color: string; rows: Row[] }
   | { t: 'clock'; clock: number[] }
   | { t: 'years'; rows: { year: number; ms: number; topArtist: string; frac: number }[] }
   | { t: 'foot'; real: number; skipPct: number; podcast: number }
   | { t: 'manage' }
 
-interface Row { name: string; sub?: string; value: string; frac: number; sel: WrappedSelection }
+interface Row { name: string; sub?: string; value: string; frac: number; sel: WrappedSelection; add?: QueueItem }
 
 // ─── Rows ─────────────────────────────────────────────────────────────────────
-const BarRow = React.memo(function BarRow({ rank, name, sub, value, frac, color, onPress }: {
-  rank?: number; name: string; sub?: string; value: string; frac: number; color: string; onPress?: () => void
+// `addItem` (track rows only) renders the queue ＋ as a sibling of the pressable
+// body, so tapping it adds to the queue cart without also opening the item sheet.
+const BarRow = React.memo(function BarRow({ rank, name, sub, value, frac, color, onPress, addItem }: {
+  rank?: number; name: string; sub?: string; value: string; frac: number; color: string; onPress?: () => void; addItem?: QueueItem
 }) {
-  const Inner = (
-    <View style={styles.barRow}>
+  const body = (
+    <View style={styles.barBody}>
       {rank != null && <Text style={styles.barRank}>{rank}</Text>}
       <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
         <Text style={styles.barName} numberOfLines={1}>{name}{sub ? <Text style={styles.barSub}>  {sub}</Text> : null}</Text>
@@ -40,7 +48,14 @@ const BarRow = React.memo(function BarRow({ rank, name, sub, value, frac, color,
       <Text style={styles.barValue}>{value}</Text>
     </View>
   )
-  return onPress ? <TouchableOpacity onPress={onPress} activeOpacity={0.6}>{Inner}</TouchableOpacity> : Inner
+  return (
+    <View style={styles.barRow}>
+      {onPress
+        ? <TouchableOpacity style={styles.barFlex} onPress={onPress} activeOpacity={0.6}>{body}</TouchableOpacity>
+        : <View style={styles.barFlex}>{body}</View>}
+      {addItem ? <AddToQueueButton item={addItem} /> : null}
+    </View>
+  )
 })
 
 const Clock = React.memo(function Clock({ clock }: { clock: number[] }) {
@@ -81,6 +96,7 @@ function buildBlocks(stats: WrappedStats): Block[] {
   const trackRows: Row[] = stats.topTracks.slice(0, 10).map((t, i) => ({
     name: t.name, sub: t.artist, value: `${t.plays}×`, frac: t.plays / maxT,
     sel: { kind: 'track', name: t.name, artist: t.artist, rank: i + 1, ms: t.ms, plays: t.plays, accent: Colors.pink },
+    add: t.uri ? { uri: t.uri, name: t.name, artist: t.artist } : undefined,   // ＋ to queue (v1.5)
   }))
   const albumRows: Row[] = stats.topAlbums.slice(0, 8).map((a, i) => ({
     name: a.name, value: fmtHours(a.ms), frac: a.ms / maxL,
@@ -91,6 +107,7 @@ function buildBlocks(stats: WrappedStats): Block[] {
     { t: 'hero', ms: stats.totalMs, since },
     { t: 'pills', streams: stats.totalStreams, artists: stats.uniqueArtists, tracks: stats.uniqueTracks },
   ]
+  blocks.push({ t: 'recaps' })
   if (artistRows.length) blocks.push({ t: 'list', key: 'artists', title: 'TOP ARTISTS · BY TIME', kind: 'artist', color: Colors.greenPrimary, rows: artistRows })
   if (trackRows.length)  blocks.push({ t: 'list', key: 'tracks',  title: 'TOP TRACKS · BY PLAYS', kind: 'track', color: Colors.pink, rows: trackRows })
   if (albumRows.length)  blocks.push({ t: 'list', key: 'albums',  title: 'TOP ALBUMS · BY TIME', kind: 'album', color: Colors.lavender, rows: albumRows })
@@ -106,6 +123,8 @@ function buildBlocks(stats: WrappedStats): Block[] {
 export default function WrappedTab() {
   const { stats, status, progress, errorMsg, importHistory, clearHistory } = useWrapped()
   const [sel, setSel] = useState<WrappedSelection | null>(null)
+  const gutter = useNowPlayingGutter()
+  const scrollY = useSharedValue(0)
 
   const headerY = useSharedValue(12); const headerO = useSharedValue(0)
   React.useEffect(() => {
@@ -141,13 +160,24 @@ export default function WrappedTab() {
             <Pill label="tracks"  value={item.tracks.toLocaleString()} />
           </View>
         )
+      case 'recaps':
+        return (
+          <TouchableOpacity style={styles.recapsBtn} onPress={() => { haptic.light(); router.push('/recaps') }} activeOpacity={0.85}>
+            <View style={styles.cardSpecular} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.recapsTitle}>Recaps</Text>
+              <Text style={styles.recapsSub}>Weekly · monthly · seasonal · yearly</Text>
+            </View>
+            <Text style={styles.recapsArrow}>→</Text>
+          </TouchableOpacity>
+        )
       case 'list':
         return (
           <View style={styles.card}>
             <View style={styles.cardSpecular} />
             <Text style={styles.sectionLabel}>{item.title}</Text>
             {item.rows.map((r, i) => (
-              <BarRow key={r.name + i} rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)} />
+              <BarRow key={r.name + i} rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)} addItem={r.add} />
             ))}
           </View>
         )
@@ -207,9 +237,12 @@ export default function WrappedTab() {
               renderItem={renderBlock}
               keyExtractor={(item, i) => item.t + i}
               getItemType={item => item.t}
-              contentContainerStyle={styles.listContent}
+              contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: 130 + gutter }}
               showsVerticalScrollIndicator={false}
+              onScroll={e => { scrollY.value = e.nativeEvent.contentOffset.y }}
+              scrollEventThrottle={16}
             />
+            <TopFade scrollY={scrollY} />
           </View>
         ) : (
           <View style={styles.scrollPad}>
@@ -279,6 +312,10 @@ const styles = StyleSheet.create({
   heroSub: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted },
 
   statRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
+  recapsBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.glass, borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.28), borderRadius: Radius.xl, overflow: 'hidden', padding: Spacing.lg, marginBottom: Spacing.md },
+  recapsTitle: { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, color: Colors.text, letterSpacing: -0.5 },
+  recapsSub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
+  recapsArrow: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.greenPrimary },
   statPill: { flex: 1, backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, alignItems: 'center', gap: 2 },
   statValue: { fontFamily: FontFamily.display, fontSize: 16, fontWeight: '700', color: Colors.text, letterSpacing: -0.5, alignSelf: 'stretch', textAlign: 'center' },
   statLabel: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
@@ -287,7 +324,9 @@ const styles = StyleSheet.create({
   cardSpecular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
   sectionLabel: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, textTransform: 'uppercase', marginBottom: Spacing.xs },
 
-  barRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
+  barRow:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  barBody: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
+  barFlex: { flex: 1, minWidth: 0 },
   barRank: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, width: 18, textAlign: 'right' },
   barName: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary },
   barSub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },

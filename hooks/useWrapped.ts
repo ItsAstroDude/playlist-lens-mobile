@@ -4,12 +4,14 @@ import * as FileSystem from 'expo-file-system/legacy'
 import { unzipSync, strFromU8 } from 'fflate'
 import { storage } from '@/utils/cache'
 import {
-  createAccumulator, addRows, finalize, buildTrackIndex,
-  type StreamRow, type WrappedStats, type TrackStat,
+  createAccumulator, addRows, finalize, buildTrackIndex, buildRecaps,
+  type StreamRow, type WrappedStats, type TrackStat, type RecapBundle,
 } from '@/utils/wrapped'
+import { normalizeRow, appendToBuffer, loadBuffer, saveBuffer, clearBuffer } from '@/utils/recents'
 
 const WRAPPED_KEY     = 'wrapped_stats'
 const TRACK_INDEX_KEY = 'wrapped_track_index'
+const RECAPS_KEY      = 'wrapped_recaps'
 const AUDIO_RE    = /Streaming_History_Audio[^/]*\.json$/i
 const LEGACY_RE   = /StreamingHistory[^/]*\.json$/i
 
@@ -57,10 +59,19 @@ export function loadTrackIndex(): TrackStat[] | null {
   try { return JSON.parse(raw) as TrackStat[] } catch { return null }
 }
 
+/** Per-period recaps (week/month/season/year). null until a history import. */
+export function loadRecaps(): RecapBundle | null {
+  const raw = storage.getString(RECAPS_KEY)
+  if (!raw) return null
+  try { return JSON.parse(raw) as RecapBundle } catch { return null }
+}
+
 /** Wipe just the imported listening history (leaves playlist caches intact). */
 export function clearWrappedStats(): void {
   storage.remove(WRAPPED_KEY)
   storage.remove(TRACK_INDEX_KEY)
+  storage.remove(RECAPS_KEY)
+  clearBuffer()
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -88,6 +99,16 @@ export function useWrapped() {
       await new Promise(r => setTimeout(r, 30))
 
       const acc = createAccumulator()
+      // Collect the import's recent tail to seed the live buffer (powers fresh recaps).
+      const recentSeed: StreamRow[] = []
+      const seedCutoff = new Date(Date.now() - 400 * 86_400_000).toISOString()
+      const ingest = (rows: StreamRow[]) => {
+        addRows(acc, rows)
+        for (const r of rows) {
+          const ts = r.ts ?? r.endTime
+          if (ts && ts >= seedCutoff) recentSeed.push(normalizeRow(r))
+        }
+      }
       let done = 0
       let sawAny = false
 
@@ -111,7 +132,7 @@ export function useWrapped() {
             const u8  = out[t]
             if (u8) {
               const rows = JSON.parse(strFromU8(u8)) as StreamRow[]
-              if (Array.isArray(rows)) { addRows(acc, rows); sawAny = true }
+              if (Array.isArray(rows)) { ingest(rows); sawAny = true }
             }
             done++
             setProgress({ done, total: targets.length })
@@ -120,7 +141,7 @@ export function useWrapped() {
         } else if (name.toLowerCase().endsWith('.json')) {
           const txt  = await FileSystem.readAsStringAsync(asset.uri)
           const rows = JSON.parse(txt) as StreamRow[]
-          if (Array.isArray(rows)) { addRows(acc, rows); sawAny = true }
+          if (Array.isArray(rows)) { ingest(rows); sawAny = true }
           done++
           setProgress({ done, total: res.assets.length })
         }
@@ -136,6 +157,10 @@ export function useWrapped() {
       storage.set(WRAPPED_KEY, JSON.stringify(result))
       // Full per-track index, stored separately (loaded on demand later).
       try { storage.set(TRACK_INDEX_KEY, JSON.stringify(buildTrackIndex(acc))) } catch { /* index is best-effort */ }
+      // Per-period recaps (week/month/season/year), loaded on demand by the Recaps view.
+      try { storage.set(RECAPS_KEY, JSON.stringify(buildRecaps(acc))) } catch { /* recaps best-effort */ }
+      // Seed the live buffer with the import's recent tail so recaps are fresh immediately.
+      try { saveBuffer(appendToBuffer(loadBuffer(), recentSeed)) } catch { /* buffer best-effort */ }
       setStats(result)
       setStatus('ready')
     } catch (e: any) {
@@ -146,6 +171,9 @@ export function useWrapped() {
 
   const clearHistory = useCallback(() => {
     storage.remove(WRAPPED_KEY)
+    storage.remove(TRACK_INDEX_KEY)
+    storage.remove(RECAPS_KEY)
+    clearBuffer()
     setStats(null)
     setStatus('idle')
     setErrorMsg(null)

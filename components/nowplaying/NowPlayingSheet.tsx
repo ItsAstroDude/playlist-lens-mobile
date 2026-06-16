@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import Animated, {
   Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { loadTrackIndex } from '@/hooks/useWrapped'
 import { fmtMinutesShort, type TrackStat } from '@/utils/wrapped'
@@ -141,7 +141,12 @@ export function NowPlayingSheet({ np, onClose }: {
           <Text style={styles.artist} numberOfLines={1}>{item.artists.join(', ')}</Text>
         )}
         {dur > 0 && (
-          <Text style={styles.clock}>{fmtClock(liveMs)} / {fmtClock(dur)}</Text>
+          <View style={styles.progressWrap}>
+            <View style={styles.progressBarTrack}>
+              <View style={[styles.progressBarFill, { width: `${Math.min(liveMs / dur, 1) * 100}%` }]} />
+            </View>
+            <Text style={styles.clock}>{fmtClock(liveMs)} / {fmtClock(dur)}</Text>
+          </View>
         )}
 
         {/* Personal stats from the imported history */}
@@ -195,7 +200,10 @@ const styles = StyleSheet.create({
   kind: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, marginTop: Spacing.lg },
   name: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, textAlign: 'center', letterSpacing: -0.5, marginTop: 2 },
   artist: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, marginTop: 2 },
-  clock: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: Spacing.sm },
+  clock: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.textSecondary },
+  progressWrap: { alignSelf: 'stretch', alignItems: 'center', gap: 7, marginTop: Spacing.lg, paddingHorizontal: Spacing.lg },
+  progressBarTrack: { alignSelf: 'stretch', height: 4, borderRadius: 2, backgroundColor: alpha(Colors.greenPrimary, 0.16), overflow: 'hidden' },
+  progressBarFill: { height: 4, borderRadius: 2, backgroundColor: Colors.greenPrimary },
   statRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg },
   statChip: {
     backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder,

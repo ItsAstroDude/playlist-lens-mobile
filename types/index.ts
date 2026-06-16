@@ -3,6 +3,9 @@ export interface SpotifyUser {
   id:           string
   display_name: string
   images:       Array<{ url: string; width: number; height: number }>
+  // Subscription tier from GET /v1/me (needs user-read-private, which we hold).
+  // 'premium' is required for v1.5 Custom Queues playback control.
+  product?:     'premium' | 'free' | 'open'
 }
 
 export interface SpotifyPlaylist {

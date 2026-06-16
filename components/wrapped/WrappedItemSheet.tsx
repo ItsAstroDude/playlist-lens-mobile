@@ -12,6 +12,7 @@ import { Spring, haptic } from '@/constants/animation'
 import { useArtwork, type ArtKind } from '@/hooks/useArtwork'
 import { ArtworkFixSheet, type ArtworkTarget } from '@/components/wrapped/ArtworkFixSheet'
 import { fmtMinutesShort } from '@/utils/wrapped'
+import { memorialFor, MEMORIAL_MARK } from '@/utils/tribute'
 
 const { height: SH } = Dimensions.get('window')
 const SHEET_H = Math.min(560, SH * 0.66)
@@ -23,6 +24,7 @@ export interface WrappedSelection {
   rank:   number
   ms?:    number
   plays?: number
+  tracks?: number   // cross-playlist track count (Taste / Lenses use this instead of ms/plays)
   accent: string
 }
 
@@ -72,6 +74,7 @@ export function WrappedItemSheet({ selection, onClose }: {
       selection.artist ? `${selection.name} — ${selection.artist}` : selection.name,
       selection.ms != null ? fmtMinutesShort(selection.ms) : null,
       selection.plays != null ? `${selection.plays.toLocaleString()} plays` : null,
+      selection.tracks != null ? `${selection.tracks.toLocaleString()} ${selection.tracks === 1 ? 'track' : 'tracks'}` : null,
     ].filter(Boolean)
     await Share.share({ message: parts.join('  ·  ') })
   }, [selection])
@@ -85,6 +88,8 @@ export function WrappedItemSheet({ selection, onClose }: {
   const accent = selection?.accent ?? Colors.greenPrimary
   const initial = (selection?.name ?? '?').trim().charAt(0).toUpperCase()
   const kindLabel = selection ? selection.kind.toUpperCase() : ''
+  // Quiet in-memoriam line — matches the artist (or a track's artist).
+  const mem = memorialFor(selection?.kind === 'artist' ? selection?.name : selection?.artist)
 
   return (
     <>
@@ -113,6 +118,7 @@ export function WrappedItemSheet({ selection, onClose }: {
         <Text style={styles.kind}>{kindLabel}</Text>
         <Text style={styles.name} numberOfLines={2}>{selection?.name}</Text>
         {selection?.artist ? <Text style={styles.artist} numberOfLines={1}>{selection.artist}</Text> : null}
+        {mem ? <Text style={styles.memorial}>{`${MEMORIAL_MARK}  in memory · ${mem.years}`}</Text> : null}
 
         {/* Stats */}
         <View style={styles.statRow}>
@@ -126,6 +132,12 @@ export function WrappedItemSheet({ selection, onClose }: {
             <View style={styles.statChip}>
               <Text style={[styles.statVal, { color: accent }]}>{selection.plays.toLocaleString()}</Text>
               <Text style={styles.statLbl}>plays</Text>
+            </View>
+          )}
+          {selection?.tracks != null && (
+            <View style={styles.statChip}>
+              <Text style={[styles.statVal, { color: accent }]}>{selection.tracks.toLocaleString()}</Text>
+              <Text style={styles.statLbl}>{selection.tracks === 1 ? 'track' : 'tracks'}</Text>
             </View>
           )}
         </View>
@@ -171,6 +183,7 @@ const styles = StyleSheet.create({
   kind: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, marginTop: Spacing.lg },
   name: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, textAlign: 'center', letterSpacing: -0.5, marginTop: 2 },
   artist: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, marginTop: 2 },
+  memorial: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textDim, marginTop: Spacing.sm, letterSpacing: 0.5 },
   statRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg },
   statChip: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, alignItems: 'center', minWidth: 110 },
   statVal: { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, letterSpacing: -0.5 },

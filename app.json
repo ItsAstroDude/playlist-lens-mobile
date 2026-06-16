@@ -2,7 +2,7 @@
   "expo": {
     "name": "playlist.lens",
     "slug": "playlist-lens-mobile",
-    "version": "1.0.0",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -45,6 +45,12 @@
         "expo-image-picker",
         {
           "photosPermission": "Let playlist.lens use a photo as custom cover art."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#53e076"
         }
       ]
     ],

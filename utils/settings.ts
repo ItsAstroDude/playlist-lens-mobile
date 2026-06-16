@@ -15,6 +15,7 @@ const KEYS = {
   lensLayout:   'settings.lensLayout',
   navbarStyle:  'settings.navbarStyle',
   nowPlayingPos: 'settings.nowPlayingPos',
+  tribute:       'settings.tribute',
 } as const
 
 // ── Haptics (default ON) ──
@@ -41,6 +42,16 @@ export function artworkEnabled(): boolean {
 }
 export function setArtworkEnabled(on: boolean): void {
   storage.set(KEYS.artwork, on)
+}
+
+// ── Memorial marks (default ON) — a small † beside artists who have passed,
+// plus a quiet remembrance line in their expanded panel. Opt-out here. ──
+export function tributeEnabled(): boolean {
+  const v = storage.getBoolean(KEYS.tribute)
+  return v === undefined ? true : v
+}
+export function setTributeEnabled(on: boolean): void {
+  storage.set(KEYS.tribute, on)
 }
 
 // ── Appearance (Expressive Expressions) — accent + font ──

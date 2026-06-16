@@ -4,7 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
+import { useSharedValue } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
+import { TopFade } from '@/components/ui/TopFade'
+import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import { haptic } from '@/constants/animation'
 import { api, ApiError } from '@/utils/api'
 import { deleteCache, CacheKeys } from '@/utils/cache'
@@ -45,6 +48,9 @@ export default function SwipeTab() {
 
   const [scopes, setScopes] = useState(getScopeStatus())
   useEffect(() => onScopeStatus(setScopes), [])
+
+  const gutter = useNowPlayingGutter()
+  const scrollY = useSharedValue(0)
 
   useEffect(() => {
     fetchPlaylists()
@@ -185,7 +191,7 @@ export default function SwipeTab() {
 
         {/* ════ PICK ════ */}
         {phase === 'pick' && (
-          <>
+          <View style={styles.pickWrap}>
             {scopes === 'missing' && (
               <TouchableOpacity style={styles.reconnectCard} onPress={() => !authLoading && login()} activeOpacity={0.8}>
                 <Ionicons name="sync" size={15} color={Colors.greenPrimary} />
@@ -195,11 +201,14 @@ export default function SwipeTab() {
                 <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
               </TouchableOpacity>
             )}
+            <View style={styles.pickWrap}>
             <FlatList
               data={editable}
               keyExtractor={p => p.id}
-              contentContainerStyle={styles.pickList}
+              contentContainerStyle={[styles.pickList, { paddingBottom: 140 + gutter }]}
               showsVerticalScrollIndicator={false}
+              onScroll={e => { scrollY.value = e.nativeEvent.contentOffset.y }}
+              scrollEventThrottle={16}
               ListHeaderComponent={
                 <Text style={styles.pickHint}>Pick one of your playlists to clean up:</Text>
               }
@@ -227,7 +236,9 @@ export default function SwipeTab() {
                 </TouchableOpacity>
               )}
             />
-          </>
+            <TopFade scrollY={scrollY} />
+            </View>
+          </View>
         )}
 
         {/* ════ SWIPE ════ */}
@@ -383,6 +394,7 @@ const styles = StyleSheet.create({
     borderColor: alpha(Colors.greenPrimary, 0.35), backgroundColor: Colors.greenSubtle,
   },
   reconnectText: { flex: 1, fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.text },
+  pickWrap: { flex: 1 },
   pickList: { paddingHorizontal: Spacing.lg, paddingBottom: 140 },
   pickHint: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.md },
   emptyText: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', marginTop: Spacing['3xl'] },

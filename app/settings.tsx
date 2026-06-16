@@ -27,12 +27,14 @@ import {
   hapticsEnabled, setHapticsEnabled,
   reduceMotionEnabled, setReduceMotionEnabled,
   artworkEnabled, setArtworkEnabled,
+  tributeEnabled, setTributeEnabled,
   getAccentId, setAccentId, getFontId, setFontId,
   getThemeMode, setThemeMode, type ThemeMode,
   getCustomQuote, setCustomQuote,
   NAVBAR_STYLES, getNavbarStyle, setNavbarStyle, launchNavbarStyle, type NavbarStyle,
   getNowPlayingPos, setNowPlayingPos, type NowPlayingPos,
 } from '@/utils/settings'
+import { notificationsEnabled, setNotificationsEnabled } from '@/utils/notifications'
 import { clearWrappedStats } from '@/hooks/useWrapped'
 import { loadArtReports } from '@/hooks/useArtwork'
 import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel, reloadApp } from '@/utils/updates'
@@ -202,6 +204,8 @@ export default function SettingsScreen() {
   const [haptics, setHaptics]           = useState(hapticsEnabled())
   const [reduceMotion, setReduceMotion] = useState(reduceMotionEnabled())
   const [artwork, setArtwork]           = useState(artworkEnabled())
+  const [tribute, setTribute]           = useState(tributeEnabled())
+  const [notifs, setNotifs]             = useState(notificationsEnabled())
   const [me, setMe]                     = useState<SpotifyUser | null>(null)
   const [cacheCleared, setCacheCleared] = useState(false)
   const [wrappedCleared, setWrappedCleared] = useState(false)
@@ -252,6 +256,28 @@ export default function SettingsScreen() {
     setArtwork(v)
     setArtworkEnabled(v)
     haptic.light()
+  }
+
+  const onToggleTribute = (v: boolean) => {
+    setTribute(v)
+    setTributeEnabled(v)
+    haptic.light()
+  }
+
+  // Recap notifications — turning on asks OS permission; reverts if it's denied.
+  const onToggleNotifications = async (v: boolean) => {
+    haptic.light()
+    setNotifs(v)
+    const result = await setNotificationsEnabled(v)
+    if (result !== v) {
+      setNotifs(result)
+      if (v && !result) {
+        Alert.alert(
+          'Notifications are off',
+          'Allow notifications for playlist.lens in your phone settings to get recap nudges.',
+        )
+      }
+    }
   }
 
   const onClearWrapped = () => {
@@ -431,6 +457,18 @@ export default function SettingsScreen() {
               label="Show artwork"
               value={artwork}
               onValueChange={onToggleArtwork}
+            />
+            <ToggleRow
+              icon="flower-outline"
+              label="Memorial marks"
+              value={tribute}
+              onValueChange={onToggleTribute}
+            />
+            <ToggleRow
+              icon="notifications-outline"
+              label="Recap notifications"
+              value={notifs}
+              onValueChange={onToggleNotifications}
               last
             />
           </Section>

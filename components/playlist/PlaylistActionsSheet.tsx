@@ -12,12 +12,13 @@ const { height: SH } = Dimensions.get('window')
 
 interface Action { glyph: string; label: string; sub?: string; onPress: () => void; tint?: string }
 
-export function PlaylistActionsSheet({ playlist, onClose, onPin, onReanalyze, onReorder }: {
+export function PlaylistActionsSheet({ playlist, onClose, onPin, onReanalyze, onReorder, onCompare }: {
   playlist:    SpotifyPlaylist | null
   onClose:     () => void
   onPin:       (id: string) => void
   onReanalyze: (id: string) => void
   onReorder:   () => void
+  onCompare:   (id: string) => void
 }) {
   const isOpen = playlist !== null
   const insets = useSafeAreaInsets()
@@ -57,6 +58,7 @@ export function PlaylistActionsSheet({ playlist, onClose, onPin, onReanalyze, on
     { glyph: '↑', label: 'Pin to top',     sub: 'Jump this lens to the front',     onPress: () => run(() => { haptic.success(); onPin(playlist.id) }) },
     { glyph: '↗', label: 'Share',          sub: 'Send this playlist',               onPress: onShare },
     { glyph: '↻', label: 'Re-analyze',     sub: 'Recompute from fresh data',        onPress: () => run(() => { haptic.medium(); onReanalyze(playlist.id) }) },
+    { glyph: '⇆', label: 'Compare with…',  sub: 'Stack this against another lens',   onPress: () => run(() => { haptic.medium(); onCompare(playlist.id) }) },
     { glyph: '≡', label: 'Reorder lenses', sub: 'Drag to set your own order',       onPress: () => run(() => { haptic.medium(); onReorder() }) },
   ] : []
 

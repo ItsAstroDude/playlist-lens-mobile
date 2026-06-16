@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
-import { storage } from '@/utils/cache'
+import * as SecureStore from 'expo-secure-store'
+import { storage, SecureKeys } from '@/utils/cache'
 import { artworkEnabled } from '@/utils/settings'
+import { BACKEND_URL } from '@/utils/api'
 
 /**
  * Artwork lookup via the iTunes Search API — no auth, no backend, on-device.
@@ -34,7 +36,11 @@ export interface ArtCandidate {
 }
 
 function keyFor(kind: ArtKind, name: string, artist?: string) {
-  return `art:${kind}:${name}:${artist ?? ''}`.toLowerCase()
+  // Artists get a ":v2" namespace so pre-"Faces & Facets" caches (which held an
+  // album cover) are bypassed and re-resolved via the new Spotify-portrait lookup.
+  // User overrides live under a separate key, so a pinned cover still wins.
+  const v = kind === 'artist' ? ':v2' : ''
+  return `art:${kind}${v}:${name}:${artist ?? ''}`.toLowerCase()
 }
 
 function overrideKey(kind: ArtKind, name: string, artist?: string) {
@@ -104,7 +110,33 @@ export function pickArtwork(
   return art ? upscale(art) : null
 }
 
+/**
+ * Real artist portrait via the backend Spotify proxy (v1.3.1 "Faces & Facets").
+ * iTunes only has song covers, so artist lookups used to show an album cover.
+ * Spotify has actual artist photos. Plain fetch (not apiFetch) on purpose — a
+ * transient 401 here should just fall back to iTunes, never trigger a logout.
+ */
+async function fetchSpotifyArtistImage(name: string): Promise<string | null> {
+  try {
+    const token = await SecureStore.getItemAsync(SecureKeys.accessToken)
+    if (!token) return null
+    const res = await fetch(`${BACKEND_URL}/api/artist-image?name=${encodeURIComponent(name)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    return json && typeof json.image === 'string' ? json.image : null
+  } catch {
+    return null
+  }
+}
+
 async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<string | null> {
+  // Artists: prefer a real Spotify portrait; fall back to an iTunes song cover.
+  if (kind === 'artist') {
+    const portrait = await fetchSpotifyArtistImage(name)
+    if (portrait) return portrait
+  }
   const entity = kind === 'album' ? 'album' : 'song'
   const term   = kind === 'artist' ? name : `${name} ${artist ?? ''}`.trim()
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=${entity}&limit=8`
