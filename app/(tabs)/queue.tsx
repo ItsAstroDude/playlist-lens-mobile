@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react'
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, TouchableOpacity, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withDelay } from 'react-native-reanimated'
@@ -57,6 +57,20 @@ export default function QueueTab() {
     added ? haptic.success() : haptic.light()
   }, [addMany])
 
+  const playNow = useCallback((shelf: Shelf) => {
+    haptic.medium()
+    emitOpenStartQueue(shelf.tracks.map(asItem))   // ad-hoc start, leaves the cart alone
+  }, [])
+
+  const confirmClear = useCallback(() => {
+    if (count === 0) return
+    haptic.light()
+    Alert.alert('Clear the queue?', `Remove all ${count} ${count === 1 ? 'track' : 'tracks'} from your queue?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: () => { haptic.warning(); clear() } },
+    ])
+  }, [count, clear])
+
   return (
     <View style={styles.container}>
       <AmbientBackground />
@@ -84,7 +98,7 @@ export default function QueueTab() {
             <View style={styles.cardHead}>
               <Text style={styles.sectionLabel}>YOUR QUEUE</Text>
               {count > 0 && (
-                <TouchableOpacity onPress={() => { haptic.light(); clear() }} hitSlop={8}>
+                <TouchableOpacity onPress={confirmClear} hitSlop={8}>
                   <Text style={styles.clearText}>Clear</Text>
                 </TouchableOpacity>
               )}
@@ -127,9 +141,14 @@ export default function QueueTab() {
                     <Text style={styles.shelfTitle} numberOfLines={1}>{shelf.title}</Text>
                     <Text style={styles.shelfSub} numberOfLines={2}>{shelf.subtitle}</Text>
                   </View>
-                  <TouchableOpacity style={styles.queueAll} onPress={() => queueAll(shelf)} hitSlop={6}>
-                    <Text style={styles.queueAllText}>＋ all</Text>
-                  </TouchableOpacity>
+                  <View style={styles.shelfActions}>
+                    <TouchableOpacity style={styles.playNow} onPress={() => playNow(shelf)} hitSlop={6}>
+                      <Text style={styles.playNowText}>▶ Play</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.queueAll} onPress={() => queueAll(shelf)} hitSlop={6}>
+                      <Text style={styles.queueAllText}>＋ all</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
                 {shelf.tracks.slice(0, SHELF_PREVIEW).map(s => (
                   <TrackRow key={s.uri} item={asItem(s)} reason={s.reason} trailing={<AddToQueueButton item={asItem(s)} />} />
@@ -195,6 +214,9 @@ const styles = StyleSheet.create({
 
   shelfTitle: { fontFamily: FontFamily.syneBold, fontSize: FontSize.md, color: Colors.text, letterSpacing: -0.3 },
   shelfSub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2, lineHeight: FontSize.xs * 1.5 },
+  shelfActions: { gap: 6, alignItems: 'flex-end' },
+  playNow: { borderRadius: Radius.full, paddingVertical: 6, paddingHorizontal: Spacing.md, backgroundColor: Colors.greenPrimary },
+  playNowText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.background },
   queueAll: { borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.4), borderRadius: Radius.full, paddingVertical: 6, paddingHorizontal: Spacing.md, backgroundColor: alpha(Colors.greenPrimary, 0.1) },
   queueAllText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.greenPrimary },
   moreNote: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textDim, textAlign: 'center', marginTop: 2 },

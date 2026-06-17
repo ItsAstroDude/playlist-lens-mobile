@@ -69,6 +69,10 @@ function sync() {
   else stop()
 }
 
+/** Force an immediate poll — e.g. right after a transport control so the bar/sheet
+ * reflect the new state without waiting for the next interval tick. */
+export function pokeNowPlaying(): void { poll() }
+
 // Module-level listeners — registered once, gated by sync() so they're inert
 // while nothing is subscribed.
 AppState.addEventListener('change', s => {

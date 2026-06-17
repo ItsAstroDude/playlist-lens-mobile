@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Text, Pressable, StyleSheet } from 'react-native'
+import { Text, Pressable, StyleSheet, Alert } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
@@ -63,7 +63,13 @@ export function QueueCartTray() {
         </Text>
         <Pressable
           hitSlop={10}
-          onPress={() => { haptic.light(); clearCart() }}
+          onPress={() => {
+            haptic.light()
+            Alert.alert('Clear the queue?', `Remove all ${count} ${count === 1 ? 'track' : 'tracks'}?`, [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Clear', style: 'destructive', onPress: () => { haptic.warning(); clearCart() } },
+            ])
+          }}
           accessibilityRole="button"
           accessibilityLabel="Clear queue cart"
           style={styles.clear}

@@ -3,6 +3,7 @@ import {
   BackHandler, Dimensions, Linking, Pressable, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native'
 import { Image } from 'expo-image'
+import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import Animated, {
   Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming,
@@ -11,7 +12,8 @@ import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constant
 import { Spring, haptic } from '@/constants/animation'
 import { loadTrackIndex } from '@/hooks/useWrapped'
 import { fmtMinutesShort, type TrackStat } from '@/utils/wrapped'
-import type { NowPlaying } from '@/hooks/useNowPlaying'
+import { pokeNowPlaying, type NowPlaying } from '@/hooks/useNowPlaying'
+import { resumePlayback, pausePlayback, skipNext, skipPrevious } from '@/utils/playback'
 
 // ─── Now-playing stats sheet (v1.3 "Pulse") ──────────────────────────────────
 // Tap the live bar → this. The song playing right now + YOUR lifetime numbers
@@ -19,7 +21,7 @@ import type { NowPlaying } from '@/hooks/useNowPlaying'
 // name+artist). Works without an import — it just nudges toward Wrapped instead.
 
 const { height: SH } = Dimensions.get('window')
-const SHEET_H = Math.min(540, SH * 0.64)
+const SHEET_H = Math.min(620, SH * 0.74)
 
 // The full per-track index is MBs of JSON — parse it once per session, on first
 // open (NOT at startup). A fresh import during the same session shows up after
@@ -99,6 +101,25 @@ export function NowPlayingSheet({ np, onClose }: {
     ? Math.min((np.progress_ms ?? 0) + (np.is_playing ? Date.now() - np.receivedAt : 0), dur)
     : 0
 
+  // Transport (v1.6) — optimistic play/pause + skip, re-synced by a poke. `override`
+  // wins until the next poll lands (effect clears it when the server state changes).
+  const [override, setOverride] = useState<boolean | null>(null)
+  const [busy, setBusy]         = useState(false)
+  const playing = override ?? (np?.is_playing ?? false)
+  useEffect(() => { setOverride(null) }, [np?.is_playing, item?.uri])
+
+  const control = useCallback(async (fn: () => Promise<void>, optimistic?: boolean) => {
+    if (busy) return
+    haptic.light()
+    if (optimistic !== undefined) setOverride(optimistic)
+    setBusy(true)
+    try { await fn() } catch { /* premium / no active device / scope — poke self-corrects */ }
+    setTimeout(() => { pokeNowPlaying(); setBusy(false) }, 500)
+  }, [busy])
+  const onPlayPause = () => (playing ? control(pausePlayback, false) : control(resumePlayback, true))
+  const onNext = () => control(skipNext)
+  const onPrev = () => control(skipPrevious)
+
   const onOpenSpotify = useCallback(async () => {
     if (!item?.uri) return
     haptic.light()
@@ -148,6 +169,19 @@ export function NowPlayingSheet({ np, onClose }: {
             <Text style={styles.clock}>{fmtClock(liveMs)} / {fmtClock(dur)}</Text>
           </View>
         )}
+
+        {/* Transport controls (v1.6) — drive the active Spotify device */}
+        <View style={styles.controls}>
+          <Pressable onPress={onPrev} disabled={busy} hitSlop={8} style={styles.ctrlBtn} accessibilityRole="button" accessibilityLabel="Previous track">
+            <Ionicons name="play-skip-back" size={22} color={Colors.text} />
+          </Pressable>
+          <Pressable onPress={onPlayPause} disabled={busy} style={[styles.ctrlPlay, { backgroundColor: accent }]} accessibilityRole="button" accessibilityLabel={playing ? 'Pause' : 'Play'}>
+            <Ionicons name={playing ? 'pause' : 'play'} size={26} color={Colors.background} />
+          </Pressable>
+          <Pressable onPress={onNext} disabled={busy} hitSlop={8} style={styles.ctrlBtn} accessibilityRole="button" accessibilityLabel="Next track">
+            <Ionicons name="play-skip-forward" size={22} color={Colors.text} />
+          </Pressable>
+        </View>
 
         {/* Personal stats from the imported history */}
         {stats?.stat ? (
@@ -204,6 +238,9 @@ const styles = StyleSheet.create({
   progressWrap: { alignSelf: 'stretch', alignItems: 'center', gap: 7, marginTop: Spacing.lg, paddingHorizontal: Spacing.lg },
   progressBarTrack: { alignSelf: 'stretch', height: 4, borderRadius: 2, backgroundColor: alpha(Colors.greenPrimary, 0.16), overflow: 'hidden' },
   progressBarFill: { height: 4, borderRadius: 2, backgroundColor: Colors.greenPrimary },
+  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing['2xl'], marginTop: Spacing.lg },
+  ctrlBtn:  { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
+  ctrlPlay: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', shadowColor: Colors.greenPrimary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
   statRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg },
   statChip: {
     backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder,

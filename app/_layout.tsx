@@ -25,6 +25,7 @@ import { WhatsNew } from '@/components/onboarding/WhatsNew'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { QueueCartTray } from '@/components/queue/QueueCartTray'
 import { StartQueueSheet } from '@/components/queue/StartQueueSheet'
+import type { QueueItem } from '@/utils/queueCart'
 import { checkForUpdate, applyUpdate } from '@/utils/updates'
 import {
   shouldShowTutorial, markTutorialSeen, shouldShowWhatsNew, markWhatsNewSeen,
@@ -42,6 +43,7 @@ export default function RootLayout() {
   const [whatsNewAll,    setWhatsNewAll]     = useState(false)  // Settings = full history
   const [showUpdate,     setShowUpdate]      = useState(false)
   const [showQueue,      setShowQueue]       = useState(false)
+  const [queueTracks,    setQueueTracks]     = useState<QueueItem[] | undefined>(undefined)
 
   // Best-effort auto-Wrapped refresh (keeps recaps fresh; no-ops when logged out).
   useAutoWrapped(isAuthenticated)
@@ -79,8 +81,8 @@ export default function RootLayout() {
     const unsubTut = onOpenTutorial(() => setShowTutorial(true))
     // Opened from Settings → show the full patch-note history.
     const unsubWN  = onOpenWhatsNew(() => { setWhatsNewAll(true); setShowWhatsNew(true) })
-    // The floating queue tray (anywhere) opens the start-queue sheet.
-    const unsubQueue = onOpenStartQueue(() => setShowQueue(true))
+    // The floating queue tray (cart) or a shelf's "Play now" (ad-hoc list) opens the sheet.
+    const unsubQueue = onOpenStartQueue(tracks => { setQueueTracks(tracks); setShowQueue(true) })
     return () => { unsubExpired(); unsubSignedIn(); unsubTut(); unsubWN(); unsubQueue() }
   }, [])
 
@@ -147,7 +149,7 @@ export default function RootLayout() {
 
       {/* Root-mounted overlays (above the whole navigator) */}
       {isAuthenticated && <QueueCartTray />}
-      <StartQueueSheet visible={showQueue} onClose={() => setShowQueue(false)} />
+      <StartQueueSheet visible={showQueue} tracks={queueTracks} onClose={() => { setShowQueue(false); setQueueTracks(undefined) }} />
       <WhatsNew visible={showWhatsNew} all={whatsNewAll} onClose={onWhatsNewClose} />
       {showTutorial && <Tutorial onDone={onTutorialDone} />}
       <ConfirmModal

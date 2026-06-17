@@ -31,10 +31,13 @@ export function onOpenNowPlaying(cb: Cb): () => void {
 export function emitOpenNowPlaying(): void { nowPlayingSubs.forEach(c => c()) }
 
 // Start-queue sheet (v1.5 Custom Queues) — owned by the root layout so it floats
-// above the whole navigator; the floating queue tray opens it from anywhere.
-const startQueueSubs: Cb[] = []
-export function onOpenStartQueue(cb: Cb): () => void {
+// above the whole navigator. Opened from the tray/Queue tab (cart mode) or from a
+// rediscovery shelf's "Play now" with an explicit ad-hoc track list (v1.6).
+import type { QueueItem } from '@/utils/queueCart'
+type QueueCb = (tracks?: QueueItem[]) => void
+const startQueueSubs: QueueCb[] = []
+export function onOpenStartQueue(cb: QueueCb): () => void {
   startQueueSubs.push(cb)
   return () => { const i = startQueueSubs.indexOf(cb); if (i >= 0) startQueueSubs.splice(i, 1) }
 }
-export function emitOpenStartQueue(): void { startQueueSubs.forEach(c => c()) }
+export function emitOpenStartQueue(tracks?: QueueItem[]): void { startQueueSubs.forEach(c => c(tracks)) }

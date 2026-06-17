@@ -1,15 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
-  View, Text, Pressable, ScrollView, StyleSheet, BackHandler, Linking, ActivityIndicator, Image,
+  View, Text, Pressable, StyleSheet, BackHandler, Linking, ActivityIndicator, Image,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
 import { router } from 'expo-router'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated'
+import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist'
 import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
-import { useQueueCart } from '@/hooks/useQueueCart'
-import { getCart, clearCart } from '@/utils/queueCart'
+import { getCart, clearCart, reorderCart, removeFromCart, type QueueItem } from '@/utils/queueCart'
 import {
   isPremium, fetchDevices, pickTarget, startQueue, classifyPlaybackError,
   type DeviceTarget,
@@ -23,19 +23,25 @@ const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
 const msgOf = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong.')
 
 /**
- * The start-queue flow (v1.5 Custom Queues). Opened from the floating tray. Handles
- * the smart 3-state device onboarding (active → fire · idle → transfer + start ·
- * none → wake Spotify, poll, auto-start), plus the Premium gate and the
- * reconnect-for-scope path. Root-mounted so it floats above the whole navigator.
+ * The start-queue flow (v1.5/v1.6). Opened from the floating tray / Queue tab (cart
+ * mode) or from a rediscovery shelf's "Play now" (ad-hoc mode — `tracks` passed in,
+ * the cart untouched). Drag-to-reorder + remove edit the working list; in cart mode
+ * those write through to the cart. Handles the smart 3-state device onboarding,
+ * the Premium gate, and the reconnect-for-scope path. Root-mounted.
  */
-export function StartQueueSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function StartQueueSheet({ visible, onClose, tracks }: {
+  visible: boolean; onClose: () => void; tracks?: QueueItem[]
+}) {
   const insets = useSafeAreaInsets()
-  const { items, remove } = useQueueCart()
   const [phase, setPhase]   = useState<Phase>('checking')
   const [target, setTarget] = useState<DeviceTarget | null>(null)
   const [errMsg, setErrMsg] = useState<string | null>(null)
   const [shuffle, setShuffle] = useState(false)
+  const [queue, setQueue]   = useState<QueueItem[]>([])
   const cancelled = useRef(false)
+  const adhocRef  = useRef(false)
+  const queueRef  = useRef<QueueItem[]>([])
+  queueRef.current = queue
 
   const ty       = useSharedValue(800)
   const backdrop = useSharedValue(0)
@@ -43,9 +49,13 @@ export function StartQueueSheet({ visible, onClose }: { visible: boolean; onClos
   useEffect(() => {
     if (visible) {
       cancelled.current = false
+      const adhoc = !!(tracks && tracks.length)
+      adhocRef.current = adhoc
+      const seed = adhoc ? tracks! : getCart()
+      setQueue(seed)
       ty.value       = withSpring(0, Spring.sheet)
       backdrop.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) })
-      prepare()
+      prepare(seed)
     } else {
       cancelled.current = true
       ty.value       = withTiming(800, { duration: 220 })
@@ -61,9 +71,9 @@ export function StartQueueSheet({ visible, onClose }: { visible: boolean; onClos
   }, [visible])
 
   // ── Flow ──
-  async function prepare() {
+  async function prepare(seed?: QueueItem[]) {
     setErrMsg(null); setTarget(null); setShuffle(false)
-    if (getCart().length === 0) { setPhase('empty'); return }
+    if ((seed ?? queueRef.current).length === 0) { setPhase('empty'); return }
     setPhase('checking')
     if (!(await isPremium())) { if (!cancelled.current) setPhase('premium'); return }
     try {
@@ -79,7 +89,7 @@ export function StartQueueSheet({ visible, onClose }: { visible: boolean; onClos
   }
 
   async function doStart(deviceId?: string) {
-    const uris = getCart().map(i => i.uri)
+    const uris = queueRef.current.map(i => i.uri)
     if (!uris.length) { setPhase('empty'); return }
     setPhase('starting')
     try {
@@ -87,7 +97,7 @@ export function StartQueueSheet({ visible, onClose }: { visible: boolean; onClos
       if (cancelled.current) return
       haptic.success()
       setPhase('done')
-      clearCart()
+      if (!adhocRef.current) clearCart()   // ad-hoc "play now" leaves the cart alone
       setTimeout(() => { if (!cancelled.current) onClose() }, 1100)
     } catch (err) {
       if (cancelled.current) return
@@ -127,25 +137,53 @@ export function StartQueueSheet({ visible, onClose }: { visible: boolean; onClos
     return doStart(target.device.id ?? undefined)
   }
 
+  // List edits — write through to the cart unless we're playing an ad-hoc set.
+  function removeTrack(uri: string) {
+    haptic.light()
+    setQueue(q => q.filter(i => i.uri !== uri))
+    if (!adhocRef.current) removeFromCart(uri)
+  }
+  function applyReorder(data: QueueItem[]) {
+    setQueue(data)
+    if (!adhocRef.current) reorderCart(data.map(i => i.uri))
+  }
+
   function close() { cancelled.current = true; onClose() }
   function reconnect() { close(); router.push('/settings') }
 
   const sheetStyle    = useAnimatedStyle(() => ({ transform: [{ translateY: ty.value }] }))
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }))
 
+  const renderRow = ({ item, drag, isActive }: RenderItemParams<QueueItem>) => (
+    <ScaleDecorator activeScale={1.03}>
+      <Pressable
+        onLongPress={drag}
+        delayLongPress={180}
+        disabled={isActive}
+        style={[styles.trackRow, isActive && styles.trackRowActive]}
+      >
+        {item.image
+          ? <Image source={{ uri: item.image }} style={styles.cover} />
+          : <View style={[styles.cover, styles.coverEmpty]}><Text style={styles.coverGlyph}>♪</Text></View>}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.trackName} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.trackArtist} numberOfLines={1}>{item.artist}</Text>
+        </View>
+        <Pressable onPress={() => removeTrack(item.uri)} hitSlop={8} style={styles.remove}>
+          <Text style={styles.removeGlyph}>✕</Text>
+        </Pressable>
+      </Pressable>
+    </ScaleDecorator>
+  )
+
   // ── Footer (per phase) ──
   function Footer() {
     switch (phase) {
-      case 'checking':
-        return <Status spinner label="Finding a device…" />
-      case 'opening':
-        return <Status spinner label="Opening Spotify…" />
-      case 'starting':
-        return <Status spinner label="Starting your queue…" />
-      case 'done':
-        return <Status label="✦ Playing on Spotify" tone="ok" />
-      case 'empty':
-        return <Status label="Your queue is empty — add some tracks first." tone="muted" />
+      case 'checking':  return <Status spinner label="Finding a device…" />
+      case 'opening':   return <Status spinner label="Opening Spotify…" />
+      case 'starting':  return <Status spinner label="Starting your queue…" />
+      case 'done':      return <Status label="✦ Playing on Spotify" tone="ok" />
+      case 'empty':     return <Status label="Nothing to play — add some tracks first." tone="muted" />
       case 'premium':
         return (
           <Notice
@@ -170,7 +208,7 @@ export function StartQueueSheet({ visible, onClose }: { visible: boolean; onClos
             title="Couldn’t start"
             body={errMsg ?? 'Something went wrong.'}
             actionLabel="Try again"
-            onAction={prepare}
+            onAction={() => prepare()}
             tone="error"
           />
         )
@@ -213,26 +251,25 @@ export function StartQueueSheet({ visible, onClose }: { visible: boolean; onClos
       <Animated.View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) + Spacing.md }, sheetStyle]}>
         <View style={styles.handle} />
         <View style={styles.header}>
-          <Text style={styles.title}>Start a queue</Text>
-          <Text style={styles.count}>{items.length} {items.length === 1 ? 'track' : 'tracks'}</Text>
+          <Text style={styles.title}>{adhocRef.current ? 'Play these' : 'Start a queue'}</Text>
+          <Text style={styles.count}>{queue.length} {queue.length === 1 ? 'track' : 'tracks'}</Text>
         </View>
 
-        <ScrollView style={styles.list} contentContainerStyle={{ gap: 2 }} showsVerticalScrollIndicator={false}>
-          {items.map(it => (
-            <View key={it.uri} style={styles.trackRow}>
-              {it.image
-                ? <Image source={{ uri: it.image }} style={styles.cover} />
-                : <View style={[styles.cover, styles.coverEmpty]}><Text style={styles.coverGlyph}>♪</Text></View>}
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.trackName} numberOfLines={1}>{it.name}</Text>
-                <Text style={styles.trackArtist} numberOfLines={1}>{it.artist}</Text>
-              </View>
-              <Pressable onPress={() => { haptic.light(); remove(it.uri) }} hitSlop={8} style={styles.remove}>
-                <Text style={styles.removeGlyph}>✕</Text>
-              </Pressable>
-            </View>
-          ))}
-        </ScrollView>
+        {queue.length >= 2 && (
+          <Text style={styles.reorderHint}>Long-press to reorder · ✕ to remove</Text>
+        )}
+
+        <View style={styles.list}>
+          <DraggableFlatList
+            data={queue}
+            keyExtractor={it => it.uri}
+            renderItem={renderRow}
+            onDragEnd={({ data }) => applyReorder(data)}
+            activationDistance={12}
+            contentContainerStyle={{ gap: 2 }}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
 
         <View style={styles.footer}><Footer /></View>
       </Animated.View>
@@ -277,9 +314,11 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: Spacing.sm },
   title: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -0.5 },
   count: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted },
+  reorderHint: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textDim, marginBottom: Spacing.xs },
 
   list: { maxHeight: 260 },
-  trackRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 6 },
+  trackRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 6, paddingHorizontal: 4, borderRadius: Radius.sm },
+  trackRowActive: { backgroundColor: alpha(Colors.text, 0.05) },
   cover: { width: 38, height: 38, borderRadius: Radius.sm, backgroundColor: Colors.glass },
   coverEmpty: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.glassBorder },
   coverGlyph: { fontFamily: FontFamily.mono, fontSize: FontSize.md, color: Colors.textMuted },

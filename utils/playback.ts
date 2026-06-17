@@ -144,6 +144,14 @@ export async function startQueue(
   return { started, queued }
 }
 
+// ─── Transport controls (v1.6) — drive the active device like a remote ────────
+// Same gates as the rest (Premium + scope + active device); callers catch + can
+// classify with classifyPlaybackError.
+export async function resumePlayback(): Promise<void> { await api.put('/api/playback/resume', {}) }
+export async function pausePlayback(): Promise<void>  { await api.put('/api/playback/pause', {}) }
+export async function skipNext(): Promise<void>       { await api.post('/api/playback/next', {}) }
+export async function skipPrevious(): Promise<void>   { await api.post('/api/playback/previous', {}) }
+
 // ─── Premium gate ───────────────────────────────────────────────────────────
 // Subscription tier rarely changes; cache it for the session. On a fetch error we
 // fall back to last-known (or true) so a network blip never wrongly blocks a real
