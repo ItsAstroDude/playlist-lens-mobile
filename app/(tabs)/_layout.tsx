@@ -318,14 +318,10 @@ const styles = StyleSheet.create({
 // ─── Icon geometry (shared box; per-icon shapes) ───────────────────────────────
 const g = StyleSheet.create({
   box:    { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
-  rowEnd: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
 
   // lenses — aperture
   lensOuter: { width: 18, height: 18, borderRadius: 5, borderWidth: STROKE, alignItems: 'center', justifyContent: 'center' },
   lensInner: { width: 7,  height: 7,  borderRadius: 2, borderWidth: STROKE },
-
-  // compare — rounded strokes (kept; unused now that compare left the tab bar)
-  stroke: { width: STROKE + 0.5, borderRadius: STROKE },
 
   // queue — stacked lines + play triangle
   qStack:  { gap: 3 },

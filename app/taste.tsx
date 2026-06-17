@@ -14,6 +14,7 @@ import Animated, {
 import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
+import { TopFade } from '@/components/ui/TopFade'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { RadarChart } from '@/components/ui/RadarChart'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
@@ -290,6 +291,7 @@ export default function TasteScreen() {
   const [scanBtnVisible, setScanBtnVisible] = useState(false)
   const [codeInput, setCodeInput]           = useState('')
   const [sel, setSel]                       = useState<WrappedSelection | null>(null)
+  const scrollY = useSharedValue(0)
 
   useEffect(() => {
     buildFromCache()
@@ -346,7 +348,14 @@ export default function TasteScreen() {
           <View style={{ width: 36 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onScroll={e => { scrollY.value = e.nativeEvent.contentOffset.y }}
+          scrollEventThrottle={16}
+        >
           {isScanning && (
             <View style={styles.scanBanner}>
               <ActivityIndicator size="small" color={Colors.greenPrimary} />
@@ -416,6 +425,8 @@ export default function TasteScreen() {
 
           {friendProfile && <FriendCard theirs={friendProfile} mine={profile} />}
         </ScrollView>
+        <TopFade scrollY={scrollY} />
+        </View>
       </SafeAreaView>
 
       <WrappedItemSheet selection={sel} onClose={() => setSel(null)} />

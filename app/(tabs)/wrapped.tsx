@@ -304,7 +304,6 @@ const styles = StyleSheet.create({
   title: { fontFamily: FontFamily.syneBold, fontSize: FontSize['2xl'], color: Colors.text, letterSpacing: -1 },
   sub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
 
-  listContent: { paddingHorizontal: Spacing.lg, paddingBottom: 130 },
   scrollPad: { flex: 1, paddingHorizontal: Spacing.lg },
 
   heroCard: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.xl, overflow: 'hidden', paddingVertical: Spacing.xl, alignItems: 'center', gap: 2, marginBottom: Spacing.md },

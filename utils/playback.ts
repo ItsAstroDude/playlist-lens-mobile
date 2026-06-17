@@ -161,6 +161,3 @@ export async function isPremium(force = false): Promise<boolean> {
     return _premium?.value ?? true
   }
 }
-
-/** For tests / logout — drop the cached tier. */
-export function _resetPremiumCache(): void { _premium = null }
