@@ -30,8 +30,8 @@ const HOLE_RADIUS = 16
 const GLIDE    = { duration: 460, easing: Easing.out(Easing.cubic) }
 const COLLAPSE = { duration: 300, easing: Easing.in(Easing.cubic) }
 
-type TabRoute = 'index' | 'compare' | 'wrapped' | 'swipe'
-const ROUTE_INDEX: Record<TabRoute, number> = { index: 0, compare: 1, wrapped: 2, swipe: 3 }
+type TabRoute = 'index' | 'queue' | 'wrapped' | 'swipe'
+const ROUTE_INDEX: Record<TabRoute, number> = { index: 0, queue: 1, wrapped: 2, swipe: 3 }
 
 interface Step {
   route:    TabRoute
@@ -46,7 +46,7 @@ interface Step {
 // behind the scrim shows the screen each step is describing.
 const ROUTE_HREF: Record<TabRoute, string> = {
   index:   '/(tabs)',
-  compare: '/compare',
+  queue:   '/queue',
   wrapped: '/wrapped',
   swipe:   '/swipe',
 }
@@ -67,9 +67,9 @@ function buildSteps(): Step[] {
       body:  'Every playlist you own, analysed. Tap a lens for its sound, genres and era — long-press one for quick actions: Pin, Share or Re-analyze.',
     },
     {
-      route: 'compare', spotlight: true, glyph: '◍', tint: Colors.pink,
-      title: 'Compare',
-      body:  'Put two playlists head-to-head and see how their vibes stack up.',
+      route: 'queue', spotlight: true, glyph: '◍', tint: Colors.pink,
+      title: 'Queue — new',
+      body:  'Build a queue from anywhere and play it on your Spotify — hand-pick tracks or let the rediscovery shelves resurface old favorites. (Compare now lives in a playlist’s long-press menu.)',
     },
   ]
   if (hasWrapped) {

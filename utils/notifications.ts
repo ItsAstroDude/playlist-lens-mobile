@@ -92,6 +92,20 @@ export async function setNotificationsEnabled(on: boolean): Promise<boolean> {
   return true
 }
 
+/**
+ * Fire a one-off test notification (~2s out, so it lands in the tray even if the
+ * app is backgrounded). Requests permission first; returns false if denied.
+ */
+export async function sendTestNotification(): Promise<boolean> {
+  if (!(await requestPermission())) return false
+  await ensureChannel()
+  await Notifications.scheduleNotificationAsync({
+    content: { title: 'playlist.lens ✦', body: 'Notifications are working — this is a test.', data: RECAP_DATA },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 2, channelId: CHANNEL_ID },
+  })
+  return true
+}
+
 /** Re-assert the schedule on launch if the user has it enabled. Best-effort. */
 export async function syncNotificationsOnLaunch(): Promise<void> {
   if (!notificationsEnabled()) return

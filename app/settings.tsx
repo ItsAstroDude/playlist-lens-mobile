@@ -34,7 +34,8 @@ import {
   NAVBAR_STYLES, getNavbarStyle, setNavbarStyle, launchNavbarStyle, type NavbarStyle,
   getNowPlayingPos, setNowPlayingPos, type NowPlayingPos,
 } from '@/utils/settings'
-import { notificationsEnabled, setNotificationsEnabled } from '@/utils/notifications'
+import Constants from 'expo-constants'
+import { notificationsEnabled, setNotificationsEnabled, sendTestNotification } from '@/utils/notifications'
 import { clearWrappedStats } from '@/hooks/useWrapped'
 import { loadArtReports } from '@/hooks/useArtwork'
 import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel, reloadApp } from '@/utils/updates'
@@ -206,6 +207,7 @@ export default function SettingsScreen() {
   const [artwork, setArtwork]           = useState(artworkEnabled())
   const [tribute, setTribute]           = useState(tributeEnabled())
   const [notifs, setNotifs]             = useState(notificationsEnabled())
+  const [notifTested, setNotifTested]   = useState(false)
   const [me, setMe]                     = useState<SpotifyUser | null>(null)
   const [cacheCleared, setCacheCleared] = useState(false)
   const [wrappedCleared, setWrappedCleared] = useState(false)
@@ -277,6 +279,21 @@ export default function SettingsScreen() {
           'Allow notifications for playlist.lens in your phone settings to get recap nudges.',
         )
       }
+    }
+  }
+
+  const onTestNotification = async () => {
+    haptic.light()
+    const ok = await sendTestNotification()
+    if (ok) {
+      if (!notifs) setNotifs(true)   // permission just granted via the test
+      setNotifTested(true)
+      setTimeout(() => setNotifTested(false), 3000)
+    } else {
+      Alert.alert(
+        'Notifications are off',
+        'Allow notifications for playlist.lens in your phone settings to receive a test.',
+      )
     }
   }
 
@@ -469,6 +486,12 @@ export default function SettingsScreen() {
               label="Recap notifications"
               value={notifs}
               onValueChange={onToggleNotifications}
+            />
+            <SettingRow
+              icon="send-outline"
+              label="Send a test notification"
+              value={notifTested ? 'Sent ✓' : undefined}
+              onPress={onTestNotification}
               last
             />
           </Section>
@@ -609,7 +632,7 @@ export default function SettingsScreen() {
 
           {/* About */}
           <Section label="about">
-            <SettingRow icon="information-circle-outline" label="Version" value="1.0.0" />
+            <SettingRow icon="information-circle-outline" label="Version" value={Constants.expoConfig?.version ?? `${latestPatch().version}`} />
             <SettingRow
               icon="cloud-download-outline"
               label="Check for updates"
