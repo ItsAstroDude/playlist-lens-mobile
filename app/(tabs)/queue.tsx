@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import { View, Text, StyleSheet, ScrollView, Pressable, Image, TouchableOpacity } from 'react-native'
-import { confirmDialog } from '@/utils/dialog'
+import { confirmDialog, showToast } from '@/utils/dialog'
+import { addAllMessage, cartFull } from '@/utils/queueCart'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withDelay } from 'react-native-reanimated'
@@ -56,6 +57,7 @@ export default function QueueTab() {
   const queueAll = useCallback((shelf: Shelf) => {
     const added = addMany(shelf.tracks.map(asItem))
     added ? haptic.success() : haptic.light()
+    showToast(addAllMessage(added, shelf.tracks.length, cartFull()), added ? '✦' : undefined)
   }, [addMany])
 
   const playNow = useCallback((shelf: Shelf) => {

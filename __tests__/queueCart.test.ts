@@ -1,4 +1,5 @@
 import {
+  addAllMessage, cartFull,
   getCart, cartCount, inCart, addToCart, addManyToCart, removeFromCart,
   toggleCart, reorderCart, clearCart, onCart, _resetCartMirror, CART_MAX,
   type QueueItem,
@@ -78,5 +79,26 @@ describe('queueCart persistence + pub/sub', () => {
     off()
     addToCart(item('c'))
     expect(seen).toEqual([1, 2])       // not 3 — unsubscribed before the last add
+  })
+})
+
+describe('add-all feedback', () => {
+  it('reports a clean add', () => {
+    expect(addAllMessage(1, 1, false)).toBe('Added 1 track to your queue')
+    expect(addAllMessage(12, 12, false)).toBe('Added 12 tracks to your queue')
+  })
+  it('explains partial adds — dupes vs the cap', () => {
+    expect(addAllMessage(3, 5, false)).toBe('Added 3 tracks · 2 already queued')
+    expect(addAllMessage(3, 5, true)).toBe(`Added 3 tracks — your queue is full (${CART_MAX} max)`)
+  })
+  it('explains a no-op', () => {
+    expect(addAllMessage(0, 4, false)).toBe('Already in your queue')
+    expect(addAllMessage(0, 4, true)).toBe(`Your queue is full (${CART_MAX} max)`)
+    expect(addAllMessage(0, 0, false)).toBe('Nothing to add')
+  })
+  it('cartFull flips at CART_MAX', () => {
+    expect(cartFull()).toBe(false)
+    addManyToCart(Array.from({ length: CART_MAX }, (_, i) => item(String(i))))
+    expect(cartFull()).toBe(true)
   })
 })

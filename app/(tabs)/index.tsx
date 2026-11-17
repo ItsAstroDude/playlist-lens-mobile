@@ -119,11 +119,13 @@ export default function PlaylistsTab() {
   // ── Pull to refresh ──
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    deleteCache(CacheKeys.playlists)
-    await fetch({ onColdStart: () => setColdStart(true) })
+    const fresh = await fetch({ onColdStart: () => setColdStart(true), force: true })
     setColdStart(false)
     setRefreshing(false)
-  }, [fetch])
+    if (fresh) haptic.light()
+    // Keep showing the saved list on failure — but say so rather than failing silently.
+    else if (data?.length) { haptic.warning(); showToast('Couldn’t refresh — showing your saved playlists', '!') }
+  }, [fetch, data])
 
   // ── Extract palette as playlists load ──
   useEffect(() => {
@@ -219,8 +221,15 @@ export default function PlaylistsTab() {
     }
     return (
       <View style={styles.emptyWrap}>
-        <Text style={styles.emptyText}>No playlists found.</Text>
-        <Text style={styles.emptySubtext}>Create a playlist on Spotify and come back.</Text>
+        <Text style={styles.emptyGlyph}>◎</Text>
+        <Text style={styles.emptyText}>No playlists yet</Text>
+        <Text style={styles.emptySubtext}>Create or follow a playlist on Spotify, then check again.</Text>
+        <TouchableOpacity
+          style={styles.emptyBtn} onPress={onRefresh} activeOpacity={0.8} disabled={refreshing}
+          accessibilityRole="button" accessibilityLabel="Check again for playlists"
+        >
+          <Text style={styles.emptyBtnText}>{refreshing ? 'Checking…' : '↻  Check again'}</Text>
+        </TouchableOpacity>
       </View>
     )
   }
@@ -506,6 +515,17 @@ const styles = StyleSheet.create({
     paddingTop:     Spacing['5xl'],
     gap:            Spacing.sm,
   },
+  emptyGlyph: { fontSize: 34, color: Colors.greenPrimary, marginBottom: Spacing.xs },
+  emptyBtn: {
+    marginTop:         Spacing.md,
+    paddingVertical:   Spacing.sm + 2,
+    paddingHorizontal: Spacing.xl,
+    borderRadius:      Radius.full,
+    borderWidth:       1,
+    borderColor:       alpha(Colors.greenPrimary, 0.4),
+    backgroundColor:   alpha(Colors.greenPrimary, 0.1),
+  },
+  emptyBtnText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.greenPrimary },
   emptyText: {
     fontFamily: FontFamily.monoMedium,
     fontSize:   FontSize.md,
@@ -516,5 +536,6 @@ const styles = StyleSheet.create({
     fontSize:   FontSize.sm,
     color:      Colors.textMuted,
     textAlign:  'center',
+    paddingHorizontal: Spacing['2xl'],
   },
 })

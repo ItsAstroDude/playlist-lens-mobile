@@ -152,6 +152,16 @@ export async function pausePlayback(): Promise<void>  { await api.put('/api/play
 export async function skipNext(): Promise<void>       { await api.post('/api/playback/next', {}) }
 export async function skipPrevious(): Promise<void>   { await api.post('/api/playback/previous', {}) }
 
+/** What to tell the user when a transport control (play/pause/skip) fails. */
+export function transportErrorMessage(kind: PlaybackErrorKind): string {
+  switch (kind) {
+    case 'premium':  return 'Playback controls need Spotify Premium'
+    case 'noDevice': return 'Nothing’s playing — open Spotify on a device first'
+    case 'scope':    return 'Reconnect Spotify in Settings to control playback'
+    default:         return 'Couldn’t reach Spotify — try again'
+  }
+}
+
 // ─── Premium gate ───────────────────────────────────────────────────────────
 // Subscription tier rarely changes; cache it for the session. On a fetch error we
 // fall back to last-known (or true) so a network blip never wrongly blocks a real

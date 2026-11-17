@@ -66,6 +66,23 @@ export function addToCart(item: QueueItem): boolean {
   return true
 }
 
+/** True when the cart has hit CART_MAX (a ＋ then silently can't add). */
+export function cartFull(): boolean { return read().length >= CART_MAX }
+
+/**
+ * Feedback line for an "add all" — how many landed, and why the rest didn't
+ * (already queued vs. the cart cap). Pure so it's testable.
+ */
+export function addAllMessage(added: number, attempted: number, full: boolean): string {
+  const t = (n: number) => `${n} ${n === 1 ? 'track' : 'tracks'}`
+  if (attempted === 0) return 'Nothing to add'
+  if (added === 0) return full ? `Your queue is full (${CART_MAX} max)` : 'Already in your queue'
+  if (added === attempted) return `Added ${t(added)} to your queue`
+  return full
+    ? `Added ${t(added)} — your queue is full (${CART_MAX} max)`
+    : `Added ${t(added)} · ${attempted - added} already queued`
+}
+
 /** Add many at once (e.g. "Add all" from a playlist), preserving order, deduped, capped. */
 export function addManyToCart(items: QueueItem[]): number {
   const cart = read()

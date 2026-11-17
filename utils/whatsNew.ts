@@ -19,6 +19,28 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.6.1',
+    name:    'Fine Print',
+    date:    '2026-11-17',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Play, pause and skip tell you why when Spotify says no — Premium needed, nothing playing, or a reconnect — instead of quietly snapping back.',
+          '“＋ all” now tells you how many tracks landed, and the ＋ lets you know when your queue is full.',
+          'A friendlier empty library, with a Check again button.',
+        ],
+      },
+      {
+        label: 'Fixed',
+        items: [
+          'Pull-to-refresh no longer throws away your saved playlists if the refresh fails — you keep your list and get a heads-up.',
+          'The floating queue pill is readable again in light mode.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.6',
     name:    'Play & Polish',
     date:    '2026-11-17',

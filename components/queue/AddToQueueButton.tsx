@@ -3,14 +3,21 @@ import { Pressable, Text, StyleSheet } from 'react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { Colors, FontFamily, Radius, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
-import { inCart, toggleCart, onCart, type QueueItem } from '@/utils/queueCart'
+import { inCart, toggleCart, onCart, cartFull, CART_MAX, type QueueItem } from '@/utils/queueCart'
+import { showToast } from '@/utils/dialog'
 
 /**
  * The ＋ that lives on every track surface (v1.5 Custom Queues). Toggles the track
  * in/out of the queue cart and reflects membership (＋ → ✓) live across surfaces,
  * since the cart is a shared pub/sub source.
  */
-export function AddToQueueButton({ item, size = 28 }: { item: QueueItem; size?: number }) {
+export function AddToQueueButton({ item, size = 28, onFeedback = showToast }: {
+  item: QueueItem
+  size?: number
+  /** Where a "queue is full" notice goes. Defaults to the root toast; surfaces
+   *  inside a native <Modal> (which covers the toast) pass their own. */
+  onFeedback?: (msg: string) => void
+}) {
   const [added, setAdded] = useState(() => inCart(item.uri))
   const scale = useSharedValue(1)
 
@@ -22,6 +29,11 @@ export function AddToQueueButton({ item, size = 28 }: { item: QueueItem; size?: 
   const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
 
   const onPress = () => {
+    if (!added && cartFull()) {
+      haptic.warning()
+      onFeedback(`Your queue is full (${CART_MAX} max)`)
+      return
+    }
     const nowAdded = toggleCart(item)
     setAdded(nowAdded)
     nowAdded ? haptic.medium() : haptic.light()

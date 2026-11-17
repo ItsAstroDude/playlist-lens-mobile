@@ -3,7 +3,7 @@ import { Text, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, alpha, OnDark } from '@/constants/theme'
 import { router, usePathname } from 'expo-router'
 import { Spring, haptic } from '@/constants/animation'
 import { cartCount, onCart, clearCart } from '@/utils/queueCart'
@@ -95,10 +95,12 @@ const styles = StyleSheet.create({
     elevation: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.45, shadowRadius: 18,
   },
   spark: { fontFamily: FontFamily.syneBold, fontSize: FontSize.md, color: Colors.greenPrimary },
-  count: { fontFamily: FontFamily.syneBold, fontSize: FontSize.md, color: Colors.text },
-  countLabel: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
-  clear: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: alpha(Colors.text, 0.08) },
-  clearGlyph: { fontFamily: FontFamily.mono, fontSize: 11, color: Colors.textMuted, marginTop: -1 },
+  // The pill is always dark (like the tab bar), so its text uses the fixed on-dark
+  // colours — the themed ones flip to near-black in light mode and vanish.
+  count: { fontFamily: FontFamily.syneBold, fontSize: FontSize.md, color: OnDark.text },
+  countLabel: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: OnDark.textMuted },
+  clear: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
+  clearGlyph: { fontFamily: FontFamily.mono, fontSize: 11, color: OnDark.textMuted, marginTop: -1 },
   start: {
     fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.background,
     backgroundColor: Colors.greenPrimary, overflow: 'hidden',

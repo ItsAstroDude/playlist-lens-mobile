@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View, Text, StyleSheet, Image, Pressable, Modal, FlatList, ActivityIndicator, TouchableOpacity,
 } from 'react-native'
@@ -7,7 +7,7 @@ import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constant
 import { haptic } from '@/constants/animation'
 import { usePlaylists, usePlaylistTracks } from '@/hooks/useSpotify'
 import { AddToQueueButton } from './AddToQueueButton'
-import { addManyToCart, type QueueItem } from '@/utils/queueCart'
+import { addManyToCart, addAllMessage, cartFull, type QueueItem } from '@/utils/queueCart'
 import type { SpotifyPlaylist, SpotifyTrack } from '@/types'
 
 const toItem = (t: SpotifyTrack): QueueItem | null =>
@@ -68,7 +68,21 @@ function TrackPickerModal({ playlist, onClose }: { playlist: SpotifyPlaylist; on
   useEffect(() => { fetch(playlist.id) }, [playlist.id])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const items = ((tracks ?? []).map(toItem).filter(Boolean) as QueueItem[])
-  const addAll = () => { const n = addManyToCart(items); n ? haptic.success() : haptic.light() }
+  // Inline feedback — this sheet is a native <Modal>, which would cover the root toast.
+  const [note, setNote] = useState<string | null>(null)
+  const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const flash = useCallback((msg: string) => {
+    if (noteTimer.current) clearTimeout(noteTimer.current)
+    setNote(msg)
+    noteTimer.current = setTimeout(() => setNote(null), 2600)
+  }, [])
+  useEffect(() => () => { if (noteTimer.current) clearTimeout(noteTimer.current) }, [])
+
+  const addAll = () => {
+    const n = addManyToCart(items)
+    n ? haptic.success() : haptic.light()
+    flash(addAllMessage(n, items.length, cartFull()))
+  }
 
   return (
     <Modal animationType="slide" transparent onRequestClose={onClose}>
@@ -78,11 +92,15 @@ function TrackPickerModal({ playlist, onClose }: { playlist: SpotifyPlaylist; on
         <View style={styles.modalHead}>
           <Text style={styles.modalTitle} numberOfLines={1}>{playlist.name}</Text>
           {items.length > 0 && (
-            <TouchableOpacity style={styles.addAll} onPress={addAll} hitSlop={6}>
+            <TouchableOpacity
+              style={styles.addAll} onPress={addAll} hitSlop={6}
+              accessibilityRole="button" accessibilityLabel={`Add all ${items.length} tracks to queue`}
+            >
               <Text style={styles.addAllText}>＋ all</Text>
             </TouchableOpacity>
           )}
         </View>
+        {note && <Text style={styles.note} accessibilityLiveRegion="polite">{note}</Text>}
 
         {status === 'loading' ? (
           <View style={styles.loading}><ActivityIndicator color={Colors.greenPrimary} /></View>
@@ -101,7 +119,7 @@ function TrackPickerModal({ playlist, onClose }: { playlist: SpotifyPlaylist; on
                   <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
                   <Text style={styles.artist} numberOfLines={1}>{item.artist}</Text>
                 </View>
-                <AddToQueueButton item={item} />
+                <AddToQueueButton item={item} onFeedback={flash} />
               </View>
             )}
             ListEmptyComponent={<Text style={[styles.empty, { paddingHorizontal: Spacing.lg }]}>No playable tracks here.</Text>}
@@ -132,6 +150,7 @@ const styles = StyleSheet.create({
   modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm },
   modalTitle: { flex: 1, fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, color: Colors.text, letterSpacing: -0.5 },
   addAll: { borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.4), borderRadius: Radius.full, paddingVertical: 6, paddingHorizontal: Spacing.md, backgroundColor: alpha(Colors.greenPrimary, 0.1) },
+  note: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.greenPrimary, paddingHorizontal: Spacing.lg, marginTop: -Spacing.xs, marginBottom: Spacing.sm },
   addAllText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.greenPrimary },
   loading: { paddingVertical: Spacing['3xl'], alignItems: 'center' },
   modalList: { paddingBottom: 20, paddingHorizontal: Spacing.lg },

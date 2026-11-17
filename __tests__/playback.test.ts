@@ -8,7 +8,7 @@ jest.mock('expo-secure-store')
 jest.mock('../utils/authEvents', () => ({ emitSessionExpired: jest.fn(), emitSignedIn: jest.fn() }))
 
 import {
-  pickTarget, orderUris, trackUrisOnly, classifyPlaybackError,
+  pickTarget, orderUris, transportErrorMessage, trackUrisOnly, classifyPlaybackError,
   startQueue, setPlaybackScopeMissing, playbackScopeMissing,
   type PlaybackDevice,
 } from '@/utils/playback'
@@ -133,5 +133,15 @@ describe('startQueue orchestration', () => {
   it('throws when there are no playable uris', async () => {
     routeFetch()
     await expect(startQueue(['spotify:album:x'])).rejects.toBeInstanceOf(ApiError)
+  })
+})
+
+describe('transportErrorMessage', () => {
+  it('gives a distinct, actionable line per failure kind', () => {
+    const kinds = ['premium', 'noDevice', 'scope', 'other'] as const
+    const msgs = kinds.map(transportErrorMessage)
+    expect(new Set(msgs).size).toBe(kinds.length)
+    expect(transportErrorMessage('premium')).toMatch(/Premium/)
+    expect(transportErrorMessage('scope')).toMatch(/Reconnect/)
   })
 })

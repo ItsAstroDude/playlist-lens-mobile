@@ -14,15 +14,18 @@ export function usePlaylists() {
     status: 'idle', data: null, error: null, partial: null,
   })
 
-  const fetch = useCallback(async (opts?: { onColdStart?: () => void }) => {
+  // `force` (pull-to-refresh) skips the cache but leaves it in place until fresh
+  // data arrives — so a failed refresh still has the saved list to fall back on.
+  const fetch = useCallback(async (opts?: { onColdStart?: () => void; force?: boolean }) => {
     // Try cache first
-    const cached = getCache<SpotifyPlaylist[]>(CacheKeys.playlists)
+    const cached = opts?.force ? null : getCache<SpotifyPlaylist[]>(CacheKeys.playlists)
     if (cached) {
       setState({ status: 'success', data: cached, error: null, partial: null })
       return cached
     }
 
-    setState(s => ({ ...s, status: 'loading' }))
+    // A forced refresh keeps the current list on screen (RefreshControl shows progress).
+    if (!opts?.force) setState(s => ({ ...s, status: 'loading' }))
     try {
       const res = await api.get<{ items: SpotifyPlaylist[] }>(
         '/api/playlists',

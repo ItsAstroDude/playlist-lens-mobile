@@ -13,7 +13,11 @@ import { Spring, haptic } from '@/constants/animation'
 import { loadTrackIndex } from '@/hooks/useWrapped'
 import { fmtMinutesShort, type TrackStat } from '@/utils/wrapped'
 import { pokeNowPlaying, type NowPlaying } from '@/hooks/useNowPlaying'
-import { resumePlayback, pausePlayback, skipNext, skipPrevious } from '@/utils/playback'
+import {
+  resumePlayback, pausePlayback, skipNext, skipPrevious,
+  classifyPlaybackError, transportErrorMessage, setPlaybackScopeMissing,
+} from '@/utils/playback'
+import { showToast } from '@/utils/dialog'
 
 // ─── Now-playing stats sheet (v1.3 "Pulse") ──────────────────────────────────
 // Tap the live bar → this. The song playing right now + YOUR lifetime numbers
@@ -113,7 +117,14 @@ export function NowPlayingSheet({ np, onClose }: {
     haptic.light()
     if (optimistic !== undefined) setOverride(optimistic)
     setBusy(true)
-    try { await fn() } catch { /* premium / no active device / scope — poke self-corrects */ }
+    try { await fn() } catch (err) {
+      // Snap the optimistic state back now (don't wait for the poll) and say why.
+      setOverride(null)
+      haptic.warning()
+      const kind = classifyPlaybackError(err)
+      if (kind === 'scope') setPlaybackScopeMissing(true)
+      showToast(transportErrorMessage(kind), '!')
+    }
     setTimeout(() => { pokeNowPlaying(); setBusy(false) }, 500)
   }, [busy])
   const onPlayPause = () => (playing ? control(pausePlayback, false) : control(resumePlayback, true))
