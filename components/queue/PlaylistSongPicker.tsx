@@ -7,6 +7,7 @@ import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constant
 import { haptic } from '@/constants/animation'
 import { usePlaylists, usePlaylistTracks } from '@/hooks/useSpotify'
 import { AddToQueueButton } from './AddToQueueButton'
+import { TrackRow } from '@/components/ui/TrackRow'
 import { addManyToCart, addAllMessage, cartFull, type QueueItem } from '@/utils/queueCart'
 import type { SpotifyPlaylist, SpotifyTrack } from '@/types'
 import { Icon } from '@/components/ui/Icon'
@@ -112,16 +113,7 @@ function TrackPickerModal({ playlist, onClose }: { playlist: SpotifyPlaylist; on
             contentContainerStyle={styles.modalList}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
-              <View style={styles.row}>
-                {item.image
-                  ? <Image source={{ uri: item.image }} style={styles.cover} />
-                  : <View style={[styles.cover, styles.coverEmpty]}><Icon name="musical-note" style={styles.coverGlyph} /></View>}
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.artist} numberOfLines={1}>{item.artist}</Text>
-                </View>
-                <AddToQueueButton item={item} onFeedback={flash} />
-              </View>
+              <TrackRow title={item.name} sub={item.artist} image={item.image} trailing={<AddToQueueButton item={item} onFeedback={flash} />} />
             )}
             ListEmptyComponent={<Text style={[styles.empty, { paddingHorizontal: Spacing.lg }]}>No playable tracks here.</Text>}
           />
@@ -132,9 +124,9 @@ function TrackPickerModal({ playlist, onClose }: { playlist: SpotifyPlaylist; on
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.xl, overflow: 'hidden', padding: Spacing.lg, marginBottom: Spacing.md },
+  card: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.lg, overflow: 'hidden', padding: Spacing.lg },
   cardSpecular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
-  title: { fontFamily: FontFamily.syneBold, fontSize: FontSize.md, color: Colors.text, letterSpacing: -0.3 },
+  title: { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, color: Colors.text, letterSpacing: -0.5 },
   sub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
 
   strip: { gap: Spacing.sm, paddingTop: Spacing.md },
@@ -156,10 +148,4 @@ const styles = StyleSheet.create({
   loading: { paddingVertical: Spacing['3xl'], alignItems: 'center' },
   modalList: { paddingBottom: 20, paddingHorizontal: Spacing.lg },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 6 },
-  cover: { width: 40, height: 40, borderRadius: Radius.sm, backgroundColor: Colors.glass },
-  coverEmpty: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.glassBorder },
-  coverGlyph: { fontFamily: FontFamily.mono, fontSize: FontSize.md, color: Colors.textMuted },
-  name: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.text },
-  artist: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 1 },
 })

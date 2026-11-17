@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { TabHeader } from '@/components/ui'
+import { TabHeader, Card, ListRow, Chip, Stat, Button, EmptyState } from '@/components/ui'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
 import { useSharedValue } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/constants/theme'
 import { TopFade } from '@/components/ui/TopFade'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import { haptic } from '@/constants/animation'
@@ -186,13 +186,10 @@ export default function SwipeTab() {
         {phase === 'pick' && (
           <View style={styles.pickWrap}>
             {scopes === 'missing' && (
-              <TouchableOpacity style={styles.reconnectCard} onPress={() => !authLoading && login()} activeOpacity={0.8}>
-                <Ionicons name="sync" size={15} color={Colors.greenPrimary} />
-                <Text style={styles.reconnectText}>
-                  {authLoading ? 'Opening Spotify…' : 'Reconnect Spotify to save swipes back to your account'}
-                </Text>
-                <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-              </TouchableOpacity>
+              <Card tone="accent" style={styles.reconnectCard}>
+                <ListRow icon="sync" label={authLoading ? 'Opening Spotify…' : 'Reconnect Spotify'}
+                  hint="Needed to save swipes back to your account" onPress={() => !authLoading && login()} last />
+              </Card>
             )}
             <View style={styles.pickWrap}>
             <FlatList
@@ -203,12 +200,12 @@ export default function SwipeTab() {
               onScroll={e => { scrollY.value = e.nativeEvent.contentOffset.y }}
               scrollEventThrottle={16}
               ListHeaderComponent={
-                <Text style={styles.pickHint}>Pick one of your playlists to clean up:</Text>
+                <Text style={[Type.overline, styles.pickHint]}>pick a playlist to clean up</Text>
               }
               ListEmptyComponent={
                 plStatus === 'loading' || plStatus === 'idle'
                   ? <ActivityIndicator color={Colors.greenPrimary} style={{ marginTop: Spacing['3xl'] }} />
-                  : <Text style={styles.emptyText}>No playlists you own yet — make one in Spotify first.</Text>
+                  : <EmptyState icon="layers-outline" title="No playlists to swipe" body="Swipe works on playlists you own or collaborate on — make one in Spotify first." />
               }
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.pickRow} onPress={() => startSession(item)} activeOpacity={0.7}>
@@ -225,7 +222,7 @@ export default function SwipeTab() {
                       {item.tracks?.total ?? 0} tracks{(item.tracks?.total ?? 0) > 500 ? ' · first 500 swiped' : ''}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={15} color={Colors.textDim} />
+                  <Icon name="chevron-forward" size={15} color={Colors.textMuted} />
                 </TouchableOpacity>
               )}
             />
@@ -251,14 +248,9 @@ export default function SwipeTab() {
                 canUndo={decisions.length > 0}
               />
             )}
-            <TouchableOpacity
-              style={styles.exitBtn}
-              onPress={() => { haptic.light(); decisions.length ? setExitConfirm(true) : exitSession() }}
-              hitSlop={8}
-            >
-              <Ionicons name="close" size={16} color={Colors.textMuted} />
-              <Text style={styles.exitText}>exit session</Text>
-            </TouchableOpacity>
+            <View style={styles.exitBtn}>
+              <Chip label="Exit session" icon="close" onPress={() => { decisions.length ? setExitConfirm(true) : exitSession() }} />
+            </View>
           </View>
         )}
 
@@ -266,16 +258,10 @@ export default function SwipeTab() {
         {phase === 'summary' && playlist && (
           <View style={styles.center}>
             <Text style={styles.summaryTitle}>That's the deck.</Text>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryChip}>
-                <Text style={[styles.summaryVal, { color: Colors.greenPrimary }]}>{kept.length}</Text>
-                <Text style={styles.summaryLbl}>kept</Text>
-              </View>
-              <View style={styles.summaryChip}>
-                <Text style={[styles.summaryVal, { color: Colors.error }]}>{cut.length}</Text>
-                <Text style={styles.summaryLbl}>cut</Text>
-              </View>
-            </View>
+            <Card padded style={styles.summaryCard}>
+              <Stat value={kept.length.toLocaleString()} label="kept" style={{ flex: 1 }} />
+              <Stat value={cut.length.toLocaleString()} label="cut" style={{ flex: 1 }} />
+            </Card>
 
             {busy ? (
               <View style={styles.busyRow}>
@@ -283,29 +269,19 @@ export default function SwipeTab() {
                 <Text style={styles.busyText}>{busy}</Text>
               </View>
             ) : scopes === 'missing' ? (
-              <TouchableOpacity style={styles.primaryBtn} onPress={() => !authLoading && login()} activeOpacity={0.85}>
-                <Text style={styles.primaryBtnText}>
-                  {authLoading ? 'Opening Spotify…' : 'Reconnect Spotify to save'}
-                </Text>
-              </TouchableOpacity>
+              <Button label={authLoading ? 'Opening Spotify…' : 'Reconnect Spotify to save'} icon="sync" onPress={() => !authLoading && login()} style={styles.wide} />
             ) : cut.length === 0 ? (
               <Text style={styles.allKeptText}>You kept everything — nothing to change</Text>
             ) : (
               <>
-                <TouchableOpacity style={styles.primaryBtn} onPress={() => { haptic.medium(); setConfirm('create') }} activeOpacity={0.85}>
-                  <Text style={styles.primaryBtnText}>Save kept as new playlist</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.secondaryBtn} onPress={() => { haptic.medium(); setConfirm('trim') }} activeOpacity={0.8}>
-                  <Text style={styles.secondaryBtnText}>Trim original (backup first)</Text>
-                </TouchableOpacity>
+                <Button label="Save kept as a new playlist" icon="add-circle-outline" onPress={() => setConfirm('create')} style={styles.wide} />
+                <Button label="Trim the original (backup first)" icon="cut" variant="secondary" onPress={() => setConfirm('trim')} style={styles.wide} />
               </>
             )}
 
             {writeError && <Text style={styles.errorText}>{writeError}</Text>}
 
-            <TouchableOpacity onPress={() => { haptic.light(); exitSession() }} style={styles.linkBtn}>
-              <Text style={styles.linkText}>start over</Text>
-            </TouchableOpacity>
+            <Button label="Start over" variant="ghost" size="sm" onPress={exitSession} style={styles.linkBtn} />
           </View>
         )}
 
@@ -322,9 +298,7 @@ export default function SwipeTab() {
                   (done.skippedLocal ? `\n${done.skippedLocal} local file${done.skippedLocal > 1 ? 's' : ''} couldn't be copied.` : '')
                 : `Removed ${done.removed} track${done.removed === 1 ? '' : 's'}.\nBackup saved as "${done.backupName}".`}
             </Text>
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => { haptic.light(); exitSession() }} activeOpacity={0.85}>
-              <Text style={styles.primaryBtnText}>Done</Text>
-            </TouchableOpacity>
+            <Button label="Done" onPress={exitSession} style={styles.wide} />
           </View>
         )}
       </SafeAreaView>
@@ -365,23 +339,18 @@ export default function SwipeTab() {
 }
 
 const styles = StyleSheet.create({
+  summaryCard: { flexDirection: 'row', gap: Spacing.md, alignSelf: 'stretch', marginHorizontal: Spacing.lg },
+  wide:        { alignSelf: 'stretch', marginHorizontal: Spacing.lg },
+
   container: { flex: 1, backgroundColor: Colors.background },
   safe: { flex: 1, zIndex: 1 },
 
 
   // pick
-  reconnectCard: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
-    paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
-    borderRadius: Radius.lg, borderWidth: 1,
-    borderColor: alpha(Colors.greenPrimary, 0.35), backgroundColor: Colors.greenSubtle,
-  },
-  reconnectText: { flex: 1, fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.text },
+  reconnectCard: { marginHorizontal: Spacing.lg, marginBottom: Spacing.md },
   pickWrap: { flex: 1 },
   pickList: { paddingHorizontal: Spacing.lg, paddingBottom: 140 },
-  pickHint: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.md },
-  emptyText: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', marginTop: Spacing['3xl'] },
+  pickHint: { marginBottom: Spacing.md, paddingLeft: Spacing.xs },
   pickRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
     paddingVertical: Spacing.sm + 2, paddingHorizontal: Spacing.md,
@@ -398,41 +367,15 @@ const styles = StyleSheet.create({
   sessionWrap: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, paddingBottom: 80, paddingHorizontal: Spacing.xl },
   loadingText: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted },
-  exitBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    alignSelf: 'center', paddingVertical: Spacing.md, marginBottom: Spacing.lg,
-  },
-  exitText: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
+  exitBtn: { alignSelf: 'center', paddingVertical: Spacing.md, marginBottom: Spacing.lg },
 
   // summary / done
   summaryTitle: { fontFamily: FontFamily.syneBold, fontSize: FontSize['2xl'], color: Colors.text, letterSpacing: -1 },
-  summaryRow: { flexDirection: 'row', gap: Spacing.md },
-  summaryChip: {
-    backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder,
-    borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing['2xl'],
-    alignItems: 'center', minWidth: 110,
-  },
-  summaryVal: { fontFamily: FontFamily.syneBold, fontSize: FontSize['2xl'], letterSpacing: -1 },
-  summaryLbl: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
   busyRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginTop: Spacing.md },
   busyText: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary },
   allKeptText: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: Spacing.sm },
-  primaryBtn: {
-    backgroundColor: Colors.greenPrimary, borderRadius: Radius.full,
-    paddingVertical: Spacing.md, paddingHorizontal: Spacing['3xl'],
-    alignItems: 'center', minWidth: 240, marginTop: Spacing.sm,
-  },
-  primaryBtnText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.md, color: Colors.background },
-  secondaryBtn: {
-    borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.glassBorder,
-    backgroundColor: Colors.glass,
-    paddingVertical: Spacing.md, paddingHorizontal: Spacing['3xl'],
-    alignItems: 'center', minWidth: 240,
-  },
-  secondaryBtnText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.md, color: Colors.textSecondary },
   errorText: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.error, textAlign: 'center', maxWidth: 280 },
   linkBtn: { paddingVertical: Spacing.xs },
-  linkText: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textDim, textDecorationLine: 'underline' },
   doneGlyph: { fontFamily: FontFamily.syneBold, fontSize: 44, color: Colors.greenPrimary },
   doneText: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 21 },
 })

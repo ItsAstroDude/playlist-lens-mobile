@@ -11,6 +11,7 @@ import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constant
 import { Spring, haptic } from '@/constants/animation'
 import { getCart, clearCart, reorderCart, removeFromCart, type QueueItem } from '@/utils/queueCart'
 import { Icon, type IconName } from '@/components/ui/Icon'
+import { TrackRow } from '@/components/ui/TrackRow'
 import {
   isPremium, fetchDevices, pickTarget, startQueue, classifyPlaybackError,
   type DeviceTarget,
@@ -165,19 +166,20 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
         accessibilityLabel={`${item.name} by ${item.artist}`}
         accessibilityHint="Long-press and drag to reorder"
       >
-        {item.image
-          ? <Image source={{ uri: item.image }} style={styles.cover} />
-          : <View style={[styles.cover, styles.coverEmpty]}><Icon name="musical-note" style={styles.coverGlyph} /></View>}
+        <Icon name="reorder-two" size={18} color={Colors.textMuted} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.trackName} numberOfLines={1}>{item.name}</Text>
-          <Text style={styles.trackArtist} numberOfLines={1}>{item.artist}</Text>
+          <TrackRow
+            title={item.name} sub={item.artist} image={item.image}
+            trailing={
+              <Pressable
+                onPress={() => removeTrack(item.uri)} hitSlop={8} style={styles.remove}
+                accessibilityRole="button" accessibilityLabel={`Remove ${item.name}`}
+              >
+                <Icon name="close" size={14} color={Colors.textMuted} />
+              </Pressable>
+            }
+          />
         </View>
-        <Pressable
-          onPress={() => removeTrack(item.uri)} hitSlop={8} style={styles.remove}
-          accessibilityRole="button" accessibilityLabel={`Remove ${item.name}`}
-        >
-          <Icon name="close" style={styles.removeGlyph} />
-        </Pressable>
       </Pressable>
     </ScaleDecorator>
   )
@@ -264,7 +266,7 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
         </View>
 
         {queue.length >= 2 && (
-          <Text style={styles.reorderHint}>Long-press to reorder · tap × to remove</Text>
+          <Text style={styles.reorderHint}>Hold and drag to reorder · tap × to remove</Text>
         )}
 
         <View style={styles.list}>
@@ -328,13 +330,7 @@ const styles = StyleSheet.create({
   list: { maxHeight: 260 },
   trackRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 6, paddingHorizontal: 4, borderRadius: Radius.sm },
   trackRowActive: { backgroundColor: alpha(Colors.text, 0.05) },
-  cover: { width: 38, height: 38, borderRadius: Radius.sm, backgroundColor: Colors.glass },
-  coverEmpty: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.glassBorder },
-  coverGlyph: { fontFamily: FontFamily.mono, fontSize: FontSize.md, color: Colors.textMuted },
-  trackName: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.text },
-  trackArtist: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 1 },
   remove: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: alpha(Colors.text, 0.06) },
-  removeGlyph: { fontFamily: FontFamily.mono, fontSize: 12, color: Colors.textMuted, marginTop: -1 },
 
   footer: { marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border },
   deviceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },

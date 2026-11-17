@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.8.2',
+    name:    'Clean Sweep',
+    date:    '2026-11-17',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Queue and Swipe rebuilt on the design system — clearer cards, proper buttons, and the same track rows everywhere.',
+          'The start-queue sheet shows a drag handle on each track, so reordering is easy to find.',
+          'Swipe’s summary shows kept and cut as stats, with clearer save and trim buttons.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.8.1',
     name:    'Finish Line',
     date:    '2026-11-17',
