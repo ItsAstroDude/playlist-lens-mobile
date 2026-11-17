@@ -156,6 +156,9 @@ export const api = {
 
   put: <T>(path: string, body: unknown, opts?: FetchOptions) =>
     apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body), ...opts }),
+
+  delete: <T>(path: string, opts?: FetchOptions) =>
+    apiFetch<T>(path, { method: 'DELETE', ...opts }),
 }
 
 // ─── Custom error class ───────────────────────────────────────────────────────

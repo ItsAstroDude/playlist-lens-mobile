@@ -4,9 +4,11 @@ import { storage } from '@/utils/cache'
 import { loadCachedWrapped } from '@/hooks/useWrapped'
 import { pullRecentlyPlayed, setAutoPullScopeMissing } from '@/utils/recents'
 import { ApiError } from '@/utils/api'
+import { trackingEnrolled, syncTrackedPlays } from '@/utils/tracking'
 
 const LAST_PULL_KEY = 'wrapped_last_autopull'
-const THROTTLE_MS   = 6 * 60 * 60 * 1000 // ~6h — safe against the rolling 50-play cap, cheap on-device
+const THROTTLE_MS   = 6 * 60 * 60 * 1000 // ~6h — device pull (no server tracking): cheap on-device
+const TRACKED_MS    = 15 * 60 * 1000     // tracked users: the server holds every play, so just catch up often
 
 /**
  * Best-effort auto-Wrapped refresh. On app foreground (throttled to ~6h) it tops up
@@ -20,7 +22,16 @@ export function useAutoWrapped(enabled: boolean): void {
     let cancelled = false
     const run = async () => {
       const last = storage.getNumber(LAST_PULL_KEY) ?? 0
-      if (Date.now() - last < THROTTLE_MS) return
+      const tracked = trackingEnrolled()
+      if (Date.now() - last < (tracked ? TRACKED_MS : THROTTLE_MS)) return
+      // Server tracking on → the server already saved every play; just sync them down.
+      if (tracked) {
+        try {
+          await syncTrackedPlays()
+          if (!cancelled) storage.set(LAST_PULL_KEY, Date.now())
+        } catch { /* offline / cold start — next foreground retries */ }
+        return
+      }
       try {
         const stats = loadCachedWrapped()
         await pullRecentlyPlayed(stats?.lastTs ?? null)

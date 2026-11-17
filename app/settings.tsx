@@ -34,7 +34,11 @@ import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel, reloadApp 
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { emitOpenTutorial, emitOpenWhatsNew } from '@/utils/overlayEvents'
 import { appVersion, nativeVersion } from '@/utils/version'
-import { showDialog, confirmDialog } from '@/utils/dialog'
+import { showDialog, confirmDialog, showToast } from '@/utils/dialog'
+import {
+  fetchTrackingStatus, enrollTracking, unenrollTracking, syncTrackedPlays, trackingEnrolled,
+  type TrackingStatus,
+} from '@/utils/tracking'
 import type { SpotifyUser } from '@/types'
 
 // Icon-tile tints — mid-tones that read on both the dark and the light theme.
@@ -113,7 +117,7 @@ function SettingRow({
 
 // ─── Toggle row ───────────────────────────────────────────────────────────────
 function ToggleRow({
-  icon, tint = 'accent', label, hint, value, onValueChange, last,
+  icon, tint = 'accent', label, hint, value, onValueChange, last, disabled,
 }: {
   icon:          IconName
   tint?:         Tint
@@ -122,6 +126,7 @@ function ToggleRow({
   value:         boolean
   onValueChange: (v: boolean) => void
   last?:         boolean
+  disabled?:     boolean
 }) {
   return (
     <View style={[styles.row, last && styles.rowLast]}>
@@ -133,6 +138,7 @@ function ToggleRow({
       <Switch
         value={value}
         onValueChange={onValueChange}
+        disabled={disabled}
         accessibilityLabel={label}
         accessibilityHint={hint}
         trackColor={{ false: Colors.glassBorder, true: alpha(Colors.greenPrimary, 0.45) }}
@@ -293,6 +299,77 @@ export default function SettingsScreen() {
 
   useEffect(() => { getMe().then(setMe) }, [])
 
+  // ── Listening tracking (v1.8) — server saves every play hourly ──
+  const [track, setTrack]         = useState<TrackingStatus | null>(null)
+  const [trackOn, setTrackOn]     = useState(trackingEnrolled())
+  const [trackBusy, setTrackBusy] = useState(false)
+  const refreshTrack = () =>
+    fetchTrackingStatus().then(s => { setTrack(s); setTrackOn(!!s.enrolled) }).catch(() => {})
+  useEffect(() => { refreshTrack() }, [])
+
+  const trackHint = (() => {
+    if (trackBusy) return 'Working…'
+    if (track && !track.available) return 'Not switched on for this server yet'
+    if (!trackOn) return 'Saves every play hourly — even with the app closed — for real weekly stats'
+    if (track?.status === 'paused') return 'Paused — Spotify stopped accepting the sign-in. Reconnect, then turn this off and on.'
+    const since = track?.enrolled_at ? new Date(track.enrolled_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : null
+    const n = track?.plays ?? 0
+    return `${since ? `Since ${since} · ` : ''}${n.toLocaleString()} ${n === 1 ? 'play' : 'plays'} saved`
+  })()
+
+  const onToggleTracking = (v: boolean) => {
+    haptic.light()
+    if (v) {
+      confirmDialog({
+        glyph: 'pulse', title: 'Track your listening?', confirmLabel: 'Turn on',
+        message: 'Spotify only remembers your last 50 plays. With tracking on, the playlist.lens server saves them every hour — even when the app is closed — so weekly and monthly stats are complete. Your Spotify sign-in is stored encrypted, and turning this off deletes it along with every saved play.',
+        onConfirm: async () => {
+          setTrackBusy(true)
+          try {
+            const r = await enrollTracking()
+            setTrackOn(true)
+            showToast(`Tracking on — ${r.backfilled} recent ${r.backfilled === 1 ? 'play' : 'plays'} saved`, 'pulse')
+          } catch (e: any) {
+            showDialog({ glyph: 'alert-circle-outline', title: 'Couldn’t turn on tracking', message: e?.message ?? 'Try again in a moment.' })
+          } finally {
+            setTrackBusy(false); refreshTrack()
+          }
+        },
+      })
+    } else {
+      confirmDialog({
+        glyph: 'trash-outline', destructive: true, confirmLabel: 'Turn off & delete',
+        title: 'Turn off tracking?',
+        message: 'The server stops saving your plays and deletes your stored sign-in and every play it saved. Stats already on this phone stay.',
+        onConfirm: async () => {
+          setTrackBusy(true)
+          try {
+            await unenrollTracking()
+            setTrackOn(false)
+            showToast('Tracking off — server data deleted', 'trash-outline')
+          } catch (e: any) {
+            showDialog({ glyph: 'alert-circle-outline', title: 'Couldn’t turn off tracking', message: e?.message ?? 'Try again in a moment.' })
+          } finally {
+            setTrackBusy(false); refreshTrack()
+          }
+        },
+      })
+    }
+  }
+
+  const onSyncNow = async () => {
+    haptic.light()
+    setTrackBusy(true)
+    try {
+      const n = await syncTrackedPlays()
+      showToast(n ? `Synced ${n} new ${n === 1 ? 'play' : 'plays'}` : 'Already up to date', 'checkmark-circle')
+    } catch {
+      showToast('Couldn’t sync — try again in a moment', 'cloud-offline-outline')
+    } finally {
+      setTrackBusy(false); refreshTrack()
+    }
+  }
+
   const onToggleHaptics = (v: boolean) => {
     setHaptics(v)
     setHapticsEnabled(v)
@@ -436,6 +513,17 @@ export default function SettingsScreen() {
           <Text style={styles.title} accessibilityRole="header">settings</Text>
 
           <ProfileCard me={me} onReconnect={onReconnect} reconnectMsg={reconnectMsg} />
+
+          {/* Listening tracking */}
+          <Section label="listening">
+            <ToggleRow icon="pulse" label="Track my listening" hint={trackHint}
+              value={trackOn} onValueChange={onToggleTracking}
+              disabled={trackBusy || (track !== null && !track.available)} last={!trackOn} />
+            {trackOn && (
+              <SettingRow icon="sync" tint="sky" label="Sync now"
+                hint="Pull the latest saved plays onto this phone" onPress={onSyncNow} last />
+            )}
+          </Section>
 
           {/* Experience */}
           <Section label="experience">

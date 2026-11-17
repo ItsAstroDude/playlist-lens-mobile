@@ -19,6 +19,25 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.7.1',
+    name:    'Always Listening',
+    date:    '2026-11-17',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Listening tracking — turn it on in Settings › Listening and playlist.lens saves every play hourly, even when the app is closed. Spotify only remembers your last 50, so this is what makes complete weekly and monthly stats possible. Turning it off deletes everything the server saved.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Listening time is now estimated from when you moved on to the next song, so skips no longer count as full plays.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.7',
     name:    'Sharp Focus',
     date:    '2026-11-17',

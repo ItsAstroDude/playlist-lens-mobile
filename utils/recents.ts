@@ -18,7 +18,9 @@ import {
 } from '@/utils/wrapped'
 
 const BUFFER_KEY = 'wrapped_recent'
-const BUFFER_MAX = 8000 // cap rows so the buffer stays a few MB at most
+// Cap rows so the buffer stays a few MB. Raised for server tracking (v1.8): ~20k plays
+// is roughly a year of heavy listening. The Wrapped revamp moves this to a real store.
+const BUFFER_MAX = 20000
 const SCOPE_FLAG_KEY = 'wrapped_autopull_scope_missing'
 
 // Set when the auto-pull 403s (token lacks the v1.4 recently-played scope) so the
@@ -58,14 +60,21 @@ export function bufferWatermark(buffer: StreamRow[]): string | null {
   return max
 }
 
-/** Append new rows, dedupe by ts+uri, keep time-sorted, prune to BUFFER_MAX. */
-export function appendToBuffer(buffer: StreamRow[], incoming: StreamRow[]): StreamRow[] {
-  const seen = new Set(buffer.map(r => `${r.ts ?? ''}|${r.spotify_track_uri ?? ''}`))
+/**
+ * Append new rows, dedupe by ts+uri, keep time-sorted, prune to BUFFER_MAX.
+ * `replace` lets an incoming row overwrite an existing one with the same key (used
+ * when a tracked play's listen-time estimate improves once its successor arrives).
+ */
+export function appendToBuffer(buffer: StreamRow[], incoming: StreamRow[], opts?: { replace?: boolean }): StreamRow[] {
+  const key = (r: StreamRow) => `${r.ts ?? ''}|${r.spotify_track_uri ?? ''}`
+  const index = new Map(buffer.map((r, i) => [key(r), i]))
   const merged = buffer.slice()
   for (const r of incoming) {
     if (!r.ts) continue
-    const k = `${r.ts}|${r.spotify_track_uri ?? ''}`
-    if (!seen.has(k)) { seen.add(k); merged.push(r) }
+    const k = key(r)
+    const at = index.get(k)
+    if (at === undefined) { index.set(k, merged.length); merged.push(r) }
+    else if (opts?.replace) merged[at] = r
   }
   merged.sort((a, b) => (a.ts! < b.ts! ? -1 : a.ts! > b.ts! ? 1 : 0))
   return merged.length > BUFFER_MAX ? merged.slice(merged.length - BUFFER_MAX) : merged

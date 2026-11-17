@@ -120,7 +120,7 @@ feeling like a prototype.
 3. Collected plays count the full track duration (Spotify gives no listen time), so
    hours/"finished" are inflated and skips look like full listens.
 
-## S1 — Server tracker ✅ code done (web repo `tracking.py`)
+## S1 — Server tracker ✅ live (web repo `tracking.py`, Neon + hourly GitHub Action)
 Encrypted refresh tokens + Postgres + hourly GitHub Actions poll. Off until configured.
 Setup checklist (owner):
 - [ ] Create a free Postgres (Neon or Supabase) → copy its connection string
@@ -128,7 +128,7 @@ Setup checklist (owner):
 - [ ] Merge + deploy the web branch (start command should be gunicorn, see S5)
 - [ ] GitHub repo secrets (web repo): `TRACKER_URL`, `CRON_SECRET`; run the workflow once by hand
 
-## S2 — App: opt-in + sync
+## S2 — App: opt-in + sync ✅ done (v1.7.1 OTA)
 - "Listening tracking" switch (Settings + Wrapped empty state): enroll / status / delete-my-data
 - Incremental sync of `/api/tracking/plays?after=` into a local play store
 - Estimate real listen time from gaps between consecutive plays (cap at track length)
@@ -149,3 +149,10 @@ starting with Wrapped/Recaps. One radius set, one accent, calmer ambient glow.
 Measure first. Suspects: ZIP decoded via base64 in JS; multi-MB `wrapped_stats` JSON
 parsed on every Wrapped visit; Recaps recomputes the buffer on open; backend runs the
 Flask dev server (`Procfile: python app.py`) — switch to gunicorn.
+
+## Next native build (bundle these — each changes the runtime fingerprint)
+- App icon picker (alternate launcher icons — user's choice of icon)
+- `eas.json`: `autoIncrement: true` on preview/production (every build so far is versionCode 1;
+  the Play Store needs it to rise). Editing eas.json changes the fingerprint, so only with a build.
+- jest-expo → ~54 (reinstall hoists build tooling that the fingerprint hashes)
+- Move the play store from an MMKV JSON blob to SQLite (expo-sqlite) — S5 load times
