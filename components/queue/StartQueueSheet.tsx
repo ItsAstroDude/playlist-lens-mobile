@@ -161,6 +161,8 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
         delayLongPress={180}
         disabled={isActive}
         style={[styles.trackRow, isActive && styles.trackRowActive]}
+        accessibilityLabel={`${item.name} by ${item.artist}`}
+        accessibilityHint="Long-press and drag to reorder"
       >
         {item.image
           ? <Image source={{ uri: item.image }} style={styles.cover} />
@@ -169,7 +171,10 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
           <Text style={styles.trackName} numberOfLines={1}>{item.name}</Text>
           <Text style={styles.trackArtist} numberOfLines={1}>{item.artist}</Text>
         </View>
-        <Pressable onPress={() => removeTrack(item.uri)} hitSlop={8} style={styles.remove}>
+        <Pressable
+          onPress={() => removeTrack(item.uri)} hitSlop={8} style={styles.remove}
+          accessibilityRole="button" accessibilityLabel={`Remove ${item.name}`}
+        >
           <Text style={styles.removeGlyph}>✕</Text>
         </Pressable>
       </Pressable>
@@ -226,7 +231,9 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
             <View style={styles.deviceRow}>
               <View style={[styles.dot, { backgroundColor: target?.kind === 'active' ? Colors.greenPrimary : Colors.textMuted }]} />
               <Text style={styles.deviceText} numberOfLines={1}>{line}</Text>
-              <Pressable onPress={() => { haptic.light(); setShuffle(s => !s) }} hitSlop={8} style={[styles.shuffle, shuffle && styles.shuffleOn]}>
+              <Pressable onPress={() => { haptic.light(); setShuffle(s => !s) }} hitSlop={8} style={[styles.shuffle, shuffle && styles.shuffleOn]}
+                accessibilityRole="switch" accessibilityLabel="Shuffle" accessibilityState={{ checked: shuffle }}
+              >
                 <Text style={[styles.shuffleText, shuffle && styles.shuffleTextOn]}>⇄ shuffle</Text>
               </Pressable>
             </View>

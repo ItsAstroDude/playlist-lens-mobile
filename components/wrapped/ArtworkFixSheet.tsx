@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, Pressable, Dimensions, BackHandler, Alert,
+  View, Text, StyleSheet, Pressable, Dimensions, BackHandler, Linking,
   TextInput, ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native'
 import { Image } from 'expo-image'
@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system/legacy'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated'
+import { showDialog, showToast } from '@/utils/dialog'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import {
@@ -90,7 +91,12 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (!perm.granted && perm.canAskAgain === false) {
-        Alert.alert('Photo access needed', 'Enable photo access in system settings to use your own image.')
+        showDialog({
+          glyph: '◐', title: 'Photo access needed',
+          message: 'Allow photo access for playlist.lens in your phone settings to use your own image.',
+          confirmLabel: 'Open settings', cancelLabel: 'Not now',
+          onConfirm: () => { Linking.openSettings().catch(() => {}) },
+        })
         return
       }
       const res = await ImagePicker.launchImageLibraryAsync({
@@ -104,7 +110,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
       await FileSystem.copyAsync({ from: res.assets[0].uri, to: dest })
       onPick(dest)
     } catch {
-      Alert.alert('Couldn’t use that image', 'Something went wrong reading the photo. Try another.')
+      showDialog({ glyph: '!', title: 'Couldn’t use that image', message: 'Something went wrong reading the photo. Try another.' })
     }
   }, [target, onPick])
 
@@ -112,7 +118,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
     if (!target) return
     haptic.warning()
     reportWrongArtwork(target.kind, target.name, target.artist, target.currentArt)
-    Alert.alert('Thanks for the flag', 'We logged this one. We’ll use these reports to improve matching in an update.')
+    showToast('Thanks for the flag — logged for better matching', '⚑')
     onClose()
   }, [target, onClose])
 

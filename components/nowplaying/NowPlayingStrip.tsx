@@ -70,7 +70,10 @@ export function HomeTopStrip() {
             <Text style={styles.text} numberOfLines={1}>
               {isLoading ? 'Opening Spotify…' : 'Reconnect Spotify — new features await'}
             </Text>
-            <TouchableOpacity onPress={() => { haptic.light(); setDismissed(true) }} hitSlop={10}>
+            <TouchableOpacity
+              onPress={() => { haptic.light(); setDismissed(true) }} hitSlop={10}
+              accessibilityRole="button" accessibilityLabel="Dismiss reconnect prompt"
+            >
               <Ionicons name="close" size={13} color={Colors.textMuted} />
             </TouchableOpacity>
           </LinearGradient>

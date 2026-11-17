@@ -144,7 +144,7 @@ describe('apiFetch — 401 handling', () => {
     (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('tok')
     mockFetch(401, {})
 
-    const err = await apiFetch('/api/me').catch(e => e)
+    const err = (await apiFetch('/api/me').catch(e => e)) as ApiError
     expect(err).toBeInstanceOf(ApiError)
     expect(err.status).toBe(401)
   })

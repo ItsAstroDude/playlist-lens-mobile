@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, Switch, TextInput,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Switch, TextInput, Linking,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
@@ -20,6 +20,7 @@ import {
   Colors, FontFamily, FontSize, Spacing, Radius, alpha,
   ACCENTS, FONTS, activeAccentId, activeFontId, activeThemeMode,
 } from '@/constants/theme'
+import { BackButton } from '@/components/ui/BackButton'
 import { haptic } from '@/constants/animation'
 import { useAuth } from '@/hooks/useAuth'
 import { clearCaches } from '@/utils/cache'
@@ -42,6 +43,7 @@ import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel, reloadApp 
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { emitOpenTutorial, emitOpenWhatsNew } from '@/utils/overlayEvents'
 import { latestPatch } from '@/utils/whatsNew'
+import { showDialog, confirmDialog } from '@/utils/dialog'
 import type { SpotifyUser } from '@/types'
 
 const { width: W, height: H } = Dimensions.get('window')
@@ -266,6 +268,14 @@ export default function SettingsScreen() {
     haptic.light()
   }
 
+  // Permission denied at the OS level — offer a one-tap jump to the app's settings page.
+  const notificationsOffDialog = (why: string) => showDialog({
+    glyph: '◔', title: 'Notifications are off',
+    message: `Allow notifications for playlist.lens in your phone settings ${why}.`,
+    confirmLabel: 'Open settings', cancelLabel: 'Not now',
+    onConfirm: () => { Linking.openSettings().catch(() => {}) },
+  })
+
   // Recap notifications — turning on asks OS permission; reverts if it's denied.
   const onToggleNotifications = async (v: boolean) => {
     haptic.light()
@@ -274,10 +284,7 @@ export default function SettingsScreen() {
     if (result !== v) {
       setNotifs(result)
       if (v && !result) {
-        Alert.alert(
-          'Notifications are off',
-          'Allow notifications for playlist.lens in your phone settings to get recap nudges.',
-        )
+        notificationsOffDialog('to get recap nudges')
       }
     }
   }
@@ -290,30 +297,21 @@ export default function SettingsScreen() {
       setNotifTested(true)
       setTimeout(() => setNotifTested(false), 3000)
     } else {
-      Alert.alert(
-        'Notifications are off',
-        'Allow notifications for playlist.lens in your phone settings to receive a test.',
-      )
+      notificationsOffDialog('to receive a test')
     }
   }
 
   const onClearWrapped = () => {
-    Alert.alert(
-      'Clear Wrapped history?',
-      'Removes your imported listening history and all its stats. Your playlists are untouched — re-import the Spotify export anytime.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear', style: 'destructive',
-          onPress: () => {
-            clearWrappedStats()
-            haptic.success()
-            setWrappedCleared(true)
-            setTimeout(() => setWrappedCleared(false), 2500)
-          },
-        },
-      ],
-    )
+    confirmDialog({
+      glyph: '✕', destructive: true, confirmLabel: 'Clear',
+      title: 'Clear Wrapped history?',
+      message: 'Removes your imported listening history and all its stats. Your playlists are untouched — re-import the Spotify export anytime.',
+      onConfirm: () => {
+        clearWrappedStats()
+        setWrappedCleared(true)
+        setTimeout(() => setWrappedCleared(false), 2500)
+      },
+    })
   }
 
   const onCheckUpdates = async () => {
@@ -346,22 +344,16 @@ export default function SettingsScreen() {
   }
 
   const onClearCache = () => {
-    Alert.alert(
-      'Clear cache?',
-      'Removes cached playlist analyses and your taste profile. You stay logged in — everything rebuilds as you browse.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear', style: 'destructive',
-          onPress: () => {
-            clearCaches()
-            haptic.success()
-            setCacheCleared(true)
-            setTimeout(() => setCacheCleared(false), 2500)
-          },
-        },
-      ],
-    )
+    confirmDialog({
+      glyph: '✕', destructive: true, confirmLabel: 'Clear',
+      title: 'Clear cache?',
+      message: 'Removes cached playlist analyses and your taste profile. You stay logged in — everything rebuilds as you browse.',
+      onConfirm: () => {
+        clearCaches()
+        setCacheCleared(true)
+        setTimeout(() => setCacheCleared(false), 2500)
+      },
+    })
   }
 
   // ── Gear drop animation values ──
@@ -444,9 +436,7 @@ export default function SettingsScreen() {
 
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={20} color={Colors.text} />
-          </TouchableOpacity>
+          <BackButton />
           <Text style={styles.heading}>settings</Text>
           <View style={{ width: 36 }} />
         </View>

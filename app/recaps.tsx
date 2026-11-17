@@ -4,9 +4,9 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming, Easing } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
+import { BackButton } from '@/components/ui/BackButton'
 import { Spring, haptic } from '@/constants/animation'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { fmtHours, type RecapPeriod } from '@/utils/wrapped'
@@ -89,9 +89,7 @@ export default function RecapsScreen() {
       <AmbientBackground />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={20} color={Colors.text} />
-          </TouchableOpacity>
+          <BackButton />
           <Text style={styles.heading}>recaps</Text>
           <View style={{ width: 36 }} />
         </View>

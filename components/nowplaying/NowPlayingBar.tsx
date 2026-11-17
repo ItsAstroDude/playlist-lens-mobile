@@ -179,12 +179,20 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
                 onPress={() => { haptic.light(); setDismissed(true) }}
                 hitSlop={10}
                 style={styles.dismiss}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss reconnect prompt"
               >
                 <Ionicons name="close" size={14} color={TXT_MUTED} />
               </TouchableOpacity>
             </Pressable>
           ) : (
-            <Pressable style={styles.inner} onPress={onOpen}>
+            <Pressable
+              style={styles.inner}
+              onPress={onOpen}
+              accessibilityRole="button"
+              accessibilityLabel={`Now playing: ${np?.item?.name ?? 'track'}${np?.item?.artists?.length ? ` by ${np.item.artists.join(', ')}` : ''}`}
+              accessibilityHint="Opens playback controls"
+            >
               {art ? (
                 <Image source={{ uri: art }} style={styles.art} contentFit="cover" transition={150} />
               ) : (

@@ -4,14 +4,13 @@ import {
   TextInput, Keyboard, Share,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withDelay,
   withTiming, withRepeat, Easing, FadeIn,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
+import { BackButton } from '@/components/ui/BackButton'
 import { Spring, haptic } from '@/constants/animation'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { TopFade } from '@/components/ui/TopFade'
@@ -341,9 +340,7 @@ export default function TasteScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* Header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={20} color={Colors.text} />
-          </TouchableOpacity>
+          <BackButton />
           <Text style={styles.heading}>taste</Text>
           <View style={{ width: 36 }} />
         </View>

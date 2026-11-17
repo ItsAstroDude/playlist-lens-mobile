@@ -61,11 +61,11 @@ interface SkeletonCardProps {
   style?:     ViewStyle
 }
 
-export function PlaylistCardSkeleton({ baseColor, style }: SkeletonCardProps) {
+export function PlaylistCardSkeleton({ baseColor, style, height = 188 }: SkeletonCardProps & { height?: number }) {
   return (
-    // Full-width card matching the new single-column PlaylistCard design
+    // Full-width 188dp card by default; the lens grid passes a square height + width
     <View style={[skStyles.card, style]}>
-      <Skeleton height={188} borderRadius={Radius.xl} baseColor={baseColor} />
+      <Skeleton height={height} borderRadius={Radius.xl} baseColor={baseColor} />
     </View>
   )
 }
@@ -93,8 +93,7 @@ const skStyles = StyleSheet.create({
     borderRadius:    Radius.xl,
     overflow:        'hidden',
     alignSelf:       'center',
-    width:           '100%',
-    paddingHorizontal: Spacing.lg,
+    width:           '100%',   // the list supplies the side gutter (was double-inset vs the real card)
   },
   statCard: {
     padding:         Spacing.md,

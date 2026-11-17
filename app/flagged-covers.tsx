@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
-import { haptic } from '@/constants/animation'
+import { BackButton } from '@/components/ui/BackButton'
+import { confirmDialog } from '@/utils/dialog'
 import { loadArtReports, clearArtReports, type ArtReport } from '@/hooks/useArtwork'
 
 export default function FlaggedCoversScreen() {
@@ -12,24 +12,23 @@ export default function FlaggedCoversScreen() {
 
   const onClear = useCallback(() => {
     if (!reports.length) return
-    Alert.alert(
-      'Clear flagged covers?',
-      'Removes the locally-stored list of covers you reported as wrong.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear', style: 'destructive', onPress: () => { clearArtReports(); haptic.success(); setReports([]) } },
-      ],
-    )
+    confirmDialog({
+      glyph: '✕', destructive: true, confirmLabel: 'Clear',
+      title: 'Clear flagged covers?',
+      message: 'Removes the locally-stored list of covers you reported as wrong.',
+      onConfirm: () => { clearArtReports(); setReports([]) },
+    })
   }, [reports.length])
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={20} color={Colors.text} />
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.heading}>flagged covers</Text>
-        <TouchableOpacity onPress={onClear} style={styles.backBtn} activeOpacity={0.7} disabled={!reports.length}>
+        <TouchableOpacity
+          onPress={onClear} style={styles.backBtn} activeOpacity={0.7} disabled={!reports.length} hitSlop={8}
+          accessibilityRole="button" accessibilityLabel="Clear flagged covers" accessibilityState={{ disabled: !reports.length }}
+        >
           <Ionicons name="trash-outline" size={18} color={reports.length ? Colors.error : Colors.textDim} />
         </TouchableOpacity>
       </View>

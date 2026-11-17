@@ -88,7 +88,14 @@ function TabItem({ label, routeName, focused, onPress, minimal }: {
   const color = focused ? ACTIVE : INACTIVE
 
   return (
-    <Pressable style={styles.item} onPress={onPress} hitSlop={6}>
+    <Pressable
+      style={styles.item}
+      onPress={onPress}
+      hitSlop={6}
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: focused }}
+    >
       <View style={styles.iconSlot}>
         <Animated.View style={[styles.activePill, pillStyle]} />
         <Animated.View style={iconStyle}><Glyph name={routeName} color={color} /></Animated.View>
@@ -133,7 +140,7 @@ function FloatingTabBar({ state, descriptors, navigation, minimal }: TabBarProps
     >
       <View style={[styles.bar, minimal && styles.barMinimal]}>
         <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-        <View style={styles.barInner}>
+        <View style={styles.barInner} accessibilityRole="tabbar">
           {state.routes.map((route, i) => {
             const focused = state.index === i
             const { options } = descriptors[route.key]

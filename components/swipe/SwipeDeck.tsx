@@ -166,7 +166,10 @@ function Card({ track, onDecide, onUndo, canUndo }: {
             <View style={styles.audioRow}>
               {preview === 'ready' ? (
                 <>
-                  <TouchableOpacity onPress={togglePlay} hitSlop={10} style={styles.playBtn}>
+                  <TouchableOpacity
+                    onPress={togglePlay} hitSlop={10} style={styles.playBtn}
+                    accessibilityRole="button" accessibilityLabel={status.playing ? 'Pause preview' : 'Play preview'}
+                  >
                     <Ionicons
                       name={status.playing ? 'pause' : 'play'}
                       size={16}
@@ -190,17 +193,24 @@ function Card({ track, onDecide, onUndo, canUndo }: {
 
       {/* action row — part of the card instance so a mid-flight card can't be re-triggered */}
       <View style={styles.actions}>
-        <TouchableOpacity style={[styles.actionBtn, styles.actionCut]} onPress={() => flyOut(false)} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.actionCut]} onPress={() => flyOut(false)} activeOpacity={0.8}
+          accessibilityRole="button" accessibilityLabel={`Cut ${track.name}`}
+        >
           <Ionicons name="close" size={26} color="#ff6b6b" />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, styles.actionUndo, !canUndo && { opacity: 0.35 }]}
           onPress={() => { if (canUndo) { haptic.light(); onUndo() } }}
           activeOpacity={0.8}
+          accessibilityRole="button" accessibilityLabel="Undo last swipe" accessibilityState={{ disabled: !canUndo }}
         >
           <Ionicons name="arrow-undo" size={18} color={Colors.textSecondary} />
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.actionBtn, styles.actionKeep]} onPress={() => flyOut(true)} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.actionKeep]} onPress={() => flyOut(true)} activeOpacity={0.8}
+          accessibilityRole="button" accessibilityLabel={`Keep ${track.name}`}
+        >
           <Ionicons name="heart" size={24} color="#53e076" />
         </TouchableOpacity>
       </View>

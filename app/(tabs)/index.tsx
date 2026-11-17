@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { View, Text, StyleSheet, RefreshControl, TouchableOpacity, Alert, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
+import { View, Text, StyleSheet, RefreshControl, TouchableOpacity, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import { DetailSheet } from '@/components/sheet/DetailSheet'
 import { FlashList } from '@shopify/flash-list'
@@ -17,7 +16,7 @@ import { Spring, haptic } from '@/constants/animation'
 import { deleteCache, CacheKeys } from '@/utils/cache'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { usePalette } from '@/hooks/usePalette'
-import { PlaylistCard } from '@/components/playlist/PlaylistCard'
+import { PlaylistCard, GRID_W, GRID_GAP } from '@/components/playlist/PlaylistCard'
 import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
@@ -28,6 +27,7 @@ import { loadOrder, saveOrder, applyOrder, pinToTop } from '@/utils/playlistOrde
 import { setTabBarHidden } from '@/utils/tabBar'
 import { getLensLayout, setLensLayout, type LensLayout } from '@/utils/settings'
 import { TopFade } from '@/components/ui/TopFade'
+import { showToast } from '@/utils/dialog'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import type { SpotifyPlaylist } from '@/types'
 
@@ -73,7 +73,7 @@ export default function PlaylistsTab() {
     setSelected(null)
     removePlaylist(id)
     haptic.warning()
-    Alert.alert('Removed', 'That playlist no longer exists on Spotify — taken off your list.')
+    showToast('That playlist is gone from Spotify — removed from your lenses', '✕', 3600)
   }, [removePlaylist])
 
   // ── Auto-hide the floating navbar on scroll-down, reveal on scroll-up / at top ──
@@ -165,7 +165,14 @@ export default function PlaylistsTab() {
 
   const keyExtractor = useCallback((item: SpotifyPlaylist) => item.id, [])
 
-  const renderSkeletons = () => (
+  // Placeholders match the active layout, so the list doesn't jump shape on load.
+  const renderSkeletons = () => layout === 'grid' ? (
+    <View style={styles.skeletonGrid}>
+      {Array.from({ length: SKELETON_COUNT * 2 }).map((_, i) => (
+        <PlaylistCardSkeleton key={i} height={GRID_W} style={{ width: GRID_W }} />
+      ))}
+    </View>
+  ) : (
     <View style={styles.skeletonList}>
       {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
         <PlaylistCardSkeleton key={i} />
@@ -181,7 +188,14 @@ export default function PlaylistsTab() {
   const listHeader = useMemo(() => (
     <>
       {coldStart ? <ColdStartOverlay visible /> : <HomeTopStrip />}
-      <TouchableOpacity style={styles.tastePill} onPress={openTaste} activeOpacity={0.85}>
+      <TouchableOpacity
+        style={styles.tastePill}
+        onPress={openTaste}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Your taste profile"
+        accessibilityHint="Aggregate stats, sharing and friend comparisons"
+      >
         <View style={styles.tastePillSpecular} />
         <Text style={styles.tastePillIcon}>◎</Text>
         <View style={{ flex: 1 }}>
@@ -228,14 +242,17 @@ export default function PlaylistsTab() {
           </View>
           <View style={styles.headerRight}>
             {data && data.length > 0 && (
-              <View style={styles.countBadge}>
+              <View style={styles.countBadge} accessibilityLabel={`${data.length} playlists`}>
                 <Text style={styles.countText}>{data.length}</Text>
               </View>
             )}
             <TouchableOpacity
-              onPress={() => router.push('/settings')}
+              onPress={() => { haptic.light(); router.push('/settings') }}
               style={styles.gearBtn}
               activeOpacity={0.7}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
             >
               <Text style={styles.gearIcon}>⚙</Text>
             </TouchableOpacity>
@@ -259,6 +276,9 @@ export default function PlaylistsTab() {
                 style={styles.layoutBtn}
                 onPress={toggleLayout}
                 activeOpacity={0.7}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={layout === 'full' ? 'Switch to grid view' : 'Switch to list view'}
               >
                 {/* shows the layout you'd switch TO */}
                 <Text style={styles.layoutBtnIcon}>{layout === 'full' ? '▦' : '▤'}</Text>
@@ -337,36 +357,6 @@ const styles = StyleSheet.create({
   container: {
     flex:            1,
     backgroundColor: Colors.background,
-  },
-
-  // Ambient blobs
-  ambientViolet: {
-    position:     'absolute',
-    top:          -80,
-    left:         -80,
-    width:        320,
-    height:       320,
-    borderRadius: 160,
-    backgroundColor: Colors.violetGlow,
-  },
-  ambientPink: {
-    position:     'absolute',
-    bottom:       -100,
-    right:        -80,
-    width:        280,
-    height:       280,
-    borderRadius: 140,
-    backgroundColor: Colors.pinkGlow,
-  },
-
-  // Green aurora at top
-  aurora: {
-    position: 'absolute',
-    top:      0,
-    left:     0,
-    right:    0,
-    height:   220,
-    zIndex:   0,
   },
 
   safe: {
@@ -500,6 +490,12 @@ const styles = StyleSheet.create({
   // Skeleton list (single column, matching new card layout)
   skeletonList: {
     gap:               Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  skeletonGrid: {
+    flexDirection:     'row',
+    flexWrap:          'wrap',
+    gap:               GRID_GAP,
     paddingHorizontal: Spacing.lg,
   },
 

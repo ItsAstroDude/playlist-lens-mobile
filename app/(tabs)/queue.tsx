@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react'
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, TouchableOpacity, Alert } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, TouchableOpacity } from 'react-native'
+import { confirmDialog } from '@/utils/dialog'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withDelay } from 'react-native-reanimated'
@@ -65,10 +66,12 @@ export default function QueueTab() {
   const confirmClear = useCallback(() => {
     if (count === 0) return
     haptic.light()
-    Alert.alert('Clear the queue?', `Remove all ${count} ${count === 1 ? 'track' : 'tracks'} from your queue?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: () => { haptic.warning(); clear() } },
-    ])
+    confirmDialog({
+      glyph: '✕', destructive: true, confirmLabel: 'Clear',
+      title: 'Clear the queue?',
+      message: `Remove all ${count} ${count === 1 ? 'track' : 'tracks'} from your queue?`,
+      onConfirm: clear,
+    })
   }, [count, clear])
 
   return (
@@ -98,7 +101,7 @@ export default function QueueTab() {
             <View style={styles.cardHead}>
               <Text style={styles.sectionLabel}>YOUR QUEUE</Text>
               {count > 0 && (
-                <TouchableOpacity onPress={confirmClear} hitSlop={8}>
+                <TouchableOpacity onPress={confirmClear} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear queue">
                   <Text style={styles.clearText}>Clear</Text>
                 </TouchableOpacity>
               )}
@@ -115,7 +118,10 @@ export default function QueueTab() {
                     key={it.uri}
                     item={it}
                     trailing={
-                      <Pressable onPress={() => { haptic.light(); remove(it.uri) }} hitSlop={8} style={styles.remove}>
+                      <Pressable
+                        onPress={() => { haptic.light(); remove(it.uri) }} hitSlop={8} style={styles.remove}
+                        accessibilityRole="button" accessibilityLabel={`Remove ${it.name} from queue`}
+                      >
                         <Text style={styles.removeGlyph}>✕</Text>
                       </Pressable>
                     }
@@ -142,10 +148,10 @@ export default function QueueTab() {
                     <Text style={styles.shelfSub} numberOfLines={2}>{shelf.subtitle}</Text>
                   </View>
                   <View style={styles.shelfActions}>
-                    <TouchableOpacity style={styles.playNow} onPress={() => playNow(shelf)} hitSlop={6}>
+                    <TouchableOpacity style={styles.playNow} onPress={() => playNow(shelf)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Play ${shelf.title} now`}>
                       <Text style={styles.playNowText}>▶ Play</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.queueAll} onPress={() => queueAll(shelf)} hitSlop={6}>
+                    <TouchableOpacity style={styles.queueAll} onPress={() => queueAll(shelf)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Add all of ${shelf.title} to queue`}>
                       <Text style={styles.queueAllText}>＋ all</Text>
                     </TouchableOpacity>
                   </View>

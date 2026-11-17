@@ -19,6 +19,31 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.6',
+    name:    'Play & Polish',
+    date:    '2026-11-17',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Playback controls — tap the now-playing bar for play/pause, previous and next, right from the app.',
+          'Play now — start any Rediscovery shelf on Spotify in one tap, without touching your queue.',
+          'Drag to reorder — long-press a track in the start-queue sheet to move it.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Every confirmation and heads-up now uses the Liquid Lens look instead of the stock phone pop-up — and “notifications are off” / “photo access needed” come with an Open settings button.',
+          'Quick, quiet confirmations (like flagging a cover) show as a small pill instead of interrupting you.',
+          'One consistent back button across Settings, Taste, Compare, Recaps and Flagged covers.',
+          'Loading placeholders now match your lens layout — grid or list — so nothing jumps when your playlists arrive.',
+          'Better screen-reader support: the tab bar, playback, swipe, queue and header buttons are all properly labelled.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.5',
     name:    'Custom Queues',
     date:    '2026-06-16',

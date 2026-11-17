@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import {
-  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, Alert,
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
@@ -16,6 +16,7 @@ import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
 import { TopFade } from '@/components/ui/TopFade'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import type { QueueItem } from '@/utils/queueCart'
+import { confirmDialog } from '@/utils/dialog'
 import type { ArtKind } from '@/hooks/useArtwork'
 
 const PRIVACY_URL = 'https://www.spotify.com/account/privacy/'
@@ -135,10 +136,12 @@ export default function WrappedTab() {
 
   const onImport = useCallback(() => { haptic.medium(); importHistory() }, [importHistory])
   const onClear  = useCallback(() => {
-    Alert.alert('Clear history?', 'Removes your imported listening stats. You can re-import anytime.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: () => { haptic.warning(); clearHistory() } },
-    ])
+    confirmDialog({
+      glyph: '✕', destructive: true, confirmLabel: 'Clear',
+      title: 'Clear history?',
+      message: 'Removes your imported listening stats. You can re-import anytime.',
+      onConfirm: clearHistory,
+    })
   }, [clearHistory])
   const onSelect = useCallback((s: WrappedSelection) => { haptic.light(); setSel(s) }, [])
 

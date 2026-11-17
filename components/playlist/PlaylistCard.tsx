@@ -26,8 +26,8 @@ const CARD_H   = 188
 const SIDE_PAD = Spacing.lg
 // Grid layout: two square cards per row. Cells are SCREEN_W/2 wide, so each card
 // hugs its outer edge (via alignSelf per column) to keep margins symmetric.
-const GRID_GAP = Spacing.md
-const GRID_W   = (SCREEN_W - SIDE_PAD * 2 - GRID_GAP) / 2
+export const GRID_GAP = Spacing.md
+export const GRID_W   = (SCREEN_W - SIDE_PAD * 2 - GRID_GAP) / 2
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 

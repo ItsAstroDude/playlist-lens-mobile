@@ -4,13 +4,13 @@ import {
   Modal, FlatList, Image, Pressable,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router, useLocalSearchParams } from 'expo-router'
+import { useLocalSearchParams } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, FadeIn,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
-import { haptic } from '@/constants/animation'
+import { BackButton } from '@/components/ui/BackButton'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { usePalette } from '@/hooks/usePalette'
@@ -244,9 +244,7 @@ export default function CompareScreen() {
 
         {/* Branded header with back */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => { haptic.light(); router.back() }} hitSlop={10} style={styles.back}>
-            <Text style={styles.backGlyph}>←</Text>
-          </TouchableOpacity>
+          <BackButton />
           <Text style={styles.logo}>
             playlist<Text style={styles.dot}>.</Text>lens
           </Text>
@@ -389,8 +387,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.xs,
   },
-  back: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-  backGlyph: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text },
   logo: {
     fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -1,
   },

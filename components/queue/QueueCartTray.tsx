@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Text, Pressable, StyleSheet, Alert } from 'react-native'
+import { Text, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BlurView } from 'expo-blur'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
@@ -8,6 +8,7 @@ import { router, usePathname } from 'expo-router'
 import { Spring, haptic } from '@/constants/animation'
 import { cartCount, onCart, clearCart } from '@/utils/queueCart'
 import { tabBarHidden } from '@/utils/tabBar'
+import { confirmDialog } from '@/utils/dialog'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 
 // Sits just above the floating tab bar (BAR_H 60 at bottom+10). Tweakable from a
@@ -65,10 +66,12 @@ export function QueueCartTray() {
           hitSlop={10}
           onPress={() => {
             haptic.light()
-            Alert.alert('Clear the queue?', `Remove all ${count} ${count === 1 ? 'track' : 'tracks'}?`, [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Clear', style: 'destructive', onPress: () => { haptic.warning(); clearCart() } },
-            ])
+            confirmDialog({
+              glyph: '✕', destructive: true, confirmLabel: 'Clear',
+              title: 'Clear the queue?',
+              message: `Remove all ${count} ${count === 1 ? 'track' : 'tracks'}?`,
+              onConfirm: clearCart,
+            })
           }}
           accessibilityRole="button"
           accessibilityLabel="Clear queue cart"
