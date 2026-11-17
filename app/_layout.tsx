@@ -140,6 +140,7 @@ export default function RootLayout() {
             <Stack.Screen name="compare"   options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="recaps"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="flagged-covers" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="design"    options={{ animation: 'slide_from_right' }} />
           </>
         ) : (
           <Stack.Screen name="auth" options={{ animation: 'fade' }} />

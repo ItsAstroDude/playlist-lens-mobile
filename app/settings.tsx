@@ -13,6 +13,7 @@ import {
 import { BackButton } from '@/components/ui/BackButton'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { Icon, type IconName } from '@/components/ui/Icon'
+import { Section, ListRow as SettingRow, ToggleRow } from '@/components/ui'
 import { Spring, haptic } from '@/constants/animation'
 import { useAuth } from '@/hooks/useAuth'
 import { clearCaches } from '@/utils/cache'
@@ -40,114 +41,6 @@ import {
   type TrackingStatus,
 } from '@/utils/tracking'
 import type { SpotifyUser } from '@/types'
-
-// Icon-tile tints — mid-tones that read on both the dark and the light theme.
-const TINT = {
-  accent: Colors.greenPrimary,
-  violet: '#8B7CF6',
-  pink:   '#F0609E',
-  sky:    '#3FA9F5',
-  amber:  '#F5A524',
-  danger: Colors.error,
-} as const
-type Tint = keyof typeof TINT
-
-// ─── Section wrapper ──────────────────────────────────────────────────────────
-function Section({ label, footer, children }: { label: string; footer?: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionLabel} accessibilityRole="header">{label}</Text>
-      <View style={styles.sectionCard}>
-        <View style={styles.cardSpecular} />
-        {children}
-      </View>
-      {footer ? <Text style={styles.sectionFooter}>{footer}</Text> : null}
-    </View>
-  )
-}
-
-function Tile({ icon, tint }: { icon: IconName; tint: Tint }) {
-  const c = TINT[tint]
-  return (
-    <View style={[styles.tile, { backgroundColor: alpha(c, 0.15), borderColor: alpha(c, 0.28) }]}>
-      <Icon name={icon} size={16} color={c} />
-    </View>
-  )
-}
-
-// ─── Settings row ─────────────────────────────────────────────────────────────
-function SettingRow({
-  icon, tint = 'accent', label, hint, value, valueTone, onPress, danger, last,
-}: {
-  icon:       IconName
-  tint?:      Tint
-  label:      string
-  hint?:      string
-  value?:     string
-  /** 'ok' renders the value as a green confirmation (e.g. "Cleared"). */
-  valueTone?: 'ok'
-  onPress?:   () => void
-  danger?:    boolean
-  last?:      boolean
-}) {
-  return (
-    <TouchableOpacity
-      style={[styles.row, last && styles.rowLast]}
-      onPress={onPress}
-      activeOpacity={onPress ? 0.6 : 1}
-      disabled={!onPress}
-      accessibilityRole={onPress ? 'button' : 'text'}
-      accessibilityLabel={[label, value].filter(Boolean).join(', ')}
-      accessibilityHint={hint}
-    >
-      <Tile icon={icon} tint={danger ? 'danger' : tint} />
-      <View style={styles.rowText}>
-        <Text style={[styles.rowLabel, danger && styles.rowLabelDanger]} numberOfLines={1}>{label}</Text>
-        {hint ? <Text style={styles.rowHint} numberOfLines={2}>{hint}</Text> : null}
-      </View>
-      {value ? (
-        valueTone === 'ok'
-          ? <View style={styles.okChip}><Icon name="checkmark" size={12} color={Colors.greenPrimary} /><Text style={styles.okText}>{value}</Text></View>
-          : <Text style={styles.rowValue} numberOfLines={1}>{value}</Text>
-      ) : null}
-      {onPress && !danger && <Icon name="chevron-forward" size={15} color={Colors.textMuted} />}
-    </TouchableOpacity>
-  )
-}
-
-// ─── Toggle row ───────────────────────────────────────────────────────────────
-function ToggleRow({
-  icon, tint = 'accent', label, hint, value, onValueChange, last, disabled,
-}: {
-  icon:          IconName
-  tint?:         Tint
-  label:         string
-  hint?:         string
-  value:         boolean
-  onValueChange: (v: boolean) => void
-  last?:         boolean
-  disabled?:     boolean
-}) {
-  return (
-    <View style={[styles.row, last && styles.rowLast]}>
-      <Tile icon={icon} tint={tint} />
-      <View style={styles.rowText}>
-        <Text style={styles.rowLabel} numberOfLines={1}>{label}</Text>
-        {hint ? <Text style={styles.rowHint} numberOfLines={2}>{hint}</Text> : null}
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        disabled={disabled}
-        accessibilityLabel={label}
-        accessibilityHint={hint}
-        trackColor={{ false: Colors.glassBorder, true: alpha(Colors.greenPrimary, 0.45) }}
-        thumbColor={value ? Colors.greenPrimary : '#9a9a9a'}
-        ios_backgroundColor={Colors.glassBorder}
-      />
-    </View>
-  )
-}
 
 // ─── Profile card — who's connected, on what plan ──────────────────────────────
 function ProfileCard({ me, onReconnect, reconnectMsg }: {
@@ -669,6 +562,9 @@ export default function SettingsScreen() {
               value={updateMsg ?? undefined} valueTone={okMsg(updateMsg) ? 'ok' : undefined} onPress={onCheckUpdates} />
             <SettingRow icon="pulse-outline" tint="amber" label="Audio features"
               hint="Spotify only shares these with apps registered before Nov 2024 — vibes fall back to genres" />
+            <SettingRow icon="color-palette-outline" label="Design system"
+              hint="Every colour, type style and component the app is built from"
+              onPress={() => { haptic.light(); router.push('/design') }} />
             <SettingRow icon="shapes-outline" tint="pink" label="Icons" hint="Ionicons by Ionic — MIT licence"
               onPress={() => { Linking.openURL('https://ionic.io/ionicons').catch(() => {}) }} last />
           </Section>
@@ -754,52 +650,9 @@ const styles = StyleSheet.create({
   reconnectText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.greenPrimary },
 
   // Section
-  section:      { gap: Spacing.sm },
-  sectionLabel: {
-    fontFamily:    FontFamily.monoMedium,
-    fontSize:      FontSize.xs,
-    color:         Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    paddingLeft:   Spacing.xs,
-  },
-  sectionFooter: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, paddingHorizontal: Spacing.xs, lineHeight: FontSize.xs * 1.5 },
-  sectionCard: {
-    backgroundColor: Colors.glass,
-    borderWidth:     1,
-    borderColor:     Colors.glassBorder,
-    borderRadius:    Radius.lg,
-    overflow:        'hidden',
-  },
   cardSpecular: { position: 'absolute', top: 0, left: Spacing.lg, right: Spacing.lg, height: 1, backgroundColor: Colors.glassHighlight },
 
   // Row
-  row: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    gap:               Spacing.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical:   Spacing.md,
-    minHeight:         56,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.glassBorder,
-  },
-  rowLast:  { borderBottomWidth: 0 },
-  tile: {
-    width: 32, height: 32, borderRadius: 10, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  rowText:  { flex: 1, minWidth: 0, gap: 2 },
-  rowLabel: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.base, color: Colors.text },
-  rowLabelDanger: { color: Colors.error },
-  rowHint:  { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, lineHeight: FontSize.xs * 1.45 },
-  rowValue: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary, maxWidth: 140 },
-  okChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full,
-    backgroundColor: alpha(Colors.greenPrimary, 0.12),
-  },
-  okText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.greenPrimary },
 
   pickerHead:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pickerValue: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textSecondary },

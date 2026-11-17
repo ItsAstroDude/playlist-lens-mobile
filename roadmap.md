@@ -139,7 +139,7 @@ Setup checklist (owner):
 - Wrapped tab leads with *this week* (stats.fm-style), lifetime below; works with no import
 - Week-over-week deltas, top artists/tracks/albums, listening clock, streaks
 
-## S4 — Design system
+## S4 — Design system 🚧 foundation shipped (tokens + primitives + gallery); screen migration next
 Tokens (exists: colour/space/radius/type) + primitives in `components/ui`:
 Screen, ScreenHeader, Card, Section, ListRow (from the Settings rows), Button, IconButton,
 Chip, SegmentedControl, Stat, EmptyState, Sheet, Skeleton. Migrate screens onto them,

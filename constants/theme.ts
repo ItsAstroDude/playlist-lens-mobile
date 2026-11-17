@@ -212,6 +212,20 @@ export const FontFamily: FontFamilySet = {
  */
 export const CHROME_FONT_MAX = 1.3
 
+// ─── Type scale — the design system's text styles ───────────────────────────────
+// Use these instead of ad-hoc fontFamily/fontSize pairs. Syne (brand, fixed) for
+// display/title/heading/stat; the chosen mono face for everything you read.
+export const Type = {
+  display:  { fontFamily: FontFamily.syneBold,   fontSize: FontSize['3xl'], letterSpacing: -1.5, color: Colors.text },
+  title:    { fontFamily: FontFamily.syneBold,   fontSize: FontSize['2xl'], letterSpacing: -1,   color: Colors.text },
+  heading:  { fontFamily: FontFamily.syneBold,   fontSize: FontSize.lg,     letterSpacing: -0.5, color: Colors.text },
+  stat:     { fontFamily: FontFamily.syneBold,   fontSize: FontSize.xl,     letterSpacing: -0.5, color: Colors.text },
+  body:     { fontFamily: FontFamily.mono,       fontSize: FontSize.base,   lineHeight: FontSize.base * 1.5, color: Colors.text },
+  label:    { fontFamily: FontFamily.monoMedium, fontSize: FontSize.base,   color: Colors.text },
+  caption:  { fontFamily: FontFamily.mono,       fontSize: FontSize.xs,     lineHeight: FontSize.xs * 1.45, color: Colors.textMuted },
+  overline: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs,     letterSpacing: 2, textTransform: 'uppercase' as const, color: Colors.textMuted },
+} as const
+
 export const LineHeight = {
   tight:   1.1,
   normal:  1.5,
