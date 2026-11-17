@@ -156,3 +156,72 @@ Flask dev server (`Procfile: python app.py`) — switch to gunicorn.
   the Play Store needs it to rise). Editing eas.json changes the fingerprint, so only with a build.
 - jest-expo → ~54 (reinstall hoists build tooling that the fingerprint hashes)
 - Move the play store from an MMKV JSON blob to SQLite (expo-sqlite) — S5 load times
+
+---
+
+# 2.0 — plan (drafted 2026-11-17)
+
+**Audience:** solo-first (you, sideloaded APK), built so a public launch stays possible.
+Spotify Development Mode caps an app at a small allow-list of users; extended quota is
+currently only granted to established businesses — so nothing in 2.0 may *depend* on
+strangers signing in. Social is parked behind that gate (see the end).
+
+**Shape:** one native build at the start of 2.0 (everything that changes the runtime
+fingerprint goes in together), then the rest ships over the air in phases.
+
+## Phase 0 — finish 1.8 "refine in place" (OTA, in progress)
+- [ ] DetailSheet + StartQueueSheet onto the shared Sheet (careful: their own drag gestures)
+- [ ] Lenses PlaylistCard, login screen, onboarding tour onto the design system
+- [ ] Wrapped extras: listening clock per period, artwork in period lists
+- [ ] Measure load times (cold start, Lenses, Wrapped, Recaps) → numbers in this file
+- [ ] Update the Claude design system with TabHeader / RankRow / TrackRow / Sheet / Button
+
+## Phase 1 — 2.0 foundations (the native build)
+- [ ] **Local play database** (expo-sqlite): one `plays` table for import + tracked +
+      device plays, deduped, indexed by time. Replaces the MMKV JSON buffer (20k cap,
+      re-parsed on every read) and the multi-MB `wrapped_stats` blob. Biggest load-time win.
+- [ ] Import straight into SQLite (stream the ZIP, no base64 round-trip in JS)
+- [ ] App icon picker (alternate launcher icons: Aperture default + 3–4 variants)
+- [ ] `eas.json` autoIncrement; jest-expo → 54; app version 2.0.0
+- [ ] Crash + error reporting (decide: Sentry free tier vs Expo's built-in insights)
+- [ ] Backend: run on gunicorn; decide on cold starts (paid Render instance vs accept them —
+      the hourly tracker already wakes it)
+
+## Phase 2 — Stats 2.0 (OTA)
+- [ ] Everything reads from the play database: Week / Month / Year / All time become one
+      engine; Recaps on the same engine
+- [ ] Streaks (days in a row listening, an artist's run), milestones (10,000th play,
+      100th artist), "new this week" (first-ever plays of an artist)
+- [ ] Listening clock + by-day for every period; artwork on every top list
+- [ ] History browser: search every play you've ever made
+- [ ] Shareable stat cards (story-sized images of your week / year)
+- [ ] Real weekly recap notification ("Your week: 18h, top artist …")
+
+## Phase 3 — Discovery (OTA + backend)
+- [ ] Smart playlists, one tap to save to Spotify: Top 50 this month, Discoveries,
+      Fading favorites, Second chances, Time machine
+- [ ] Auto-updating smart playlists — the server already holds your (encrypted) token
+      and runs hourly, so it can refresh "Your Weekly Top 30" every Monday
+- [ ] Vibe / mood playlists from genres (audio features are unavailable to this app)
+
+## Phase 4 — Design 2.0 (mostly OTA)
+- [ ] Visual refresh pass: calmer ambient glow, new playlist cards, motion review
+- [ ] New onboarding: what the app does, tracking opt-in, optional import
+- [ ] Android home-screen widget: "This week" + now playing (native — needs a build;
+      if it isn't ready for Phase 1's build, it rides the next one)
+
+## Phase 5 — ship-ready (only if going public)
+- [ ] Privacy policy + in-app data page (what's stored, where; export + delete)
+- [ ] Play Store listing + Data safety form; iOS build / TestFlight
+- [ ] Rate limits + abuse protection on the backend; tracker scaling beyond a handful of users
+- [ ] Decide the Spotify question: extended quota vs an import-first public version
+
+## Parked — Social (only with extended quota)
+Real friend profiles, compatibility scores, weekly friend leaderboard, compare weeks.
+The tracker's per-user play store is the foundation, so nothing in 2.0 blocks it.
+
+## Open decisions
+1. Crash reporting: Sentry (free tier, needs an account) or Expo insights?
+2. Backend cold starts: pay for an always-on Render instance (~$7/mo) or live with them?
+3. iOS at all for 2.0, or Android-only?
+4. Which alternate icons for the picker?
