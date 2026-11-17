@@ -19,6 +19,19 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.8.4',
+    name:    'No More Smudge',
+    date:    '2026-11-17',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Removed the dark band under the header on Lenses, Queue, Wrapped and Swipe — lists now scroll cleanly, with the background glow running behind them.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.8.3',
     name:    'Swipe to Close',
     date:    '2026-11-17',

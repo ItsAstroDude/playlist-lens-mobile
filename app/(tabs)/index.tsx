@@ -26,7 +26,6 @@ import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet
 import { loadOrder, saveOrder, applyOrder, pinToTop } from '@/utils/playlistOrder'
 import { setTabBarHidden } from '@/utils/tabBar'
 import { getLensLayout, setLensLayout, type LensLayout } from '@/utils/settings'
-import { TopFade } from '@/components/ui/TopFade'
 import { showToast } from '@/utils/dialog'
 import { filterPlaylists } from '@/utils/playlistSearch'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
@@ -348,7 +347,6 @@ export default function PlaylistsTab() {
             }
           />
         )}
-        <TopFade scrollY={scrollY} />
         </View>
 
         {/* ── Detail sheet ── */}

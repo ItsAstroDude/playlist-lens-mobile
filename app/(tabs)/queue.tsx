@@ -9,7 +9,6 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, wit
 import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
-import { TopFade } from '@/components/ui/TopFade'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
 import { PlaylistSongPicker } from '@/components/queue/PlaylistSongPicker'
 import { useQueueCart } from '@/hooks/useQueueCart'
@@ -137,7 +136,6 @@ export default function QueueTab() {
           )}
 
         </ScrollView>
-        <TopFade scrollY={scrollY} />
         </View>
       </SafeAreaView>
     </View>

@@ -7,7 +7,6 @@ import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
 import { useSharedValue } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/constants/theme'
-import { TopFade } from '@/components/ui/TopFade'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import { haptic } from '@/constants/animation'
 import { api, ApiError } from '@/utils/api'
@@ -226,7 +225,6 @@ export default function SwipeTab() {
                 </TouchableOpacity>
               )}
             />
-            <TopFade scrollY={scrollY} />
             </View>
           </View>
         )}

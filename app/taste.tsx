@@ -13,7 +13,6 @@ import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/co
 import { Screen, ScreenHeader, Section, Card, Button, EmptyState as DSEmptyState } from '@/components/ui'
 import { Spring, haptic } from '@/constants/animation'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
-import { TopFade } from '@/components/ui/TopFade'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { RadarChart } from '@/components/ui/RadarChart'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'

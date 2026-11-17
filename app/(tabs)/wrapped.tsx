@@ -17,7 +17,6 @@ import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankR
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
-import { TopFade } from '@/components/ui/TopFade'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import type { QueueItem } from '@/utils/queueCart'
 import { confirmDialog } from '@/utils/dialog'
@@ -351,7 +350,6 @@ export default function WrappedTab() {
               onScroll={e => { scrollY.value = e.nativeEvent.contentOffset.y }}
               scrollEventThrottle={16}
             />
-            <TopFade scrollY={scrollY} />
           </View>
         ) : (
           <View style={styles.scrollPad}>
