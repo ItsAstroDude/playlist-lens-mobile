@@ -104,3 +104,48 @@ Aggregate analysis across all playlists, radar chart, share code
 
 ## Phase 6 — Friends / Share
 Share codes, compatibility view, story export
+
+---
+
+# v1.8 — "Real Wrapped" + Design System (planned 2026-11-17)
+
+Goal: Wrapped that tracks itself like stats.fm, loads fast, and an app that stops
+feeling like a prototype.
+
+## Why weekly stats never worked (diagnosis)
+1. The Wrapped tab only renders the manual GDPR import — auto-collected plays only
+   reach the secondary Recaps screen. No import → empty Wrapped.
+2. Collection is on-device: one 50-play page on app open, throttled to 6h. >50 plays
+   between opens (~2.5h of listening) are lost for good.
+3. Collected plays count the full track duration (Spotify gives no listen time), so
+   hours/"finished" are inflated and skips look like full listens.
+
+## S1 — Server tracker ✅ code done (web repo `tracking.py`)
+Encrypted refresh tokens + Postgres + hourly GitHub Actions poll. Off until configured.
+Setup checklist (owner):
+- [ ] Create a free Postgres (Neon or Supabase) → copy its connection string
+- [ ] Render env vars: `DATABASE_URL`, `TRACKING_KEY` (Fernet key), `CRON_SECRET`
+- [ ] Merge + deploy the web branch (start command should be gunicorn, see S5)
+- [ ] GitHub repo secrets (web repo): `TRACKER_URL`, `CRON_SECRET`; run the workflow once by hand
+
+## S2 — App: opt-in + sync
+- "Listening tracking" switch (Settings + Wrapped empty state): enroll / status / delete-my-data
+- Incremental sync of `/api/tracking/plays?after=` into a local play store
+- Estimate real listen time from gaps between consecutive plays (cap at track length)
+- Keep the device pull as a fallback for users who don't opt in
+
+## S3 — Wrapped revamp (logic + UI)
+- One play store (import + tracked) → one stats engine; week/month/season/year/all-time
+- Wrapped tab leads with *this week* (stats.fm-style), lifetime below; works with no import
+- Week-over-week deltas, top artists/tracks/albums, listening clock, streaks
+
+## S4 — Design system
+Tokens (exists: colour/space/radius/type) + primitives in `components/ui`:
+Screen, ScreenHeader, Card, Section, ListRow (from the Settings rows), Button, IconButton,
+Chip, SegmentedControl, Stat, EmptyState, Sheet, Skeleton. Migrate screens onto them,
+starting with Wrapped/Recaps. One radius set, one accent, calmer ambient glow.
+
+## S5 — Load times
+Measure first. Suspects: ZIP decoded via base64 in JS; multi-MB `wrapped_stats` JSON
+parsed on every Wrapped visit; Recaps recomputes the buffer on open; backend runs the
+Flask dev server (`Procfile: python app.py`) — switch to gunicorn.
