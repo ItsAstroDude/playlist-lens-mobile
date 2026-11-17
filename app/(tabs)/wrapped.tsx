@@ -13,7 +13,7 @@ import { fmtHours, fmtMinutesShort, type WrappedStats, type StreamRow } from '@/
 import { comparePeriods, periodTitle, bucketLabels, periodRange, type SummaryKind, type PeriodComparison } from '@/utils/listening'
 import { loadBuffer } from '@/utils/recents'
 import { trackingEnrolled } from '@/utils/tracking'
-import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card } from '@/components/ui'
+import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow } from '@/components/ui'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
@@ -43,32 +43,6 @@ type Block =
   | { t: 'pCta' }
 
 interface Row { name: string; sub?: string; value: string; frac: number; sel: WrappedSelection; add?: QueueItem }
-
-// ─── Rows ─────────────────────────────────────────────────────────────────────
-// `addItem` (track rows only) renders the queue ＋ as a sibling of the pressable
-// body, so tapping it adds to the queue cart without also opening the item sheet.
-const BarRow = React.memo(function BarRow({ rank, name, sub, value, frac, color, onPress, addItem }: {
-  rank?: number; name: string; sub?: string; value: string; frac: number; color: string; onPress?: () => void; addItem?: QueueItem
-}) {
-  const body = (
-    <View style={styles.barBody}>
-      {rank != null && <Text style={styles.barRank}>{rank}</Text>}
-      <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
-        <Text style={styles.barName} numberOfLines={1}>{name}{sub ? <Text style={styles.barSub}>  {sub}</Text> : null}</Text>
-        <View style={styles.barTrack}><View style={[styles.barFill, { width: `${Math.max(2, frac * 100)}%`, backgroundColor: color }]} /></View>
-      </View>
-      <Text style={styles.barValue}>{value}</Text>
-    </View>
-  )
-  return (
-    <View style={styles.barRow}>
-      {onPress
-        ? <TouchableOpacity style={styles.barFlex} onPress={onPress} activeOpacity={0.6}>{body}</TouchableOpacity>
-        : <View style={styles.barFlex}>{body}</View>}
-      {addItem ? <AddToQueueButton item={addItem} /> : null}
-    </View>
-  )
-})
 
 const Clock = React.memo(function Clock({ clock }: { clock: number[] }) {
   const max = Math.max(...clock, 1)
@@ -217,12 +191,6 @@ export default function WrappedTab() {
   const gutter = useNowPlayingGutter()
   const scrollY = useSharedValue(0)
 
-  const headerY = useSharedValue(12); const headerO = useSharedValue(0)
-  React.useEffect(() => {
-    headerY.value = withDelay(60, withSpring(0, Spring.entrance))
-    headerO.value = withDelay(60, withTiming(1, { duration: 360 }))
-  }, [])
-  const headerStyle = useAnimatedStyle(() => ({ transform: [{ translateY: headerY.value }], opacity: headerO.value }))
 
   const onImport = useCallback(() => { haptic.medium(); importHistory() }, [importHistory])
   const onClear  = useCallback(() => {
@@ -270,7 +238,7 @@ export default function WrappedTab() {
             <View style={styles.cardSpecular} />
             <Text style={styles.sectionLabel}>{item.title}</Text>
             {item.rows.map((r, i) => (
-              <BarRow key={r.name + i} rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)} addItem={r.add} />
+              <RankRow key={r.name + i} rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)} trailing={r.add ? <AddToQueueButton item={r.add} /> : undefined} />
             ))}
           </View>
         )
@@ -282,7 +250,7 @@ export default function WrappedTab() {
             <View style={styles.cardSpecular} />
             <Text style={styles.sectionLabel}>BY YEAR</Text>
             {item.rows.map(y => (
-              <BarRow key={y.year} name={String(y.year)} sub={y.topArtist} value={fmtHours(y.ms)} frac={y.frac} color={Colors.greenPrimary} />
+              <RankRow key={y.year} name={String(y.year)} sub={y.topArtist} value={fmtHours(y.ms)} frac={y.frac} color={Colors.greenPrimary} />
             ))}
           </View>
         )
@@ -360,16 +328,11 @@ export default function WrappedTab() {
       <AmbientBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <Animated.View style={[styles.header, headerStyle]}>
-          <Text style={styles.logo}>playlist<Text style={styles.dot}>.</Text>lens</Text>
-        </Animated.View>
-        <Animated.View style={[styles.titleBlock, headerStyle]}>
-          <Text style={styles.title}>wrapped</Text>
-          <Text style={styles.sub}>{subtitle}</Text>
+        <TabHeader title="wrapped" subtitle={subtitle}>
           <View style={styles.modes}>
             {MODES.map(m => <Chip key={m.id} label={m.label} selected={mode === m.id} onPress={() => chooseMode(m.id)} />)}
           </View>
-        </Animated.View>
+        </TabHeader>
 
         {parsing ? (
           <View style={styles.parsing}>
@@ -443,12 +406,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   safe: { flex: 1, zIndex: 1 },
 
-  header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
-  logo: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -1 },
-  dot: { color: Colors.greenPrimary },
-  titleBlock: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, gap: 3 },
-  title: { fontFamily: FontFamily.syneBold, fontSize: FontSize['2xl'], color: Colors.text, letterSpacing: -1 },
-  sub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
 
   scrollPad: { flex: 1, paddingHorizontal: Spacing.lg },
   modes: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, flexWrap: 'wrap' },
@@ -475,15 +432,6 @@ const styles = StyleSheet.create({
   cardSpecular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
   sectionLabel: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, textTransform: 'uppercase', marginBottom: Spacing.xs },
 
-  barRow:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  barBody: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
-  barFlex: { flex: 1, minWidth: 0 },
-  barRank: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, width: 18, textAlign: 'right' },
-  barName: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary },
-  barSub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
-  barTrack: { height: 4, backgroundColor: Colors.glass, borderRadius: 2, overflow: 'hidden', flexDirection: 'row' },
-  barFill: { height: '100%', borderRadius: 2, opacity: 0.85 },
-  barValue: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, minWidth: 52, textAlign: 'right' },
 
   clockRow: { flexDirection: 'row', alignItems: 'flex-end', height: 64, gap: 2 },
   clockCol: { flex: 1, height: '100%', justifyContent: 'flex-end' },

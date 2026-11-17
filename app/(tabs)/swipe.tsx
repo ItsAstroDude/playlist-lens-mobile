@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { LinearGradient } from 'expo-linear-gradient'
+import { TabHeader } from '@/components/ui'
+import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
 import { useSharedValue } from 'react-native-reanimated'
@@ -166,26 +167,17 @@ export default function SwipeTab() {
 
   // ── Shared chrome ──
   const Header = (
-    <>
-      <View style={styles.header}>
-        <Text style={styles.logo}>playlist<Text style={styles.dot}>.</Text>lens</Text>
-      </View>
-      <View style={styles.titleBlock}>
-        <Text style={styles.title}>swipe</Text>
-        <Text style={styles.sub}>
-          {phase === 'swipe' && playlist
-            ? `${playlist.name} · ${Math.min(index + 1, swipeable.length)} of ${swipeable.length}`
-            : 'Refresh a playlist with swipes'}
-        </Text>
-      </View>
-    </>
+    <TabHeader
+      title="swipe"
+      subtitle={phase === 'swipe' && playlist
+        ? `${playlist.name} · ${Math.min(index + 1, swipeable.length)} of ${swipeable.length}`
+        : 'Refresh a playlist with swipes'}
+    />
   )
 
   return (
     <View style={styles.container}>
-      <View style={styles.ambientViolet} pointerEvents="none" />
-      <View style={styles.ambientPink}   pointerEvents="none" />
-      <LinearGradient colors={[Colors.auroraTop, Colors.auroraBot]} style={styles.aurora} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} pointerEvents="none" />
+      <AmbientBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
         {Header}
@@ -374,17 +366,8 @@ export default function SwipeTab() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  ambientViolet: { position: 'absolute', top: -80, left: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: Colors.violetGlow },
-  ambientPink:   { position: 'absolute', bottom: -100, right: -80, width: 260, height: 260, borderRadius: 130, backgroundColor: Colors.pinkGlow },
-  aurora: { position: 'absolute', top: 0, left: 0, right: 0, height: 200 },
   safe: { flex: 1, zIndex: 1 },
 
-  header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
-  logo: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -1 },
-  dot: { color: Colors.greenPrimary },
-  titleBlock: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md, gap: 3 },
-  title: { fontFamily: FontFamily.syneBold, fontSize: FontSize['2xl'], color: Colors.text, letterSpacing: -1 },
-  sub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
 
   // pick
   reconnectCard: {

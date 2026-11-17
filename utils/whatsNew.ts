@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.8.1',
+    name:    'Finish Line',
+    date:    '2026-11-17',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Every tab now shares one header, with Settings one tap away from anywhere.',
+          'Recaps, Taste, Compare and Flagged covers are rebuilt on the new design system — consistent cards, buttons, spacing and empty states.',
+          'Taste can now scan all your playlists from its empty state, instead of sending you off to open them one by one.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.8',
     name:    'This Week',
     date:    '2026-11-17',

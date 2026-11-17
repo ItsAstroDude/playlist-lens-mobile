@@ -32,6 +32,7 @@ import { filterPlaylists } from '@/utils/playlistSearch'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import type { SpotifyPlaylist } from '@/types'
 import { Icon } from '@/components/ui/Icon'
+import { TabHeader, IconButton } from '@/components/ui'
 
 const SKELETON_COUNT = 4
 
@@ -52,7 +53,6 @@ export default function PlaylistsTab() {
   // ── Lens layout (full cards ↔ 2-col grid) — persisted, applies instantly ──
   const [layout, setLayout] = useState<LensLayout>(getLensLayout)
   const toggleLayout = useCallback(() => {
-    haptic.light()
     setLayout(prev => {
       const next = prev === 'full' ? 'grid' : 'full'
       setLensLayout(next)
@@ -68,7 +68,6 @@ export default function PlaylistsTab() {
   const visibleData = useMemo(() => filterPlaylists(orderedData, query), [orderedData, query])
   const searching = query.trim().length > 0
   const toggleSearch = useCallback(() => {
-    haptic.light()
     setSearchOpen(open => {
       if (open) { setQuery(''); Keyboard.dismiss() }
       return !open
@@ -111,20 +110,6 @@ export default function PlaylistsTab() {
     setTabBarHidden(reorderMode)
     return () => setTabBarHidden(false)
   }, [reorderMode])
-
-  // ── Header entrance ──
-  const headerY       = useSharedValue(12)
-  const headerOpacity = useSharedValue(0)
-
-  useEffect(() => {
-    headerY.value       = withDelay(80, withSpring(0, Spring.entrance))
-    headerOpacity.value = withDelay(80, withTiming(1, { duration: 380 }))
-  }, [])
-
-  const headerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: headerY.value }],
-    opacity:   headerOpacity.value,
-  }))
 
   // ── Initial fetch ──
   useEffect(() => {
@@ -269,70 +254,31 @@ export default function PlaylistsTab() {
 
       <SafeAreaView style={styles.safe} edges={['top']}>
 
-        {/* ── Header ── */}
-        <Animated.View style={[styles.header, headerStyle]}>
-          <View>
-            <Text style={styles.logo}>
-              playlist<Text style={styles.dot}>.</Text>lens
-            </Text>
-          </View>
-          <View style={styles.headerRight}>
-            {data && data.length > 0 && (
-              <View style={styles.countBadge} accessibilityLabel={`${data.length} playlists`}>
-                <Text style={styles.countText}>{data.length}</Text>
-              </View>
-            )}
+        <TabHeader
+          title={reorderMode ? 'reorder' : 'lenses'}
+          subtitle={searchOpen && !reorderMode ? undefined : reorderMode ? 'Long-press a lens and drag to arrange.' : 'Sonic profiles from your library.'}
+          actions={data && data.length > 0 ? (
+            <View style={styles.countBadge} accessibilityLabel={`${data.length} playlists`}>
+              <Text style={styles.countText}>{data.length}</Text>
+            </View>
+          ) : null}
+          titleRight={reorderMode ? (
             <TouchableOpacity
-              onPress={() => { haptic.light(); router.push('/settings') }}
-              style={styles.gearBtn}
-              activeOpacity={0.7}
-              hitSlop={8}
+              style={styles.doneBtn}
+              onPress={() => { haptic.success(); setReorderMode(false) }}
+              activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Settings"
             >
-              <Icon name="settings-outline" style={styles.gearIcon} />
+              <Text style={styles.doneBtnText}>Done</Text>
             </TouchableOpacity>
-          </View>
-        </Animated.View>
-
-        {/* ── Section title (doubles as the reorder bar) ── */}
-        <Animated.View style={[styles.sectionHeader, headerStyle]}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>{reorderMode ? 'Reorder' : 'Your Lenses'}</Text>
-            {reorderMode ? (
-              <TouchableOpacity
-                style={styles.doneBtn}
-                onPress={() => { haptic.success(); setReorderMode(false) }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.doneBtnText}>Done</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.headerBtns}>
-              <TouchableOpacity
-                style={[styles.layoutBtn, searchOpen && styles.layoutBtnOn]}
-                onPress={toggleSearch}
-                activeOpacity={0.7}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={searchOpen ? 'Close search' : 'Search your lenses'}
-              >
-                <Icon name={searchOpen ? 'close' : 'search'} style={[styles.layoutBtnIcon, searchOpen && { color: Colors.greenPrimary }]} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.layoutBtn}
-                onPress={toggleLayout}
-                activeOpacity={0.7}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={layout === 'full' ? 'Switch to grid view' : 'Switch to list view'}
-              >
-                {/* shows the layout you'd switch TO */}
-                <Icon name={layout === 'full' ? 'grid-outline' : 'list-outline'} style={styles.layoutBtnIcon} />
-              </TouchableOpacity>
-              </View>
-            )}
-          </View>
+          ) : (
+            <>
+              <IconButton icon={searchOpen ? 'close' : 'search'} label={searchOpen ? 'Close search' : 'Search your lenses'} active={searchOpen} onPress={toggleSearch} />
+              {/* shows the layout you'd switch TO */}
+              <IconButton icon={layout === 'full' ? 'grid-outline' : 'list-outline'} label={layout === 'full' ? 'Switch to grid view' : 'Switch to list view'} onPress={toggleLayout} />
+            </>
+          )}
+        >
           {searchOpen && !reorderMode ? (
             <View style={styles.searchBox}>
               <Icon name="search" size={15} color={Colors.textMuted} />
@@ -360,12 +306,8 @@ export default function PlaylistsTab() {
                 </TouchableOpacity>
               )}
             </View>
-          ) : (
-            <Text style={styles.sectionSub}>
-              {reorderMode ? 'Long-press a lens and drag to arrange.' : 'Sonic profiles from your library.'}
-            </Text>
-          )}
-        </Animated.View>
+          ) : null}
+        </TabHeader>
 
         {/* ── Playlist list ── */}
         <View style={styles.listWrap}>
@@ -444,28 +386,6 @@ const styles = StyleSheet.create({
   },
 
   // ── Header ──
-  header: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    justifyContent:    'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingTop:        Spacing.sm,
-    paddingBottom:     Spacing.sm,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           Spacing.sm,
-  },
-  logo: {
-    fontFamily:    FontFamily.syneBold,
-    fontSize:      FontSize.xl,
-    color:         Colors.text,
-    letterSpacing: -1,
-  },
-  dot: {
-    color: Colors.greenPrimary,
-  },
   countBadge: {
     backgroundColor:   Colors.glass,
     borderWidth:       1,
@@ -478,16 +398,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.mono,
     fontSize:   FontSize.xs,
     color:      Colors.textMuted,
-  },
-  gearBtn: {
-    width:          32,
-    height:         32,
-    alignItems:     'center',
-    justifyContent: 'center',
-  },
-  gearIcon: {
-    fontSize: 16,
-    color:    Colors.textMuted,
   },
 
   // "Your taste" pill — lives in the top strip, opens the pushed taste screen
@@ -512,24 +422,12 @@ const styles = StyleSheet.create({
   tastePillArrow: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.lg, color: Colors.greenPrimary },
 
   // Section title below header
-  sectionHeader: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom:     Spacing.lg,
-    gap:               3,
-  },
-  sectionTitleRow: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'space-between',
-  },
   doneBtn: {
     backgroundColor:   Colors.greenPrimary,
     borderRadius:      Radius.full,
     paddingHorizontal: Spacing.lg,
     paddingVertical:   Spacing.xs + 1,
   },
-  headerBtns: { flexDirection: 'row', gap: Spacing.sm },
-  layoutBtnOn: { borderColor: alpha(Colors.greenPrimary, 0.5), backgroundColor: alpha(Colors.greenPrimary, 0.1) },
   searchBox: {
     flexDirection:     'row',
     alignItems:        'center',
@@ -550,36 +448,10 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   searchCount: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
-  layoutBtn: {
-    width:           32,
-    height:          32,
-    borderRadius:    Radius.sm,
-    backgroundColor: Colors.glass,
-    borderWidth:     1,
-    borderColor:     Colors.glassBorder,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-  layoutBtnIcon: {
-    fontSize: 15,
-    color:    Colors.textMuted,
-  },
   doneBtnText: {
     fontFamily: FontFamily.monoMedium,
     fontSize:   FontSize.sm,
     color:      Colors.background,
-  },
-  sectionTitle: {
-    fontFamily:    FontFamily.syneBold,
-    fontSize:      FontSize['2xl'],
-    color:         Colors.text,
-    letterSpacing: -1,
-    lineHeight:    FontSize['2xl'] * 1.1,
-  },
-  sectionSub: {
-    fontFamily: FontFamily.mono,
-    fontSize:   FontSize.xs,
-    color:      Colors.textMuted,
   },
 
   // List content padding — clears the floating pill navbar

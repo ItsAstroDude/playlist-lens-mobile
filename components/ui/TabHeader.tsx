@@ -1,0 +1,74 @@
+import React, { useEffect } from 'react'
+import { View, Text, StyleSheet } from 'react-native'
+import { router } from 'expo-router'
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming } from 'react-native-reanimated'
+import { Colors, FontFamily, FontSize, Spacing, Type } from '@/constants/theme'
+import { Spring } from '@/constants/animation'
+import { reduceMotionEnabled } from '@/utils/settings'
+import { IconButton } from '@/components/ui/Controls'
+
+/**
+ * Design system — the header every TAB screen shares (Lenses, Queue, Wrapped, Swipe):
+ *
+ *   playlist.lens                       [actions] [⚙]
+ *   title                                [titleRight]
+ *   subtitle
+ *   [children — chips, a search box…]
+ *
+ * Lowercase title (matches the tab label). Settings is one tap away from every tab.
+ * Rises in on mount; still under Reduce motion.
+ */
+export function TabHeader({ title, subtitle, actions, titleRight, children, settings = true }: {
+  title:       string
+  subtitle?:   string
+  /** Extra items left of the settings button on the wordmark row (badges, buttons). */
+  actions?:    React.ReactNode
+  /** Controls aligned with the title (IconButtons, a Done button). */
+  titleRight?: React.ReactNode
+  /** Anything under the subtitle — period chips, a search box. */
+  children?:   React.ReactNode
+  settings?:   boolean
+}) {
+  const still = reduceMotionEnabled()
+  const y = useSharedValue(still ? 0 : 12)
+  const o = useSharedValue(still ? 1 : 0)
+  useEffect(() => {
+    if (still) return
+    y.value = withDelay(60, withSpring(0, Spring.entrance))
+    o.value = withDelay(60, withTiming(1, { duration: 360 }))
+  }, [])
+  const enter = useAnimatedStyle(() => ({ opacity: o.value, transform: [{ translateY: y.value }] }))
+
+  return (
+    <Animated.View style={[styles.wrap, enter]}>
+      <View style={styles.brandRow}>
+        <Text style={styles.logo} accessibilityRole="header" accessibilityLabel="playlist.lens">
+          playlist<Text style={styles.dot}>.</Text>lens
+        </Text>
+        <View style={styles.actions}>
+          {actions}
+          {settings && (
+            <IconButton icon="settings-outline" label="Settings" onPress={() => router.push('/settings')} />
+          )}
+        </View>
+      </View>
+      <View style={styles.titleRow}>
+        <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>{title}</Text>
+        {titleRight ? <View style={styles.actions}>{titleRight}</View> : null}
+      </View>
+      {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
+      {children}
+    </Animated.View>
+  )
+}
+
+const styles = StyleSheet.create({
+  wrap:     { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.lg, gap: 4 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 36 },
+  logo:     { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -1 },
+  dot:      { color: Colors.greenPrimary },
+  actions:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md, marginTop: Spacing.sm },
+  title:    { ...Type.title, flexShrink: 1 },
+  sub:      { ...Type.caption, fontSize: 11 },
+})

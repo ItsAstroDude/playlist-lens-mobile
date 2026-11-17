@@ -3,20 +3,17 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, FlatList, Image, Pressable,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams } from 'expo-router'
-import { LinearGradient } from 'expo-linear-gradient'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, FadeIn,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
-import { BackButton } from '@/components/ui/BackButton'
+import { Screen, ScreenHeader, EmptyState } from '@/components/ui'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { usePalette } from '@/hooks/usePalette'
 import { ensureReadable, vibeColor } from '@/utils/color'
 import type { SpotifyPlaylist, PlaylistAnalysis } from '@/types'
-import { Icon } from '@/components/ui/Icon'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtMs(ms: number) {
@@ -221,41 +218,18 @@ export default function CompareScreen() {
   const hasResult = dataA && dataB
 
   return (
-    <View style={styles.container}>
-      {/* Ambient glows — match the taste / share tabs */}
-      <View style={styles.ambientViolet} pointerEvents="none" />
-      <View style={styles.ambientPink}   pointerEvents="none" />
-      <LinearGradient
-        colors={[Colors.auroraTop, Colors.auroraBot]}
-        style={styles.aurora}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        pointerEvents="none"
-      />
+    <Screen
+      overlay={picker !== null && playlists.length > 0 ? (
+        <PlaylistPicker
+          playlists={playlists}
+          exclude={picker === 'a' ? plB?.id : plA?.id}
+          onSelect={pl => onSelect(picker, pl)}
+          onClose={() => setPicker(null)}
+        />
+      ) : null}
+    >
+        <ScreenHeader title="compare" subtitle="Side-by-side playlist analysis" />
 
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        {picker !== null && playlists.length > 0 && (
-          <PlaylistPicker
-            playlists={playlists}
-            exclude={picker === 'a' ? plB?.id : plA?.id}
-            onSelect={pl => onSelect(picker, pl)}
-            onClose={() => setPicker(null)}
-          />
-        )}
-
-        {/* Branded header with back */}
-        <View style={styles.header}>
-          <BackButton />
-          <Text style={styles.logo}>
-            playlist<Text style={styles.dot}>.</Text>lens
-          </Text>
-        </View>
-        <View style={styles.titleBlock}>
-          <Text style={styles.title}>compare</Text>
-          <Text style={styles.sub}>Side-by-side playlist analysis</Text>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* ── Slot selectors ── */}
         <View style={styles.slots}>
           <SlotButton playlist={plA} color={colorA} loading={loadingA} onPress={() => openPicker('a')} />
@@ -355,48 +329,18 @@ export default function CompareScreen() {
 
         {/* Empty state */}
         {!hasResult && !loadingA && !loadingB && (
-          <View style={styles.emptyState}>
-            <Icon name="git-compare-outline" style={styles.emptyIcon} />
-            <Text style={styles.emptyText}>Pick two playlists above{'\n'}to see how they stack up</Text>
-          </View>
+          <EmptyState icon="git-compare-outline" title="Pick two playlists" body="Choose one for each side above to see how they stack up." />
         )}
-        </ScrollView>
-      </SafeAreaView>
-    </View>
+    </Screen>
   )
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  safe:      { flex: 1, zIndex: 1 },
-  scroll:    { paddingHorizontal: Spacing.lg, paddingBottom: 130 },
 
   // Ambient glows (match taste / share)
-  ambientViolet: {
-    position: 'absolute', top: -80, left: -80, width: 300, height: 300,
-    borderRadius: 150, backgroundColor: Colors.violetGlow,
-  },
-  ambientPink: {
-    position: 'absolute', bottom: -100, right: -80, width: 260, height: 260,
-    borderRadius: 130, backgroundColor: Colors.pinkGlow,
-  },
-  aurora: { position: 'absolute', top: 0, left: 0, right: 0, height: 200 },
 
   // Branded header
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.xs,
-  },
-  logo: {
-    fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -1,
-  },
-  dot: { color: Colors.greenPrimary },
-  titleBlock: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, gap: 3 },
-  title: {
-    fontFamily: FontFamily.syneBold, fontSize: FontSize['2xl'], color: Colors.text, letterSpacing: -1,
-  },
-  sub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
 
   // Slots
   slots: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.xl },
@@ -423,7 +367,7 @@ const styles = StyleSheet.create({
   // Cards
   card: {
     backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder,
-    borderRadius: Radius.xl, padding: Spacing.lg, overflow: 'hidden', gap: Spacing.sm,
+    borderRadius: Radius.lg, padding: Spacing.lg, overflow: 'hidden', gap: Spacing.sm,
   },
   cardSpecular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
   colHeaders:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs, gap: Spacing.sm },
@@ -465,7 +409,4 @@ const styles = StyleSheet.create({
   pickerCount:   { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
 
   // Empty state
-  emptyState: { alignItems: 'center', paddingTop: 60, gap: Spacing.md },
-  emptyIcon:  { fontSize: 48, color: Colors.glassBorder },
-  emptyText:  { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', lineHeight: FontSize.sm * 1.7 },
 })

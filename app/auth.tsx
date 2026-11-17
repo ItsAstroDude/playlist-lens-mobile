@@ -120,7 +120,8 @@ export default function AuthScreen() {
       {/* Login button */}
       <Animated.View style={[styles.btnWrap, btnStyle]}>
         <Button
-          label="Login with Spotify"
+          label="Log in with Spotify"
+          variant="spotify"
           onPress={handleLogin}
           loading={isLoading}
           size="lg"

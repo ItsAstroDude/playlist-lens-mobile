@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import { View, Text, StyleSheet, ScrollView, Pressable, Image, TouchableOpacity } from 'react-native'
 import { confirmDialog, showToast } from '@/utils/dialog'
+import { TabHeader } from '@/components/ui'
 import { addAllMessage, cartFull } from '@/utils/queueCart'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
@@ -48,12 +49,6 @@ export default function QueueTab() {
   // changed the data since last time).
   useFocusEffect(useCallback(() => { setShelves(loadRediscovery()) }, []))
 
-  const headerY = useSharedValue(12); const headerO = useSharedValue(0)
-  React.useEffect(() => {
-    headerY.value = withDelay(60, withSpring(0, Spring.entrance))
-    headerO.value = withDelay(60, withTiming(1, { duration: 360 }))
-  }, [])
-  const headerStyle = useAnimatedStyle(() => ({ transform: [{ translateY: headerY.value }], opacity: headerO.value }))
 
   const queueAll = useCallback((shelf: Shelf) => {
     const added = addMany(shelf.tracks.map(asItem))
@@ -82,13 +77,7 @@ export default function QueueTab() {
       <AmbientBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <Animated.View style={[styles.header, headerStyle]}>
-          <Text style={styles.logo}>playlist<Text style={styles.dot}>.</Text>lens</Text>
-        </Animated.View>
-        <Animated.View style={[styles.titleBlock, headerStyle]}>
-          <Text style={styles.title}>queue</Text>
-          <Text style={styles.sub}>Hand-pick tracks or rediscover old favorites, then play them on Spotify</Text>
-        </Animated.View>
+        <TabHeader title="queue" subtitle="Hand-pick tracks or rediscover old favorites, then play them on Spotify" />
 
         <View style={{ flex: 1 }}>
         <ScrollView
@@ -192,12 +181,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   safe: { flex: 1, zIndex: 1 },
 
-  header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
-  logo: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -1 },
-  dot: { color: Colors.greenPrimary },
-  titleBlock: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, gap: 3 },
-  title: { fontFamily: FontFamily.syneBold, fontSize: FontSize['2xl'], color: Colors.text, letterSpacing: -1 },
-  sub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, lineHeight: FontSize.xs * 1.6 },
 
   scroll: { paddingHorizontal: Spacing.lg, paddingBottom: 130 },
 

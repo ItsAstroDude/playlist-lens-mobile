@@ -12,8 +12,10 @@ import { BackButton } from '@/components/ui/BackButton'
  *  ScreenHeader  back button row, then the big Syne title + optional subtitle,
  *                with a right-hand slot for IconButtons.
  */
-export function Screen({ children, scroll = true, back = true, scrollProps }: {
+export function Screen({ children, scroll = true, back = true, scrollProps, overlay }: {
   children:     React.ReactNode
+  /** Rendered above everything, outside the scroll view — sheets, dialogs. */
+  overlay?:     React.ReactNode
   scroll?:      boolean
   /** Show the back-button row (pushed screens). Tabs pass false. */
   back?:        boolean
@@ -36,6 +38,7 @@ export function Screen({ children, scroll = true, back = true, scrollProps }: {
           </ScrollView>
         ) : children}
       </SafeAreaView>
+      {overlay}
     </View>
   )
 }

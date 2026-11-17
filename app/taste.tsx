@@ -9,8 +9,8 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withDelay,
   withTiming, withRepeat, Easing, FadeIn,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
-import { BackButton } from '@/components/ui/BackButton'
+import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/constants/theme'
+import { Screen, ScreenHeader, Section, Card, Button, EmptyState as DSEmptyState } from '@/components/ui'
 import { Spring, haptic } from '@/constants/animation'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { TopFade } from '@/components/ui/TopFade'
@@ -108,20 +108,6 @@ const a_styles = StyleSheet.create({
 })
 
 // ─── Section head (divider w/ label) ──────────────────────────────────────────
-function SectionHead({ label }: { label: string }) {
-  return (
-    <View style={h_styles.row}>
-      <View style={h_styles.line} />
-      <Text style={h_styles.label}>{label}</Text>
-      <View style={h_styles.line} />
-    </View>
-  )
-}
-const h_styles = StyleSheet.create({
-  row:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm },
-  line:  { flex: 1, height: 1, backgroundColor: Colors.glassBorder },
-  label: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, textTransform: 'uppercase' },
-})
 
 // ─── Compatibility bar ────────────────────────────────────────────────────────
 function CompatBar({ pct }: { pct: number }) {
@@ -203,7 +189,7 @@ function FriendCard({ theirs, mine }: { theirs: TasteProfile; mine: TasteProfile
   )
 }
 const f_styles = StyleSheet.create({
-  card: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.xl, overflow: 'hidden', padding: Spacing.lg, gap: Spacing.lg },
+  card: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.lg, overflow: 'hidden', padding: Spacing.lg, gap: Spacing.lg },
   specular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: Spacing.sm },
   name: { fontFamily: FontFamily.display, fontSize: FontSize.lg, color: Colors.text, letterSpacing: -0.5 },
@@ -270,16 +256,6 @@ function ProfileContent({ profile, onSelectArtist }: { profile: TasteProfile; on
   )
 }
 
-function EmptyState() {
-  return (
-    <View style={styles.emptyWrap}>
-      <Icon name="aperture-outline" style={styles.emptyIcon} />
-      <Text style={styles.emptyTitle}>No data yet</Text>
-      <Text style={styles.emptyDesc}>Open some playlists in the Lenses tab to build{'\n'}your taste profile.</Text>
-    </View>
-  )
-}
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function TasteScreen() {
   const { fetch: fetchPlaylists, data: playlists } = usePlaylists()
@@ -291,7 +267,6 @@ export default function TasteScreen() {
   const [scanBtnVisible, setScanBtnVisible] = useState(false)
   const [codeInput, setCodeInput]           = useState('')
   const [sel, setSel]                       = useState<WrappedSelection | null>(null)
-  const scrollY = useSharedValue(0)
 
   useEffect(() => {
     buildFromCache()
@@ -335,131 +310,99 @@ export default function TasteScreen() {
   const canLoad         = codeInput.replace(/-/g, '').length === 6
 
   return (
-    <View style={styles.container}>
-      <AmbientBackground />
+    <Screen
+      scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
+      overlay={<WrappedItemSheet selection={sel} onClose={() => setSel(null)} />}
+    >
+      <ScreenHeader title="taste" subtitle={profile ? `Across ${profile.playlistCount} analysed playlist${profile.playlistCount === 1 ? '' : 's'}` : 'Your aggregate taste profile'} />
 
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        {/* Header with back button */}
-        <View style={styles.header}>
-          <BackButton />
-          <Text style={styles.heading}>taste</Text>
-          <View style={{ width: 36 }} />
-        </View>
+      {isScanning && (
+        <Card padded style={styles.scanCard}>
+          <ActivityIndicator size="small" color={Colors.greenPrimary} />
+          <Text style={Type.caption}>Scanning {scanProgress.done}/{scanProgress.total} playlists…</Text>
+        </Card>
+      )}
 
-        <View style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          onScroll={e => { scrollY.value = e.nativeEvent.contentOffset.y }}
-          scrollEventThrottle={16}
-        >
-          {isScanning && (
-            <View style={styles.scanBanner}>
-              <ActivityIndicator size="small" color={Colors.greenPrimary} />
-              <Text style={styles.scanText}>Scanning {scanProgress.done}/{scanProgress.total} playlists…</Text>
-            </View>
-          )}
+      {profile ? <ProfileContent profile={profile} onSelectArtist={setSel} /> : !isScanning ? (
+        <DSEmptyState
+          icon="aperture-outline"
+          title="No taste profile yet"
+          body="It's built from your analysed playlists. Scan them all at once, or open a few in Lenses."
+          actionLabel={playlists?.length ? 'Scan my playlists' : undefined}
+          onAction={playlists?.length ? handleScanAll : undefined}
+        />
+      ) : null}
 
-          {profile ? <ProfileContent profile={profile} onSelectArtist={setSel} /> : !isScanning ? <EmptyState /> : null}
+      {profile && !isScanning && scanBtnVisible && uncachedCount > 0 && (
+        <Button label={`Scan ${uncachedCount} more playlist${uncachedCount !== 1 ? 's' : ''}`} icon="scan" variant="secondary" onPress={handleScanAll} />
+      )}
 
-          {!isScanning && scanBtnVisible && uncachedCount > 0 && (
-            <TouchableOpacity style={styles.scanBtn} onPress={handleScanAll} activeOpacity={0.75}>
-              <Text style={styles.scanBtnText}><Icon name="scan" inline style={styles.scanBtnText} />  Scan {uncachedCount} more playlist{uncachedCount !== 1 ? 's' : ''}</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* ── Share your taste ── */}
-          {profile && (
-            <>
-              <SectionHead label="Your Code" />
-              <View style={my_styles.card}>
-                <View style={my_styles.specular} />
-                {shareCode ? (
-                  <>
-                    <Text style={my_styles.hint}>Your taste code</Text>
-                    <View style={my_styles.codeBox}><Text style={my_styles.code}>{shareCode}</Text></View>
-                    <TouchableOpacity style={my_styles.shareBtn} onPress={handleShare} activeOpacity={0.75}>
-                      <Text style={my_styles.shareBtnText}>Share Code</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <>
-                    <Text style={my_styles.hint}>Generate a 6-character code so friends can view your taste profile.</Text>
-                    <TouchableOpacity style={[my_styles.shareBtn, isSaving && { opacity: 0.5 }]} onPress={handleGenerate} activeOpacity={0.75} disabled={isSaving}>
-                      {isSaving ? <ActivityIndicator size="small" color={Colors.background} /> : <Text style={my_styles.shareBtnText}>Generate & Share</Text>}
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            </>
-          )}
-
-          {/* ── Load a friend ── */}
-          <SectionHead label="Load a Friend" />
-          <View style={styles.inputCard}>
-            <View style={styles.cardSpecular} />
-            <Text style={styles.inputLabel}>Enter their code</Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.input}
-                value={codeInput}
-                onChangeText={t => setCodeInput(formatCode(t))}
-                placeholder="ABC-123"
-                placeholderTextColor={Colors.textMuted}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                maxLength={7}
-                returnKeyType="search"
-                onSubmitEditing={handleLoad}
-                selectionColor={Colors.greenPrimary}
-              />
-              <TouchableOpacity style={[styles.loadBtn, (!canLoad || isLoadingFriend) && styles.loadBtnDisabled]} onPress={handleLoad} activeOpacity={0.75} disabled={!canLoad || isLoadingFriend}>
-                {isLoadingFriend ? <ActivityIndicator size="small" color={Colors.background} /> : <Text style={styles.loadBtnText}>Load</Text>}
-              </TouchableOpacity>
-            </View>
-            {errorMsg && status === 'error' && <Text style={styles.errorText}>{errorMsg}</Text>}
+      {/* ── Share your taste ── */}
+      {profile && (
+        <Section label="your code">
+          <View style={styles.codeCard}>
+            {shareCode ? (
+              <>
+                <Text style={[Type.caption, styles.center]}>Friends enter this to see your taste</Text>
+                <View style={my_styles.codeBox}><Text style={my_styles.code} selectable>{shareCode}</Text></View>
+                <Button label="Share code" icon="share-outline" onPress={handleShare} />
+              </>
+            ) : (
+              <>
+                <Text style={[Type.caption, styles.center]}>Generate a 6-character code so friends can view your taste profile.</Text>
+                <Button label="Generate & share" icon="share-outline" onPress={handleGenerate} loading={isSaving} />
+              </>
+            )}
           </View>
+        </Section>
+      )}
 
-          {friendProfile && <FriendCard theirs={friendProfile} mine={profile} />}
-        </ScrollView>
-        <TopFade scrollY={scrollY} />
+      {/* ── Load a friend ── */}
+      <Section label="load a friend" footer={errorMsg && status === 'error' ? errorMsg : undefined}>
+        <View style={styles.friendRow}>
+          <TextInput
+            style={styles.input}
+            value={codeInput}
+            onChangeText={t => setCodeInput(formatCode(t))}
+            placeholder="ABC-123"
+            placeholderTextColor={Colors.textMuted}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={7}
+            returnKeyType="search"
+            onSubmitEditing={handleLoad}
+            selectionColor={Colors.greenPrimary}
+            accessibilityLabel="Friend's taste code"
+          />
+          <Button label="Load" size="sm" onPress={handleLoad} disabled={!canLoad} loading={isLoadingFriend} style={styles.loadBtn} />
         </View>
-      </SafeAreaView>
+      </Section>
 
-      <WrappedItemSheet selection={sel} onClose={() => setSel(null)} />
-    </View>
+      {friendProfile && <FriendCard theirs={friendProfile} mine={profile} />}
+    </Screen>
   )
 }
 
 // ─── Your-code card styles ────────────────────────────────────────────────────
 const my_styles = StyleSheet.create({
-  card: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.xl, overflow: 'hidden', padding: Spacing.lg, gap: Spacing.md, alignItems: 'center' },
-  specular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
-  hint: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', lineHeight: FontSize.sm * 1.6 },
   codeBox: { backgroundColor: alpha(Colors.greenPrimary, 0.08), borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.25), borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing['2xl'] },
   code: { fontFamily: FontFamily.monoMedium, fontSize: 28, color: Colors.greenPrimary, letterSpacing: 6 },
-  shareBtn: { backgroundColor: Colors.greenPrimary, borderRadius: Radius.full, paddingVertical: Spacing.sm, paddingHorizontal: Spacing['2xl'], minWidth: 160, minHeight: 36, alignItems: 'center', justifyContent: 'center' },
-  shareBtnText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.background },
 })
 
 // ─── Screen styles ────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  ambientViolet: { position: 'absolute', top: -80, left: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: Colors.violetGlow },
-  ambientPink:   { position: 'absolute', bottom: -100, right: -80, width: 260, height: 260, borderRadius: 130, backgroundColor: Colors.pinkGlow },
-  aurora: { position: 'absolute', top: 0, left: 0, right: 0, height: 200 },
-  safe: { flex: 1, zIndex: 1 },
+  scanCard:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  codeCard:  { padding: Spacing.lg, gap: Spacing.md, alignItems: 'stretch' },
+  center:    { textAlign: 'center' },
+  friendRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md },
+
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  heading: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -0.5 },
 
-  scroll: { paddingHorizontal: Spacing.lg, paddingBottom: 60, gap: Spacing.md },
 
   statRow: { flexDirection: 'row', gap: Spacing.sm },
 
-  card: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.xl, overflow: 'hidden', padding: Spacing.lg, gap: Spacing.sm },
+  card: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.lg, overflow: 'hidden', padding: Spacing.lg, gap: Spacing.sm },
   cardSpecular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
   sectionLabel: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, textTransform: 'uppercase', marginBottom: Spacing.xs },
   bpmText: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, textAlign: 'center', marginTop: Spacing.xs },
@@ -468,22 +411,8 @@ const styles = StyleSheet.create({
   genrePill: { borderWidth: 1, borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 3, backgroundColor: Colors.glass },
   genreText: { fontFamily: FontFamily.mono, fontSize: FontSize.xs },
 
-  scanBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, justifyContent: 'center', paddingVertical: Spacing.sm },
-  scanText: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted },
-  scanBtn: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.2), borderRadius: Radius.full, paddingVertical: Spacing.sm, alignItems: 'center', marginTop: Spacing.xs },
-  scanBtnText: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.greenPrimary },
 
-  inputCard: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.xl, overflow: 'hidden', padding: Spacing.lg, gap: Spacing.md },
-  inputLabel: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 1.5, textTransform: 'uppercase' },
-  inputRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
-  input: { flex: 1, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, fontFamily: FontFamily.monoMedium, fontSize: FontSize.lg, color: Colors.text, letterSpacing: 3 },
-  loadBtn: { backgroundColor: Colors.greenPrimary, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, minWidth: 72, height: 44, alignItems: 'center', justifyContent: 'center' },
-  loadBtnDisabled: { opacity: 0.4 },
-  loadBtnText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.background },
-  errorText: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.error, textAlign: 'center' },
+  input: { flex: 1, backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, fontFamily: FontFamily.monoMedium, fontSize: FontSize.lg, color: Colors.text, letterSpacing: 3 },
+  loadBtn: { minWidth: 72 },
 
-  emptyWrap: { alignItems: 'center', paddingTop: Spacing['4xl'], gap: Spacing.md },
-  emptyIcon: { fontSize: 48, color: Colors.glassBorder },
-  emptyTitle: { fontFamily: FontFamily.display, fontSize: FontSize.xl, color: Colors.textSecondary, letterSpacing: -0.5 },
-  emptyDesc: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', lineHeight: FontSize.sm * 1.7 },
 })

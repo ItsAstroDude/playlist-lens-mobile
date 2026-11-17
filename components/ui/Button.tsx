@@ -12,14 +12,23 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
+import { Icon, type IconName } from '@/components/ui/Icon'
 import { Spring, haptic } from '@/constants/animation'
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
 interface ButtonProps extends PressableProps {
   label:      string
-  variant?:   'primary' | 'ghost' | 'danger'
+  /**
+   * accent    — the main action on a screen (filled with the chosen accent)
+   * secondary — glass pill, for the actions beside it
+   * ghost     — outline only
+   * danger    — destructive
+   * spotify   — Spotify's own green; ONLY "Log in with Spotify"
+   */
+  variant?:   'accent' | 'secondary' | 'ghost' | 'danger' | 'spotify'
+  icon?:      IconName
   size?:      'sm' | 'md' | 'lg'
   loading?:   boolean
   fullWidth?: boolean
@@ -29,7 +38,8 @@ interface ButtonProps extends PressableProps {
 
 export function Button({
   label,
-  variant   = 'primary',
+  variant   = 'accent',
+  icon,
   size      = 'md',
   loading   = false,
   fullWidth = false,
@@ -71,6 +81,7 @@ export function Button({
       ]}
       {...rest}
     >
+      {icon ? <Icon name={icon} size={size === 'sm' ? 13 : 16} color={LABEL_COLOR[variant]} /> : null}
       <Text style={[styles.label, styles[`${variant}Label`], styles[`${size}Label`], textStyle]}>
         {loading ? '...' : label}
       </Text>
@@ -78,9 +89,14 @@ export function Button({
   )
 }
 
+const LABEL_COLOR = {
+  accent: Colors.background, secondary: Colors.textSecondary, ghost: Colors.textSecondary,
+  danger: Colors.error, spotify: '#000',
+} as const
+
 const styles = StyleSheet.create({
   base: {
-    borderRadius:    Radius.lg,
+    borderRadius:    Radius.full,
     alignItems:      'center',
     justifyContent:  'center',
     flexDirection:   'row',
@@ -90,9 +106,11 @@ const styles = StyleSheet.create({
   disabled:  { opacity: 0.4 },
 
   // Variants
-  primary: { backgroundColor: Colors.green },
-  ghost:   { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.border },
-  danger:  { backgroundColor: Colors.errorSubtle, borderWidth: 1, borderColor: Colors.error },
+  accent:    { backgroundColor: Colors.greenPrimary },
+  secondary: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder },
+  ghost:     { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.border },
+  danger:    { backgroundColor: alpha(Colors.error, 0.08), borderWidth: 1, borderColor: alpha(Colors.error, 0.4) },
+  spotify:   { backgroundColor: Colors.green },
 
   // Sizes
   sm:  { paddingHorizontal: Spacing.md,   paddingVertical: Spacing.xs },
@@ -101,9 +119,11 @@ const styles = StyleSheet.create({
 
   // Labels
   label:        { fontFamily: FontFamily.monoMedium, color: Colors.text },
-  primaryLabel: { color: '#000' },
-  ghostLabel:   { color: Colors.textSecondary },
-  dangerLabel:  { color: Colors.error },
+  accentLabel:    { color: LABEL_COLOR.accent },
+  secondaryLabel: { color: LABEL_COLOR.secondary },
+  ghostLabel:     { color: LABEL_COLOR.ghost },
+  dangerLabel:    { color: LABEL_COLOR.danger },
+  spotifyLabel:   { color: LABEL_COLOR.spotify },
 
   smLabel: { fontSize: FontSize.xs },
   mdLabel: { fontSize: FontSize.base },
