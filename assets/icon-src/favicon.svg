@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <radialGradient id="bgglow" cx="0.5" cy="0.46" r="0.62">
+      <stop offset="0"   stop-color="#1F3A28"/>
+      <stop offset="0.55" stop-color="#121417"/>
+      <stop offset="1"   stop-color="#0B0B0E"/>
+    </radialGradient>
+  </defs>
+  <rect width="48" height="48" fill="url(#bgglow)"/>
+    <defs>
+      <linearGradient id="fg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0"   stop-color="#9BF7B2"/>
+        <stop offset="0.45" stop-color="#53E076"/>
+        <stop offset="1"   stop-color="#1E9E4A"/>
+      </linearGradient>
+      <radialGradient id="firis" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0"   stop-color="#1B1B21"/>
+        <stop offset="1"   stop-color="#08080B"/>
+      </radialGradient>
+      <radialGradient id="fdot" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0"    stop-color="#E9FFEF"/>
+        <stop offset="0.35" stop-color="#7CF29A"/>
+        <stop offset="1"    stop-color="#53E076" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="fspec" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+        <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <mask id="fm">
+        <circle cx="24" cy="24" r="20" fill="#fff"/>
+        <path d="M28.25,16.64 L32.50,24.00 L28.25,31.36 L19.75,31.36 L15.50,24.00 L19.75,16.64 Z" fill="#000" stroke="#000" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M28.25,16.64 L44.40,16.64 M32.50,24.00 L40.57,37.98 M28.25,31.36 L20.18,45.34 M19.75,31.36 L3.60,31.36 M15.50,24.00 L7.43,10.02 M19.75,16.64 L27.82,2.66" stroke="#000" stroke-width="1.8" stroke-linecap="round"/>
+      </mask>
+    </defs>
+    <!-- blades -->
+    <circle cx="24" cy="24" r="20" fill="url(#fg)" mask="url(#fm)"/>
+    <!-- iris -->
+    <path d="M28.25,16.64 L32.50,24.00 L28.25,31.36 L19.75,31.36 L15.50,24.00 L19.75,16.64 Z" fill="url(#firis)" stroke="url(#firis)" stroke-width="0.7200000000000001" stroke-linejoin="round"/>
+    <!-- the music inside the lens — a 3-bar equalizer with a soft glow -->
+    <circle cx="24" cy="24" r="6.63" fill="url(#fdot)" opacity="0.35"/>
+    <rect x="20.34" y="22.99" width="1.70" height="5.01" rx="0.85" fill="url(#fg)"/><rect x="23.15" y="19.92" width="1.70" height="8.07" rx="0.85" fill="url(#fg)"/><rect x="25.95" y="21.70" width="1.70" height="6.30" rx="0.85" fill="url(#fg)"/></svg>

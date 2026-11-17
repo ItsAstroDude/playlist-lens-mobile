@@ -2,7 +2,7 @@
   "expo": {
     "name": "playlist.lens",
     "slug": "playlist-lens-mobile",
-    "version": "1.5.0",
+    "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -20,7 +20,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#13131b"
+      "backgroundColor": "#111316"
     },
     "ios": {
       "supportsTablet": false,
@@ -29,7 +29,8 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#13131b"
+        "monochromeImage": "./assets/monochrome-icon.png",
+        "backgroundColor": "#111316"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.andrei.playlistlens"
@@ -63,6 +64,9 @@
         "projectId": "48e61e3d-b513-409f-aa32-1ce725a01d3e"
       }
     },
-    "owner": "itsastrodudr"
+    "owner": "itsastrodudr",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
   }
 }

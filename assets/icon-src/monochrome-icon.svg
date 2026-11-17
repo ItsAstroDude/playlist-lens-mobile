@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+      <defs><mask id="mm">
+        <circle cx="512" cy="512" r="250" fill="#fff"/>
+        <path d="M562.00,425.40 L612.00,512.00 L562.00,598.60 L462.00,598.60 L412.00,512.00 L462.00,425.40 Z" fill="#000" stroke="#000" stroke-width="22" stroke-linejoin="round"/>
+        <path d="M562.00,425.40 L768.52,425.40 M612.00,512.00 L715.26,690.85 M562.00,598.60 L458.74,777.45 M462.00,598.60 L255.48,598.60 M412.00,512.00 L308.74,333.15 M462.00,425.40 L565.26,246.55" stroke="#000" stroke-width="22" stroke-linecap="round"/>
+      </mask></defs>
+      <circle cx="512" cy="512" r="250" fill="#fff" mask="url(#mm)"/>
+      <rect x="469.00" y="500.10" width="20.00" height="58.90" rx="10.00" fill="#fff"/><rect x="502.00" y="464.00" width="20.00" height="95.00" rx="10.00" fill="#fff"/><rect x="535.00" y="484.90" width="20.00" height="74.10" rx="10.00" fill="#fff"/></svg>

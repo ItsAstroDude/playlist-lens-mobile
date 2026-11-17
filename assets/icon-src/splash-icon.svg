@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+    <defs>
+      <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0"   stop-color="#9BF7B2"/>
+        <stop offset="0.45" stop-color="#53E076"/>
+        <stop offset="1"   stop-color="#1E9E4A"/>
+      </linearGradient>
+      <radialGradient id="siris" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0"   stop-color="#1B1B21"/>
+        <stop offset="1"   stop-color="#08080B"/>
+      </radialGradient>
+      <radialGradient id="sdot" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0"    stop-color="#E9FFEF"/>
+        <stop offset="0.35" stop-color="#7CF29A"/>
+        <stop offset="1"    stop-color="#53E076" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="sspec" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+        <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <mask id="sm">
+        <circle cx="512" cy="512" r="300" fill="#fff"/>
+        <path d="M572.00,408.08 L632.00,512.00 L572.00,615.92 L452.00,615.92 L392.00,512.00 L452.00,408.08 Z" fill="#000" stroke="#000" stroke-width="22" stroke-linejoin="round"/>
+        <path d="M572.00,408.08 L815.42,408.08 M632.00,512.00 L753.71,722.81 M572.00,615.92 L450.29,826.74 M452.00,615.92 L208.58,615.92 M392.00,512.00 L270.29,301.19 M452.00,408.08 L573.71,197.26" stroke="#000" stroke-width="22" stroke-linecap="round"/>
+      </mask>
+    </defs>
+    <!-- blades -->
+    <circle cx="512" cy="512" r="300" fill="url(#sg)" mask="url(#sm)"/>
+    <!-- iris -->
+    <path d="M572.00,408.08 L632.00,512.00 L572.00,615.92 L452.00,615.92 L392.00,512.00 L452.00,408.08 Z" fill="url(#siris)" stroke="url(#siris)" stroke-width="8.8" stroke-linejoin="round"/>
+    <!-- the music inside the lens — a 3-bar equalizer with a soft glow -->
+    <circle cx="512" cy="512" r="93.60000000000001" fill="url(#sdot)" opacity="0.35"/>
+    <rect x="460.40" y="497.72" width="24.00" height="70.68" rx="12.00" fill="url(#sg)"/><rect x="500.00" y="454.40" width="24.00" height="114.00" rx="12.00" fill="url(#sg)"/><rect x="539.60" y="479.48" width="24.00" height="88.92" rx="12.00" fill="url(#sg)"/></svg>
