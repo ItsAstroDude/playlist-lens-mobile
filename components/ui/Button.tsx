@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   type PressableProps,
+  type StyleProp,
   type ViewStyle,
   type TextStyle,
 } from 'react-native'
@@ -32,7 +33,7 @@ interface ButtonProps extends PressableProps {
   size?:      'sm' | 'md' | 'lg'
   loading?:   boolean
   fullWidth?: boolean
-  style?:     ViewStyle
+  style?:     StyleProp<ViewStyle>
   textStyle?: TextStyle
 }
 

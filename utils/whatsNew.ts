@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.8.3',
+    name:    'Swipe to Close',
+    date:    '2026-11-17',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Swipe down on a sheet’s handle to close it — playlist actions, now playing, Wrapped items and the cover fixer.',
+          'Sheets keep their content while they slide away, instead of going blank mid-animation.',
+          'Clearer text on the in-memoriam line and “Wrong image?” link.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.8.2',
     name:    'Clean Sweep',
     date:    '2026-11-17',

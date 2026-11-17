@@ -9,7 +9,8 @@ import Animated, {
   Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
-import { Spring, haptic } from '@/constants/animation'
+import { haptic } from '@/constants/animation'
+import { Sheet, Button } from '@/components/ui'
 import { loadTrackIndex } from '@/hooks/useWrapped'
 import { fmtMinutesShort, type TrackStat } from '@/utils/wrapped'
 import { pokeNowPlaying, type NowPlaying } from '@/hooks/useNowPlaying'
@@ -25,7 +26,6 @@ import { showToast } from '@/utils/dialog'
 // name+artist). Works without an import — it just nudges toward Wrapped instead.
 
 const { height: SH } = Dimensions.get('window')
-const SHEET_H = Math.min(620, SH * 0.74)
 
 // The full per-track index is MBs of JSON — parse it once per session, on first
 // open (NOT at startup). A fresh import during the same session shows up after
@@ -60,31 +60,12 @@ export function NowPlayingSheet({ np, onClose }: {
   onClose: () => void
 }) {
   const isOpen = np !== null && np.item !== null
+  // Keep the last track on screen while the sheet slides closed.
+  const lastNp = React.useRef(np)
+  if (np?.item) lastNp.current = np
+  np = isOpen ? np : lastNp.current
   const item = np?.item ?? null
 
-  const translateY = useSharedValue(SHEET_H)
-  const backdrop   = useSharedValue(0)
-
-  useEffect(() => {
-    if (isOpen) {
-      translateY.value = withSpring(0, Spring.sheet)
-      backdrop.value   = withTiming(1, { duration: 240, easing: Easing.out(Easing.ease) })
-    } else {
-      translateY.value = withSpring(SHEET_H, Spring.sheet)
-      backdrop.value   = withTiming(0, { duration: 180 })
-    }
-  }, [isOpen])
-
-  const dismiss = useCallback(() => { haptic.light(); onClose() }, [onClose])
-
-  useEffect(() => {
-    if (!isOpen) return
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { dismiss(); return true })
-    return () => sub.remove()
-  }, [isOpen, dismiss])
-
-  const sheetStyle    = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }))
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }))
 
   // Personal stats — resolved when the sheet opens for a given track.
   const stats = useMemo(
@@ -148,12 +129,8 @@ export function NowPlayingSheet({ np, onClose }: {
 
   return (
     <>
-      <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents={isOpen ? 'auto' : 'none'}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
-      </Animated.View>
-
-      <Animated.View style={[styles.sheet, sheetStyle]} pointerEvents={isOpen ? 'auto' : 'none'}>
-        <View style={styles.handle} />
+      <Sheet open={isOpen} onClose={onClose} zIndex={30}>
+        <View style={styles.body}>
 
         {/* Artwork */}
         <View style={[styles.artWrap, { shadowColor: accent }]}>
@@ -219,23 +196,15 @@ export function NowPlayingSheet({ np, onClose }: {
           </Text>
         )}
 
-        <TouchableOpacity style={[styles.spotifyBtn, { backgroundColor: accent }]} onPress={onOpenSpotify} activeOpacity={0.85}>
-          <Text style={styles.spotifyText}>Open in Spotify</Text>
-        </TouchableOpacity>
-      </Animated.View>
+        <Button label="Open in Spotify" icon="open-outline" onPress={onOpenSpotify} style={styles.spotifyBtn} />
+        </View>
+      </Sheet>
     </>
   )
 }
 
 const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 30 },
-  sheet: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, height: SHEET_H,
-    backgroundColor: Colors.sheet, borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'],
-    borderTopWidth: 1, borderColor: Colors.glassBorder, zIndex: 31,
-    alignItems: 'center', paddingTop: Spacing.sm, paddingHorizontal: Spacing.xl,
-  },
-  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.glassBorder, marginBottom: Spacing.lg },
+  body: { alignItems: 'center', paddingHorizontal: Spacing.xs, paddingTop: Spacing.xs },
   artWrap: {
     width: 148, height: 148, borderRadius: Radius.xl, overflow: 'hidden',
     shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.5, shadowRadius: 24, elevation: 14,
@@ -265,9 +234,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted,
     textAlign: 'center', marginTop: Spacing.lg, lineHeight: 19, maxWidth: 280,
   },
-  spotifyBtn: {
-    marginTop: Spacing.xl, borderRadius: Radius.full, paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing['3xl'], alignItems: 'center', minWidth: 200,
-  },
-  spotifyText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.md, color: Colors.background },
+  spotifyBtn: { marginTop: Spacing.xl, minWidth: 200 },
 })

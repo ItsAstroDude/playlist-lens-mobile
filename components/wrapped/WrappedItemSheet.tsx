@@ -1,21 +1,17 @@
 import React, { useEffect, useCallback, useState } from 'react'
 import {
-  View, Text, StyleSheet, Pressable, Dimensions, BackHandler, Share, TouchableOpacity,
+  View, Text, StyleSheet, Share, TouchableOpacity,
 } from 'react-native'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
-import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing,
-} from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
-import { Spring, haptic } from '@/constants/animation'
+import { haptic } from '@/constants/animation'
+import { Sheet, Button } from '@/components/ui'
 import { useArtwork, type ArtKind } from '@/hooks/useArtwork'
 import { ArtworkFixSheet, type ArtworkTarget } from '@/components/wrapped/ArtworkFixSheet'
 import { fmtMinutesShort } from '@/utils/wrapped'
 import { memorialFor, MEMORIAL_MARK } from '@/utils/tribute'
 
-const { height: SH } = Dimensions.get('window')
-const SHEET_H = Math.min(560, SH * 0.66)
 
 export interface WrappedSelection {
   kind:   ArtKind
@@ -33,6 +29,10 @@ export function WrappedItemSheet({ selection, onClose }: {
   onClose:   () => void
 }) {
   const isOpen = selection !== null
+  // Keep the last item on screen while the sheet slides closed.
+  const lastSel = React.useRef(selection)
+  if (selection) lastSel.current = selection
+  selection = selection ?? lastSel.current
   const fetched = useArtwork(selection?.kind ?? null, selection?.name, selection?.artist)
   const [override, setOverride] = useState<string | null>(null)
   const [fixOpen, setFixOpen]   = useState(false)
@@ -41,30 +41,6 @@ export function WrappedItemSheet({ selection, onClose }: {
   // A new item wipes any in-session override (the picked image is persisted in
   // the cache, so useArtwork re-reads it for that specific item anyway).
   useEffect(() => { setOverride(null) }, [selection?.kind, selection?.name, selection?.artist])
-
-  const translateY = useSharedValue(SHEET_H)
-  const backdrop   = useSharedValue(0)
-
-  useEffect(() => {
-    if (isOpen) {
-      translateY.value = withSpring(0, Spring.sheet)
-      backdrop.value   = withTiming(1, { duration: 240, easing: Easing.out(Easing.ease) })
-    } else {
-      translateY.value = withSpring(SHEET_H, Spring.sheet)
-      backdrop.value   = withTiming(0, { duration: 180 })
-    }
-  }, [isOpen])
-
-  const dismiss = useCallback(() => { haptic.light(); onClose() }, [onClose])
-
-  useEffect(() => {
-    if (!isOpen) return
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { dismiss(); return true })
-    return () => sub.remove()
-  }, [isOpen, dismiss])
-
-  const sheetStyle    = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }))
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }))
 
   const onShare = useCallback(async () => {
     if (!selection) return
@@ -93,12 +69,8 @@ export function WrappedItemSheet({ selection, onClose }: {
 
   return (
     <>
-      <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents={isOpen ? 'auto' : 'none'}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
-      </Animated.View>
-
-      <Animated.View style={[styles.sheet, sheetStyle]} pointerEvents={isOpen ? 'auto' : 'none'}>
-        <View style={styles.handle} />
+      <Sheet open={isOpen} onClose={onClose} zIndex={20}>
+        <View style={styles.body}>
 
         {/* Artwork */}
         <View style={[styles.artWrap, { shadowColor: accent }]}>
@@ -142,14 +114,13 @@ export function WrappedItemSheet({ selection, onClose }: {
           )}
         </View>
 
-        <TouchableOpacity style={[styles.shareBtn, { backgroundColor: accent }]} onPress={onShare} activeOpacity={0.85}>
-          <Text style={styles.shareText}>Share</Text>
-        </TouchableOpacity>
+        <Button label="Share" icon="share-outline" onPress={onShare} style={[styles.shareBtn, { backgroundColor: accent }]} />
 
-        <TouchableOpacity style={styles.reportBtn} onPress={onWrongImage} activeOpacity={0.6} hitSlop={8}>
+        <TouchableOpacity style={styles.reportBtn} onPress={onWrongImage} activeOpacity={0.6} hitSlop={8} accessibilityRole="button">
           <Text style={styles.reportText}>{art ? 'Wrong image? Fix it' : 'Set a cover'}</Text>
         </TouchableOpacity>
-      </Animated.View>
+        </View>
+      </Sheet>
 
       <ArtworkFixSheet
         target={fixTarget}
@@ -161,14 +132,7 @@ export function WrappedItemSheet({ selection, onClose }: {
 }
 
 const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 20 },
-  sheet: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, height: SHEET_H,
-    backgroundColor: Colors.sheet, borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'],
-    borderTopWidth: 1, borderColor: Colors.glassBorder, zIndex: 21,
-    alignItems: 'center', paddingTop: Spacing.sm, paddingHorizontal: Spacing.xl,
-  },
-  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.glassBorder, marginBottom: Spacing.lg },
+  body: { alignItems: 'center', paddingHorizontal: Spacing.xs, paddingTop: Spacing.xs },
   artWrap: {
     width: 168, height: 168, borderRadius: Radius.xl, overflow: 'hidden',
     shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.5, shadowRadius: 24, elevation: 14,
@@ -183,13 +147,12 @@ const styles = StyleSheet.create({
   kind: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, marginTop: Spacing.lg },
   name: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, textAlign: 'center', letterSpacing: -0.5, marginTop: 2 },
   artist: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, marginTop: 2 },
-  memorial: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textDim, marginTop: Spacing.sm, letterSpacing: 0.5 },
+  memorial: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: Spacing.sm, letterSpacing: 0.5 },
   statRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg },
   statChip: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, alignItems: 'center', minWidth: 110 },
   statVal: { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, letterSpacing: -0.5 },
   statLbl: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-  shareBtn: { marginTop: Spacing.xl, borderRadius: Radius.full, paddingVertical: Spacing.md, paddingHorizontal: Spacing['3xl'], alignItems: 'center', minWidth: 200 },
-  shareText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.md, color: Colors.background },
+  shareBtn: { marginTop: Spacing.xl, minWidth: 200 },
   reportBtn: { marginTop: Spacing.md, paddingVertical: Spacing.xs },
-  reportText: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textDim, textDecorationLine: 'underline' },
+  reportText: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, textDecorationLine: 'underline' },
 })

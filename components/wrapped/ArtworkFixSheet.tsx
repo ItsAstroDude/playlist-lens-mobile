@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system/legacy'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated'
 import { showDialog, showToast } from '@/utils/dialog'
+import { Sheet } from '@/components/ui/Sheet'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import {
@@ -37,6 +38,10 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
   onResolved: (url: string) => void
 }) {
   const isOpen = target !== null
+  // Keep the last item's name on screen while the sheet slides closed.
+  const lastTarget = React.useRef(target)
+  if (target) lastTarget.current = target
+  const shown = target ?? lastTarget.current
   const insets = useSafeAreaInsets()
   // Clear the floating navbar pill (height ~62, sits at insets.bottom + ~28).
   const navClearance = insets.bottom + 92
@@ -44,8 +49,6 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
   const [items, setItems]     = useState<ArtCandidate[]>([])
   const [loading, setLoading] = useState(false)
 
-  const translateY = useSharedValue(SHEET_H)
-  const backdrop   = useSharedValue(0)
 
   const runSearch = useCallback(async (t?: string) => {
     if (!target) return
@@ -62,21 +65,9 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
       setTerm(initial)
       setItems([])
       runSearch() // default query
-      translateY.value = withSpring(0, Spring.sheet)
-      backdrop.value   = withTiming(1, { duration: 240, easing: Easing.out(Easing.ease) })
-    } else {
-      translateY.value = withSpring(SHEET_H, Spring.sheet)
-      backdrop.value   = withTiming(0, { duration: 180 })
     }
   }, [isOpen])
 
-  const dismiss = useCallback(() => { haptic.light(); onClose() }, [onClose])
-
-  useEffect(() => {
-    if (!isOpen) return
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { dismiss(); return true })
-    return () => sub.remove()
-  }, [isOpen, dismiss])
 
   const onPick = useCallback((url: string) => {
     if (!target) return
@@ -122,22 +113,16 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
     onClose()
   }, [target, onClose])
 
-  const sheetStyle    = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }))
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }))
   const accent = target?.accent ?? Colors.greenPrimary
 
   return (
     <>
-      <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents={isOpen ? 'auto' : 'none'}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
-      </Animated.View>
-
-      <Animated.View style={[styles.sheet, sheetStyle]} pointerEvents={isOpen ? 'auto' : 'none'}>
-        <View style={styles.handle} />
-        <Text style={styles.title}>Fix the cover</Text>
-        <Text style={styles.sub} numberOfLines={1}>
-          {target?.name}{target?.artist ? ` — ${target.artist}` : ''}
-        </Text>
+      <Sheet
+        open={isOpen} onClose={onClose} zIndex={30}
+        title="Fix the cover"
+        subtitle={shown ? `${shown.name}${shown.artist ? ` — ${shown.artist}` : ''}` : undefined}
+        style={styles.frame}
+      >
 
         {/* Re-search */}
         <View style={styles.searchRow}>
@@ -146,7 +131,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
             value={term}
             onChangeText={setTerm}
             placeholder="Search a different term…"
-            placeholderTextColor={Colors.textDim}
+            placeholderTextColor={Colors.textMuted}
             returnKeyType="search"
             onSubmitEditing={() => runSearch(term)}
           />
@@ -181,22 +166,13 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
             <Text style={styles.reportText}>None of these — report it</Text>
           </TouchableOpacity>
         </View>
-      </Animated.View>
+      </Sheet>
     </>
   )
 }
 
 const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 30 },
-  sheet: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, height: SHEET_H,
-    backgroundColor: Colors.sheet, borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'],
-    borderTopWidth: 1, borderColor: Colors.glassBorder, zIndex: 31,
-    paddingTop: Spacing.sm, paddingHorizontal: GRID_PAD,
-  },
-  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.glassBorder, marginBottom: Spacing.md },
-  title: { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, color: Colors.text, letterSpacing: -0.5 },
-  sub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2, marginBottom: Spacing.md },
+  frame: { height: SHEET_H, paddingHorizontal: GRID_PAD, paddingBottom: 0 },
 
   searchRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   input: {
