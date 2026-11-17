@@ -183,7 +183,7 @@ function Card({ track, onDecide, onUndo, canUndo }: {
                 </>
               ) : (
                 <Text style={styles.noPreview}>
-                  {preview === 'loading' ? 'finding a snippet…' : 'no snippet found — judge the cover ✦'}
+                  {preview === 'loading' ? 'finding a snippet…' : 'no snippet found — judge the cover'}
                 </Text>
               )}
             </View>

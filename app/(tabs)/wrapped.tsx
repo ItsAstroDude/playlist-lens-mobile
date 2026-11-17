@@ -18,6 +18,7 @@ import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import type { QueueItem } from '@/utils/queueCart'
 import { confirmDialog } from '@/utils/dialog'
 import type { ArtKind } from '@/hooks/useArtwork'
+import { Icon } from '@/components/ui/Icon'
 
 const PRIVACY_URL = 'https://www.spotify.com/account/privacy/'
 
@@ -137,7 +138,7 @@ export default function WrappedTab() {
   const onImport = useCallback(() => { haptic.medium(); importHistory() }, [importHistory])
   const onClear  = useCallback(() => {
     confirmDialog({
-      glyph: '✕', destructive: true, confirmLabel: 'Clear',
+      glyph: 'trash-outline', destructive: true, confirmLabel: 'Clear',
       title: 'Clear history?',
       message: 'Removes your imported listening stats. You can re-import anytime.',
       onConfirm: clearHistory,
@@ -171,7 +172,7 @@ export default function WrappedTab() {
               <Text style={styles.recapsTitle}>Recaps</Text>
               <Text style={styles.recapsSub}>Weekly · monthly · seasonal · yearly</Text>
             </View>
-            <Text style={styles.recapsArrow}>→</Text>
+            <Icon name="arrow-forward" style={styles.recapsArrow} />
           </TouchableOpacity>
         )
       case 'list':

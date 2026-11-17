@@ -7,10 +7,11 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Eas
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import type { SpotifyPlaylist } from '@/types'
+import { Icon, type IconName } from '@/components/ui/Icon'
 
 const { height: SH } = Dimensions.get('window')
 
-interface Action { glyph: string; label: string; sub?: string; onPress: () => void; tint?: string }
+interface Action { glyph: IconName; label: string; sub?: string; onPress: () => void; tint?: string }
 
 export function PlaylistActionsSheet({ playlist, onClose, onPin, onReanalyze, onReorder, onCompare }: {
   playlist:    SpotifyPlaylist | null
@@ -55,11 +56,11 @@ export function PlaylistActionsSheet({ playlist, onClose, onPin, onReanalyze, on
   }
 
   const actions: Action[] = playlist ? [
-    { glyph: '↑', label: 'Pin to top',     sub: 'Jump this lens to the front',     onPress: () => run(() => { haptic.success(); onPin(playlist.id) }) },
-    { glyph: '↗', label: 'Share',          sub: 'Send this playlist',               onPress: onShare },
-    { glyph: '↻', label: 'Re-analyze',     sub: 'Recompute from fresh data',        onPress: () => run(() => { haptic.medium(); onReanalyze(playlist.id) }) },
-    { glyph: '⇆', label: 'Compare with…',  sub: 'Stack this against another lens',   onPress: () => run(() => { haptic.medium(); onCompare(playlist.id) }) },
-    { glyph: '≡', label: 'Reorder lenses', sub: 'Drag to set your own order',       onPress: () => run(() => { haptic.medium(); onReorder() }) },
+    { glyph: 'pin-outline', label: 'Pin to top',     sub: 'Jump this lens to the front',     onPress: () => run(() => { haptic.success(); onPin(playlist.id) }) },
+    { glyph: 'share-outline', label: 'Share',          sub: 'Send this playlist',               onPress: onShare },
+    { glyph: 'refresh', label: 'Re-analyze',     sub: 'Recompute from fresh data',        onPress: () => run(() => { haptic.medium(); onReanalyze(playlist.id) }) },
+    { glyph: 'git-compare-outline', label: 'Compare with…',  sub: 'Stack this against another lens',   onPress: () => run(() => { haptic.medium(); onCompare(playlist.id) }) },
+    { glyph: 'reorder-three', label: 'Reorder lenses', sub: 'Drag to set your own order',       onPress: () => run(() => { haptic.medium(); onReorder() }) },
   ] : []
 
   const sheetStyle    = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }))
@@ -80,7 +81,7 @@ export function PlaylistActionsSheet({ playlist, onClose, onPin, onReanalyze, on
 
         {actions.map((a, i) => (
           <TouchableOpacity key={a.label} style={[styles.row, i === actions.length - 1 && styles.rowLast]} onPress={a.onPress} activeOpacity={0.7}>
-            <View style={styles.glyphWrap}><Text style={[styles.glyph, a.tint ? { color: a.tint } : null]}>{a.glyph}</Text></View>
+            <View style={styles.glyphWrap}><Icon name={a.glyph} style={[styles.glyph, a.tint ? { color: a.tint } : null]} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>{a.label}</Text>
               {a.sub ? <Text style={styles.sub}>{a.sub}</Text> : null}

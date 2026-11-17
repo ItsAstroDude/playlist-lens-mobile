@@ -155,7 +155,7 @@ export default function RootLayout() {
       {showTutorial && <Tutorial onDone={onTutorialDone} />}
       <ConfirmModal
         visible={showUpdate}
-        glyph="✦"
+        glyph="sparkles"
         title="You're almost set"
         message="There's a newer version available. Restart now to grab the latest — or do it later from Settings."
         confirmLabel="Update now"

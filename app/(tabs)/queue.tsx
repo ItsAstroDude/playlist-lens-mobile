@@ -16,6 +16,7 @@ import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import { emitOpenStartQueue } from '@/utils/overlayEvents'
 import { loadRediscovery, type Shelf, type Suggestion } from '@/utils/rediscovery'
 import type { QueueItem } from '@/utils/queueCart'
+import { Icon } from '@/components/ui/Icon'
 
 const asItem = (s: Suggestion): QueueItem => ({ uri: s.uri, name: s.name, artist: s.artist, image: s.image })
 
@@ -25,7 +26,7 @@ function TrackRow({ item, reason, trailing }: { item: QueueItem; reason?: string
     <View style={styles.row}>
       {item.image
         ? <Image source={{ uri: item.image }} style={styles.cover} />
-        : <View style={[styles.cover, styles.coverEmpty]}><Text style={styles.coverGlyph}>♪</Text></View>}
+        : <View style={[styles.cover, styles.coverEmpty]}><Icon name="musical-note" style={styles.coverGlyph} /></View>}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
         <Text style={styles.artist} numberOfLines={1}>{reason ?? item.artist}</Text>
@@ -57,7 +58,7 @@ export default function QueueTab() {
   const queueAll = useCallback((shelf: Shelf) => {
     const added = addMany(shelf.tracks.map(asItem))
     added ? haptic.success() : haptic.light()
-    showToast(addAllMessage(added, shelf.tracks.length, cartFull()), added ? '✦' : undefined)
+    showToast(addAllMessage(added, shelf.tracks.length, cartFull()), added ? 'checkmark-circle' : 'information-circle-outline')
   }, [addMany])
 
   const playNow = useCallback((shelf: Shelf) => {
@@ -69,7 +70,7 @@ export default function QueueTab() {
     if (count === 0) return
     haptic.light()
     confirmDialog({
-      glyph: '✕', destructive: true, confirmLabel: 'Clear',
+      glyph: 'trash-outline', destructive: true, confirmLabel: 'Clear',
       title: 'Clear the queue?',
       message: `Remove all ${count} ${count === 1 ? 'track' : 'tracks'} from your queue?`,
       onConfirm: clear,
@@ -111,7 +112,7 @@ export default function QueueTab() {
 
             {count === 0 ? (
               <Text style={styles.emptyHint}>
-                Empty for now. Tap the <Text style={{ color: Colors.greenPrimary }}>＋</Text> on any track — in a suggestion below, or on your Wrapped top tracks — to build a queue.
+                Empty for now. Tap the <Icon name="add-circle" inline size={FontSize.sm + 2} color={Colors.greenPrimary} /> on any track — in a suggestion below, or on your Wrapped top tracks — to build a queue.
               </Text>
             ) : (
               <>
@@ -124,13 +125,13 @@ export default function QueueTab() {
                         onPress={() => { haptic.light(); remove(it.uri) }} hitSlop={8} style={styles.remove}
                         accessibilityRole="button" accessibilityLabel={`Remove ${it.name} from queue`}
                       >
-                        <Text style={styles.removeGlyph}>✕</Text>
+                        <Icon name="close" style={styles.removeGlyph} />
                       </Pressable>
                     }
                   />
                 ))}
                 <Pressable style={styles.startBtn} onPress={() => { haptic.medium(); emitOpenStartQueue() }} accessibilityRole="button">
-                  <Text style={styles.startText}>✦  Start queue · {count}</Text>
+                  <Text style={styles.startText}><Icon name="play" inline style={styles.startText} />  Start queue · {count}</Text>
                 </Pressable>
               </>
             )}
@@ -151,10 +152,10 @@ export default function QueueTab() {
                   </View>
                   <View style={styles.shelfActions}>
                     <TouchableOpacity style={styles.playNow} onPress={() => playNow(shelf)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Play ${shelf.title} now`}>
-                      <Text style={styles.playNowText}>▶ Play</Text>
+                      <Text style={styles.playNowText}><Icon name="play" inline style={styles.playNowText} /> Play</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.queueAll} onPress={() => queueAll(shelf)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Add all of ${shelf.title} to queue`}>
-                      <Text style={styles.queueAllText}>＋ all</Text>
+                      <Text style={styles.queueAllText}><Icon name="add" inline style={styles.queueAllText} /> all</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -162,7 +163,7 @@ export default function QueueTab() {
                   <TrackRow key={s.uri} item={asItem(s)} reason={s.reason} trailing={<AddToQueueButton item={asItem(s)} />} />
                 ))}
                 {shelf.tracks.length > SHELF_PREVIEW && (
-                  <Text style={styles.moreNote}>+{shelf.tracks.length - SHELF_PREVIEW} more in “＋ all”</Text>
+                  <Text style={styles.moreNote}>+{shelf.tracks.length - SHELF_PREVIEW} more in “add all”</Text>
                 )}
               </View>
             ))
@@ -174,7 +175,7 @@ export default function QueueTab() {
                 Import your listening history in <Text style={{ color: Colors.text }}>Wrapped</Text> to unlock smart suggestions — fading favorites, second chances, and a time machine to past seasons.
               </Text>
               <Pressable style={styles.importBtn} onPress={() => { haptic.light(); router.navigate('/wrapped') }}>
-                <Text style={styles.importText}>Go to Wrapped →</Text>
+                <Text style={styles.importText}>Go to Wrapped  <Icon name="arrow-forward" inline style={styles.importText} /></Text>
               </Pressable>
             </View>
           )}

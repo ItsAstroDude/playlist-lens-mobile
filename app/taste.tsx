@@ -20,6 +20,7 @@ import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/Wr
 import { withMemorialMark } from '@/utils/tribute'
 import { vibeColor } from '@/utils/color'
 import type { TasteProfile } from '@/types'
+import { Icon } from '@/components/ui/Icon'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function computeCompatibility(mine: TasteProfile, theirs: TasteProfile): number {
@@ -272,7 +273,7 @@ function ProfileContent({ profile, onSelectArtist }: { profile: TasteProfile; on
 function EmptyState() {
   return (
     <View style={styles.emptyWrap}>
-      <Text style={styles.emptyIcon}>◎</Text>
+      <Icon name="aperture-outline" style={styles.emptyIcon} />
       <Text style={styles.emptyTitle}>No data yet</Text>
       <Text style={styles.emptyDesc}>Open some playlists in the Lenses tab to build{'\n'}your taste profile.</Text>
     </View>
@@ -364,7 +365,7 @@ export default function TasteScreen() {
 
           {!isScanning && scanBtnVisible && uncachedCount > 0 && (
             <TouchableOpacity style={styles.scanBtn} onPress={handleScanAll} activeOpacity={0.75}>
-              <Text style={styles.scanBtnText}>⟳  Scan {uncachedCount} more playlist{uncachedCount !== 1 ? 's' : ''}</Text>
+              <Text style={styles.scanBtnText}><Icon name="scan" inline style={styles.scanBtnText} />  Scan {uncachedCount} more playlist{uncachedCount !== 1 ? 's' : ''}</Text>
             </TouchableOpacity>
           )}
 

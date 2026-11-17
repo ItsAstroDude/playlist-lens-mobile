@@ -123,7 +123,7 @@ export function NowPlayingSheet({ np, onClose }: {
       haptic.warning()
       const kind = classifyPlaybackError(err)
       if (kind === 'scope') setPlaybackScopeMissing(true)
-      showToast(transportErrorMessage(kind), '!')
+      showToast(transportErrorMessage(kind), 'alert-circle-outline')
     }
     setTimeout(() => { pokeNowPlaying(); setBusy(false) }, 500)
   }, [busy])

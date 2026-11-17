@@ -13,7 +13,7 @@ export default function FlaggedCoversScreen() {
   const onClear = useCallback(() => {
     if (!reports.length) return
     confirmDialog({
-      glyph: '✕', destructive: true, confirmLabel: 'Clear',
+      glyph: 'trash-outline', destructive: true, confirmLabel: 'Clear',
       title: 'Clear flagged covers?',
       message: 'Removes the locally-stored list of covers you reported as wrong.',
       onConfirm: () => { clearArtReports(); setReports([]) },

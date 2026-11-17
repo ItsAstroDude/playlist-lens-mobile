@@ -19,6 +19,28 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.7',
+    name:    'Sharp Focus',
+    date:    '2026-11-17',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Search your lenses — tap the search button on Your Lenses to find a playlist by name or by who made it.',
+          'A brand-new Settings page: your Spotify profile up top, clearer sections with a one-line explanation for every option, and an About section that shows the real version.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Real icons everywhere — the tab bar, buttons, menus and pop-ups now use a proper, consistent icon set (Ionicons) instead of text symbols.',
+          'Light mode: the tab bar and queue pill now turn light to match the now-playing bar.',
+          'Large system text no longer squashes the tab bar, now-playing bar or queue pill.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.6.1',
     name:    'Fine Print',
     date:    '2026-11-17',

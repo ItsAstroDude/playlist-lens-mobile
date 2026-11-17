@@ -10,6 +10,7 @@ import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-
 import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { getCart, clearCart, reorderCart, removeFromCart, type QueueItem } from '@/utils/queueCart'
+import { Icon, type IconName } from '@/components/ui/Icon'
 import {
   isPremium, fetchDevices, pickTarget, startQueue, classifyPlaybackError,
   type DeviceTarget,
@@ -166,7 +167,7 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
       >
         {item.image
           ? <Image source={{ uri: item.image }} style={styles.cover} />
-          : <View style={[styles.cover, styles.coverEmpty]}><Text style={styles.coverGlyph}>♪</Text></View>}
+          : <View style={[styles.cover, styles.coverEmpty]}><Icon name="musical-note" style={styles.coverGlyph} /></View>}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.trackName} numberOfLines={1}>{item.name}</Text>
           <Text style={styles.trackArtist} numberOfLines={1}>{item.artist}</Text>
@@ -175,7 +176,7 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
           onPress={() => removeTrack(item.uri)} hitSlop={8} style={styles.remove}
           accessibilityRole="button" accessibilityLabel={`Remove ${item.name}`}
         >
-          <Text style={styles.removeGlyph}>✕</Text>
+          <Icon name="close" style={styles.removeGlyph} />
         </Pressable>
       </Pressable>
     </ScaleDecorator>
@@ -187,7 +188,7 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
       case 'checking':  return <Status spinner label="Finding a device…" />
       case 'opening':   return <Status spinner label="Opening Spotify…" />
       case 'starting':  return <Status spinner label="Starting your queue…" />
-      case 'done':      return <Status label="✦ Playing on Spotify" tone="ok" />
+      case 'done':      return <Status icon="checkmark-circle" label="Playing on Spotify" tone="ok" />
       case 'empty':     return <Status label="Nothing to play — add some tracks first." tone="muted" />
       case 'premium':
         return (
@@ -234,7 +235,7 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
               <Pressable onPress={() => { haptic.light(); setShuffle(s => !s) }} hitSlop={8} style={[styles.shuffle, shuffle && styles.shuffleOn]}
                 accessibilityRole="switch" accessibilityLabel="Shuffle" accessibilityState={{ checked: shuffle }}
               >
-                <Text style={[styles.shuffleText, shuffle && styles.shuffleTextOn]}>⇄ shuffle</Text>
+                <Text style={[styles.shuffleText, shuffle && styles.shuffleTextOn]}><Icon name="shuffle" inline style={[styles.shuffleText, shuffle && styles.shuffleTextOn]} /> shuffle</Text>
               </Pressable>
             </View>
             <Pressable style={styles.startBtn} onPress={primary} accessibilityRole="button">
@@ -263,7 +264,7 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
         </View>
 
         {queue.length >= 2 && (
-          <Text style={styles.reorderHint}>Long-press to reorder · ✕ to remove</Text>
+          <Text style={styles.reorderHint}>Long-press to reorder · tap × to remove</Text>
         )}
 
         <View style={styles.list}>
@@ -285,10 +286,11 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
 }
 
 // ── Small footer pieces ──
-function Status({ label, spinner, tone }: { label: string; spinner?: boolean; tone?: 'ok' | 'muted' }) {
+function Status({ label, spinner, tone, icon }: { label: string; spinner?: boolean; tone?: 'ok' | 'muted'; icon?: IconName }) {
   return (
     <View style={styles.statusRow}>
       {spinner && <ActivityIndicator size="small" color={Colors.greenPrimary} />}
+      {icon && <Icon name={icon} size={15} color={tone === 'ok' ? Colors.greenPrimary : Colors.textMuted} />}
       <Text style={[styles.statusText, tone === 'ok' && { color: Colors.greenPrimary }, tone === 'muted' && { color: Colors.textMuted }]}>
         {label}
       </Text>

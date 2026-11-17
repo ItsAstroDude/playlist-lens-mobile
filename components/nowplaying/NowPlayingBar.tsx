@@ -8,7 +8,7 @@ import Animated, {
   Easing, cancelAnimation, useAnimatedStyle, useSharedValue,
   withRepeat, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated'
-import { ACCENTS, Colors, FontFamily, OnDark, activeAccentId, activeThemeMode, alpha } from '@/constants/theme'
+import { ACCENTS, Colors, FontFamily, Floating, activeAccentId, activeThemeMode, alpha, CHROME_FONT_MAX } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { tabBarHidden } from '@/utils/tabBar'
 import {
@@ -36,11 +36,11 @@ const IS_LIGHT   = activeThemeMode() === 'light'
 const RAW_ACCENT = (ACCENTS.find(a => a.id === activeAccentId()) ?? ACCENTS[0]).hex
 // Surface-aware tokens for the pill.
 const ACCENT    = IS_LIGHT ? Colors.greenPrimary : RAW_ACCENT
-const TXT       = IS_LIGHT ? Colors.text      : OnDark.text
-const TXT_MUTED = IS_LIGHT ? Colors.textMuted : OnDark.textMuted
-const PILL_BG   = IS_LIGHT ? 'rgba(255,255,255,0.93)' : 'rgba(18,18,22,0.82)'
-const BLUR_TINT = IS_LIGHT ? 'light' as const : 'dark' as const
-const TRACK_BG  = IS_LIGHT ? 'rgba(22,20,32,0.10)' : 'rgba(255,255,255,0.12)'
+const TXT       = Floating.text
+const TXT_MUTED = Floating.textMuted
+const PILL_BG   = Floating.bg
+const BLUR_TINT = Floating.blur
+const TRACK_BG  = Floating.track
 
 // ── Animated 3-bar equalizer — the "this is live" signal ──
 function Equalizer({ playing }: { playing: boolean }) {
@@ -167,10 +167,10 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
                 <Ionicons name="sync" size={15} color={ACCENT} />
               </View>
               <View style={styles.textCol}>
-                <Text style={styles.title} numberOfLines={1}>
+                <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={CHROME_FONT_MAX}>
                   {isLoading ? 'Opening Spotify…' : 'Reconnect Spotify'}
                 </Text>
-                <Text style={styles.subtitle} numberOfLines={1}>
+                <Text style={styles.subtitle} numberOfLines={1} maxFontSizeMultiplier={CHROME_FONT_MAX}>
                   New features need a quick re-auth
                 </Text>
               </View>
@@ -201,8 +201,8 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
                 </View>
               )}
               <View style={styles.textCol}>
-                <Text style={styles.title} numberOfLines={1}>{np?.item?.name}</Text>
-                <Text style={styles.subtitle} numberOfLines={1}>
+                <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={CHROME_FONT_MAX}>{np?.item?.name}</Text>
+                <Text style={styles.subtitle} numberOfLines={1} maxFontSizeMultiplier={CHROME_FONT_MAX}>
                   {np?.item?.artists?.join(', ')}
                 </Text>
               </View>

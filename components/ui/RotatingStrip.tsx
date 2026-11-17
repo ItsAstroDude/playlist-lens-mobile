@@ -5,11 +5,12 @@ import { useFocusEffect } from 'expo-router'
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withSpring,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, CHROME_FONT_MAX } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { loadCachedWrapped } from '@/hooks/useWrapped'
 import { wrappedTeasers } from '@/utils/wrapped'
 import { reduceMotionEnabled, getCustomQuote } from '@/utils/settings'
+import { GlyphOrIcon } from '@/components/ui/Icon'
 
 /**
  * The Lenses top strip — tappable, stat-aware, alive.
@@ -123,8 +124,8 @@ export function RotatingStrip({ override }: { override?: string }) {
           style={[styles.pill, { borderColor: `${accent}33` }]}
         >
           <View style={styles.specular} />
-          <Animated.Text style={[styles.text, textStyle]} numberOfLines={1}>
-            <Text style={[styles.glyph, { color: accent }]}>{glyph}  </Text>
+          <Animated.Text style={[styles.text, textStyle]} numberOfLines={1} maxFontSizeMultiplier={CHROME_FONT_MAX}>
+            <GlyphOrIcon glyph={glyph} size={13} color={accent} inline /><Text style={styles.glyph}>  </Text>
             <Text style={styles.body}>{rest}</Text>
           </Animated.Text>
         </LinearGradient>

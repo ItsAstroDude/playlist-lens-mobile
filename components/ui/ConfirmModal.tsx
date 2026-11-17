@@ -4,6 +4,7 @@ import { BlurView } from 'expo-blur'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
+import { Icon, type IconName } from '@/components/ui/Icon'
 
 /**
  * On-brand confirm dialog — replaces the stock OS Alert for moments that deserve
@@ -17,7 +18,7 @@ export function ConfirmModal({
   visible:      boolean
   title:        string
   message:      string
-  glyph?:       string
+  glyph?:       IconName
   confirmLabel?: string
   /** null → single-button info dialog (backdrop / Android back still dismiss). */
   cancelLabel?:  string | null
@@ -65,7 +66,7 @@ export function ConfirmModal({
 
       <Animated.View style={[styles.card, cardStyle]}>
         <View style={styles.specular} />
-        {glyph ? <Text style={[styles.glyph, { color: accent }]}>{glyph}</Text> : null}
+        {glyph ? <Icon name={glyph} style={[styles.glyph, { color: accent }]} /> : null}
         <Text style={styles.title} accessibilityRole="header">{title}</Text>
         <Text style={styles.message}>{message}</Text>
 

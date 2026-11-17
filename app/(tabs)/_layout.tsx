@@ -7,57 +7,28 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence, runOnJS,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, alpha } from '@/constants/theme'
+import { Colors, FontFamily, Floating, alpha, CHROME_FONT_MAX } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { tabBarHidden } from '@/utils/tabBar'
 import { getNavbarStyle } from '@/utils/settings'
 import { NowPlayingBar } from '@/components/nowplaying/NowPlayingBar'
+import { Icon, type IconName } from '@/components/ui/Icon'
 
 const BAR_H    = 60
 const ACTIVE   = Colors.greenPrimary
-const INACTIVE = 'rgba(255,255,255,0.65)'   // readable, still clearly "inactive"
-const STROKE   = 2                           // one weight across every icon
+const INACTIVE = Floating.inactive          // readable, still clearly "inactive" — follows the theme
 
-// ─── Unified icon set — all 2px-stroke line glyphs in a 20px box ───────────────
-function Glyph({ name, color }: { name: string; color: string }) {
-  switch (name) {
-    case 'index': // lenses — concentric rounded squares (an aperture / lens frame)
-      return (
-        <View style={g.box}>
-          <View style={[g.lensOuter, { borderColor: color }]}>
-            <View style={[g.lensInner, { borderColor: color }]} />
-          </View>
-        </View>
-      )
-    case 'queue': // a play-queue — stacked lines with a little play triangle
-      return (
-        <View style={[g.box, g.qStack]}>
-          <View style={[g.qLine, { width: 16, backgroundColor: color }]} />
-          <View style={[g.qLine, { width: 16, backgroundColor: color }]} />
-          <View style={g.qBottom}>
-            <View style={[g.qLine, { width: 9, backgroundColor: color }]} />
-            <View style={[g.qTri, { borderLeftColor: color }]} />
-          </View>
-        </View>
-      )
-    case 'wrapped': // vinyl ring + center dot
-      return (
-        <View style={g.box}>
-          <View style={[g.ring, { borderColor: color }]}>
-            <View style={[g.ringDot, { backgroundColor: color }]} />
-          </View>
-        </View>
-      )
-    case 'swipe': // two stacked cards
-      return (
-        <View style={g.box}>
-          <View style={[g.cardBehind, { borderColor: color }]} />
-          <View style={[g.cardFront,  { borderColor: color }]} />
-        </View>
-      )
-    default:
-      return <View style={g.box} />
-  }
+// ─── Tab icons — Ionicons (MIT), filled when active, outline when not ──────────
+const TAB_ICONS: Record<string, [IconName, IconName]> = {
+  index:   ['aperture', 'aperture-outline'],   // lenses
+  queue:   ['list',     'list-outline'],
+  wrapped: ['disc',     'disc-outline'],       // vinyl
+  swipe:   ['layers',   'layers-outline'],     // stacked cards
+}
+function Glyph({ name, color, focused }: { name: string; color: string; focused: boolean }) {
+  const pair = TAB_ICONS[name]
+  if (!pair) return <View style={g.box} />
+  return <View style={g.box}><Icon name={focused ? pair[0] : pair[1]} size={22} color={color} /></View>
 }
 
 // ─── One tab item — bouncy pop + hop + grounded active pill ─────────────────────
@@ -98,9 +69,9 @@ function TabItem({ label, routeName, focused, onPress, minimal }: {
     >
       <View style={styles.iconSlot}>
         <Animated.View style={[styles.activePill, pillStyle]} />
-        <Animated.View style={iconStyle}><Glyph name={routeName} color={color} /></Animated.View>
+        <Animated.View style={iconStyle}><Glyph name={routeName} color={color} focused={focused} /></Animated.View>
       </View>
-      {!minimal && <Text style={[styles.label, { color }]} numberOfLines={1}>{label}</Text>}
+      {!minimal && <Text style={[styles.label, { color }]} numberOfLines={1} maxFontSizeMultiplier={CHROME_FONT_MAX}>{label}</Text>}
     </Pressable>
   )
 }
@@ -139,7 +110,7 @@ function FloatingTabBar({ state, descriptors, navigation, minimal }: TabBarProps
       ]}
     >
       <View style={[styles.bar, minimal && styles.barMinimal]}>
-        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={30} tint={Floating.blur} style={StyleSheet.absoluteFill} />
         <View style={styles.barInner} accessibilityRole="tabbar">
           {state.routes.map((route, i) => {
             const focused = state.index === i
@@ -251,13 +222,13 @@ const styles = StyleSheet.create({
     borderRadius: BAR_H / 2,
     borderWidth: 1,
     borderColor: Colors.glassBorder,
-    backgroundColor: 'rgba(18,18,22,0.82)', // uniform semi-opaque base under the blur
+    backgroundColor: Floating.bg, // uniform semi-opaque base under the blur (white pill in light mode)
     overflow: 'hidden',
     // float
     elevation: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.45,
+    shadowOpacity: Floating.shadowOpacity,
     shadowRadius: 18,
   },
   // Equal distribution — every item gets the same flex slot.
@@ -324,23 +295,5 @@ const styles = StyleSheet.create({
 
 // ─── Icon geometry (shared box; per-icon shapes) ───────────────────────────────
 const g = StyleSheet.create({
-  box:    { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
-
-  // lenses — aperture
-  lensOuter: { width: 18, height: 18, borderRadius: 5, borderWidth: STROKE, alignItems: 'center', justifyContent: 'center' },
-  lensInner: { width: 7,  height: 7,  borderRadius: 2, borderWidth: STROKE },
-
-  // queue — stacked lines + play triangle
-  qStack:  { gap: 3 },
-  qLine:   { height: STROKE, borderRadius: STROKE },
-  qBottom: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  qTri:    { width: 0, height: 0, borderTopWidth: 3, borderBottomWidth: 3, borderLeftWidth: 5, borderTopColor: 'transparent', borderBottomColor: 'transparent' },
-
-  // wrapped — ring
-  ring:    { width: 18, height: 18, borderRadius: 9, borderWidth: STROKE, alignItems: 'center', justifyContent: 'center' },
-  ringDot: { width: 4, height: 4, borderRadius: 2 },
-
-  // swipe — stacked cards
-  cardBehind: { position: 'absolute', width: 13, height: 17, borderRadius: 3, borderWidth: STROKE, transform: [{ rotate: '12deg' }, { translateX: 3 }] },
-  cardFront:  { width: 13, height: 17, borderRadius: 3, borderWidth: STROKE, backgroundColor: Colors.background, transform: [{ rotate: '-6deg' }] },
+  box: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
 })

@@ -9,6 +9,7 @@ import { usePlaylists, usePlaylistTracks } from '@/hooks/useSpotify'
 import { AddToQueueButton } from './AddToQueueButton'
 import { addManyToCart, addAllMessage, cartFull, type QueueItem } from '@/utils/queueCart'
 import type { SpotifyPlaylist, SpotifyTrack } from '@/types'
+import { Icon } from '@/components/ui/Icon'
 
 const toItem = (t: SpotifyTrack): QueueItem | null =>
   t.uri && t.uri.startsWith('spotify:track:')
@@ -47,7 +48,7 @@ export function PlaylistSongPicker() {
               <Pressable style={styles.plCard} onPress={() => { haptic.light(); setChosen(item) }}>
                 {thumb
                   ? <Image source={{ uri: thumb }} style={styles.plThumb} />
-                  : <View style={[styles.plThumb, styles.plThumbEmpty]}><Text style={styles.plThumbGlyph}>♪</Text></View>}
+                  : <View style={[styles.plThumb, styles.plThumbEmpty]}><Icon name="musical-notes" style={styles.plThumbGlyph} /></View>}
                 <Text style={styles.plName} numberOfLines={2}>{item.name}</Text>
               </Pressable>
             )
@@ -96,7 +97,7 @@ function TrackPickerModal({ playlist, onClose }: { playlist: SpotifyPlaylist; on
               style={styles.addAll} onPress={addAll} hitSlop={6}
               accessibilityRole="button" accessibilityLabel={`Add all ${items.length} tracks to queue`}
             >
-              <Text style={styles.addAllText}>＋ all</Text>
+              <Text style={styles.addAllText}><Icon name="add" inline style={styles.addAllText} /> all</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -114,7 +115,7 @@ function TrackPickerModal({ playlist, onClose }: { playlist: SpotifyPlaylist; on
               <View style={styles.row}>
                 {item.image
                   ? <Image source={{ uri: item.image }} style={styles.cover} />
-                  : <View style={[styles.cover, styles.coverEmpty]}><Text style={styles.coverGlyph}>♪</Text></View>}
+                  : <View style={[styles.cover, styles.coverEmpty]}><Icon name="musical-note" style={styles.coverGlyph} /></View>}
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
                   <Text style={styles.artist} numberOfLines={1}>{item.artist}</Text>

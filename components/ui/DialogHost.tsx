@@ -7,6 +7,7 @@ import { Colors, FontFamily, FontSize, Spacing, Radius, activeThemeMode } from '
 import { Spring } from '@/constants/animation'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { onDialog, onToast, resolveDialog, type DialogOptions, type ToastOptions } from '@/utils/dialog'
+import { Icon } from '@/components/ui/Icon'
 
 /**
  * Root-mounted renderer for `showDialog()` / `showToast()` (utils/dialog.ts).
@@ -78,7 +79,7 @@ function ToastLayer() {
       <View style={styles.toast} accessibilityLiveRegion="polite">
         <BlurView intensity={30} tint={activeThemeMode() === 'light' ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
         <View style={styles.specular} />
-        {toast.glyph ? <Text style={styles.glyph}>{toast.glyph}</Text> : null}
+        {toast.glyph ? <Icon name={toast.glyph} style={styles.glyph} /> : null}
         <Text style={styles.text} numberOfLines={2}>{toast.message}</Text>
       </View>
     </Animated.View>

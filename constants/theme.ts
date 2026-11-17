@@ -163,6 +163,26 @@ export const Colors = {
 // fixed to the dark-theme values, so dark mode is unchanged.
 export const OnDark = { text: '#E5E1E4', textMuted: '#869585', textDim: '#3D4A3D' } as const
 
+// Floating chrome — the tab bar, now-playing bar and queue pill share one surface
+// so they always match: a dark glass pill on dark, a frosted white pill on light.
+export const Floating = _isLight ? {
+  bg:            'rgba(255,255,255,0.93)',
+  blur:          'light' as const,
+  text:          NEUTRALS.text,
+  textMuted:     NEUTRALS.textMuted,
+  inactive:      NEUTRALS.textMuted,
+  track:         'rgba(22,20,32,0.10)',
+  shadowOpacity: 0.16,
+} : {
+  bg:            'rgba(18,18,22,0.82)',
+  blur:          'dark' as const,
+  text:          OnDark.text,
+  textMuted:     OnDark.textMuted,
+  inactive:      'rgba(255,255,255,0.65)',
+  track:         'rgba(255,255,255,0.12)',
+  shadowOpacity: 0.45,
+}
+
 // ─── Typography ───────────────────────────────────────────────────────────────
 export const FontSize = {
   xs:    10,
@@ -184,6 +204,13 @@ export const FontFamily: FontFamilySet = {
   monoMedium: _fontOpt.monoMedium,
   ...BRAND,
 }
+
+/**
+ * Cap for OS text scaling inside fixed-height chrome (tab bar, now-playing bar,
+ * queue pill, tips strip) — big enough to help, small enough not to clip. Body
+ * copy elsewhere keeps scaling freely.
+ */
+export const CHROME_FONT_MAX = 1.3
 
 export const LineHeight = {
   tight:   1.1,

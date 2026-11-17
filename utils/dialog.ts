@@ -8,10 +8,12 @@
  * of clobbering the first. Toasts replace each other (newest wins).
  */
 
+import type { IconName } from '@/components/ui/Icon'
+
 export interface DialogOptions {
   title:         string
   message:       string
-  glyph?:        string
+  glyph?:        IconName
   /** Primary button label. Defaults to "OK". */
   confirmLabel?: string
   /** Secondary button label. Omit (or pass null) for a single-button info dialog. */
@@ -23,7 +25,7 @@ export interface DialogOptions {
 
 export interface ToastOptions {
   message: string
-  glyph?:  string
+  glyph?:  IconName
   /** How long it stays up, ms. Defaults to 2600. */
   duration?: number
 }
@@ -71,7 +73,7 @@ export function onDialog(cb: DialogCb): () => void {
 }
 
 /** Show a brief, non-blocking confirmation pill. */
-export function showToast(message: string, glyph?: string, duration?: number): void {
+export function showToast(message: string, glyph?: IconName, duration?: number): void {
   const t: ToastOptions = { message, glyph, duration }
   toastSubs.forEach(c => c(t))
 }

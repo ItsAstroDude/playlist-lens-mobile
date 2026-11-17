@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { View, Text, StyleSheet, RefreshControl, TouchableOpacity, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
+import { View, Text, StyleSheet, RefreshControl, TouchableOpacity, TextInput, Keyboard, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { DetailSheet } from '@/components/sheet/DetailSheet'
@@ -28,8 +28,10 @@ import { setTabBarHidden } from '@/utils/tabBar'
 import { getLensLayout, setLensLayout, type LensLayout } from '@/utils/settings'
 import { TopFade } from '@/components/ui/TopFade'
 import { showToast } from '@/utils/dialog'
+import { filterPlaylists } from '@/utils/playlistSearch'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import type { SpotifyPlaylist } from '@/types'
+import { Icon } from '@/components/ui/Icon'
 
 const SKELETON_COUNT = 4
 
@@ -60,6 +62,19 @@ export default function PlaylistsTab() {
 
   const orderedData = useMemo(() => applyOrder(data ?? [], order), [data, order])
 
+  // ── Search — find a lens by name or owner (hidden until the search button) ──
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [query, setQuery]           = useState('')
+  const visibleData = useMemo(() => filterPlaylists(orderedData, query), [orderedData, query])
+  const searching = query.trim().length > 0
+  const toggleSearch = useCallback(() => {
+    haptic.light()
+    setSearchOpen(open => {
+      if (open) { setQuery(''); Keyboard.dismiss() }
+      return !open
+    })
+  }, [])
+
   const persistOrder = useCallback((ids: string[]) => { setOrder(ids); saveOrder(ids) }, [])
 
   const openActions   = useCallback((pl: SpotifyPlaylist) => setActions(pl), [])
@@ -73,7 +88,7 @@ export default function PlaylistsTab() {
     setSelected(null)
     removePlaylist(id)
     haptic.warning()
-    showToast('That playlist is gone from Spotify — removed from your lenses', '✕', 3600)
+    showToast('That playlist is gone from Spotify — removed from your lenses', 'trash-outline', 3600)
   }, [removePlaylist])
 
   // ── Auto-hide the floating navbar on scroll-down, reveal on scroll-up / at top ──
@@ -124,7 +139,7 @@ export default function PlaylistsTab() {
     setRefreshing(false)
     if (fresh) haptic.light()
     // Keep showing the saved list on failure — but say so rather than failing silently.
-    else if (data?.length) { haptic.warning(); showToast('Couldn’t refresh — showing your saved playlists', '!') }
+    else if (data?.length) { haptic.warning(); showToast('Couldn’t refresh — showing your saved playlists', 'cloud-offline-outline') }
   }, [fetch, data])
 
   // ── Extract palette as playlists load ──
@@ -199,17 +214,29 @@ export default function PlaylistsTab() {
         accessibilityHint="Aggregate stats, sharing and friend comparisons"
       >
         <View style={styles.tastePillSpecular} />
-        <Text style={styles.tastePillIcon}>◎</Text>
+        <Icon name="aperture" style={styles.tastePillIcon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.tastePillText}>Your taste profile</Text>
           <Text style={styles.tastePillSub}>Aggregate stats · share · compare friends</Text>
         </View>
-        <Text style={styles.tastePillArrow}>→</Text>
+        <Icon name="arrow-forward" style={styles.tastePillArrow} />
       </TouchableOpacity>
     </>
   ), [coldStart, openTaste])
 
   const ListEmpty = () => {
+    if (searching && orderedData.length > 0) {
+      return (
+        <View style={styles.emptyWrap}>
+          <Icon name="search-outline" style={styles.emptyGlyph} />
+          <Text style={styles.emptyText}>No lenses match “{query.trim()}”</Text>
+          <Text style={styles.emptySubtext}>Try a shorter word, or search by who made it.</Text>
+          <TouchableOpacity style={styles.emptyBtn} onPress={() => setQuery('')} activeOpacity={0.8} accessibilityRole="button">
+            <Text style={styles.emptyBtnText}>Clear search</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
     if (status === 'loading' || status === 'idle') return renderSkeletons()
     if (status === 'error') {
       return (
@@ -221,14 +248,14 @@ export default function PlaylistsTab() {
     }
     return (
       <View style={styles.emptyWrap}>
-        <Text style={styles.emptyGlyph}>◎</Text>
+        <Icon name="aperture-outline" style={styles.emptyGlyph} />
         <Text style={styles.emptyText}>No playlists yet</Text>
         <Text style={styles.emptySubtext}>Create or follow a playlist on Spotify, then check again.</Text>
         <TouchableOpacity
           style={styles.emptyBtn} onPress={onRefresh} activeOpacity={0.8} disabled={refreshing}
           accessibilityRole="button" accessibilityLabel="Check again for playlists"
         >
-          <Text style={styles.emptyBtnText}>{refreshing ? 'Checking…' : '↻  Check again'}</Text>
+          <Text style={styles.emptyBtnText}>{refreshing ? 'Checking…' : <><Icon name="refresh" inline style={styles.emptyBtnText} />  Check again</>}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -263,7 +290,7 @@ export default function PlaylistsTab() {
               accessibilityRole="button"
               accessibilityLabel="Settings"
             >
-              <Text style={styles.gearIcon}>⚙</Text>
+              <Icon name="settings-outline" style={styles.gearIcon} />
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -281,6 +308,17 @@ export default function PlaylistsTab() {
                 <Text style={styles.doneBtnText}>Done</Text>
               </TouchableOpacity>
             ) : (
+              <View style={styles.headerBtns}>
+              <TouchableOpacity
+                style={[styles.layoutBtn, searchOpen && styles.layoutBtnOn]}
+                onPress={toggleSearch}
+                activeOpacity={0.7}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={searchOpen ? 'Close search' : 'Search your lenses'}
+              >
+                <Icon name={searchOpen ? 'close' : 'search'} style={[styles.layoutBtnIcon, searchOpen && { color: Colors.greenPrimary }]} />
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.layoutBtn}
                 onPress={toggleLayout}
@@ -290,13 +328,43 @@ export default function PlaylistsTab() {
                 accessibilityLabel={layout === 'full' ? 'Switch to grid view' : 'Switch to list view'}
               >
                 {/* shows the layout you'd switch TO */}
-                <Text style={styles.layoutBtnIcon}>{layout === 'full' ? '▦' : '▤'}</Text>
+                <Icon name={layout === 'full' ? 'grid-outline' : 'list-outline'} style={styles.layoutBtnIcon} />
               </TouchableOpacity>
+              </View>
             )}
           </View>
-          <Text style={styles.sectionSub}>
-            {reorderMode ? 'Long-press a lens and drag to arrange.' : 'Sonic profiles from your library.'}
-          </Text>
+          {searchOpen && !reorderMode ? (
+            <View style={styles.searchBox}>
+              <Icon name="search" size={15} color={Colors.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search lenses or owners…"
+                placeholderTextColor={Colors.textMuted}
+                autoFocus
+                autoCorrect={false}
+                autoCapitalize="none"
+                returnKeyType="search"
+                clearButtonMode="never"
+                accessibilityLabel="Search your lenses"
+              />
+              {searching && (
+                <Text style={styles.searchCount} accessibilityLiveRegion="polite">
+                  {visibleData.length}/{orderedData.length}
+                </Text>
+              )}
+              {searching && (
+                <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear search">
+                  <Icon name="close-circle" size={16} color={Colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <Text style={styles.sectionSub}>
+              {reorderMode ? 'Long-press a lens and drag to arrange.' : 'Sonic profiles from your library.'}
+            </Text>
+          )}
         </Animated.View>
 
         {/* ── Playlist list ── */}
@@ -315,7 +383,9 @@ export default function PlaylistsTab() {
         ) : (
           <FlashList
             key={layout}   // numColumns changes need a clean remount
-            data={orderedData}
+            data={visibleData}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             renderItem={renderItem}
             keyExtractor={keyExtractor}
             numColumns={layout === 'grid' ? 2 : 1}
@@ -353,7 +423,7 @@ export default function PlaylistsTab() {
           onClose={() => setActions(null)}
           onPin={handlePin}
           onReanalyze={handleReanalyze}
-          onReorder={() => setReorderMode(true)}
+          onReorder={() => { setSearchOpen(false); setQuery(''); setReorderMode(true) }}
           onCompare={(id) => router.push(`/compare?from=${id}`)}
         />
 
@@ -458,6 +528,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical:   Spacing.xs + 1,
   },
+  headerBtns: { flexDirection: 'row', gap: Spacing.sm },
+  layoutBtnOn: { borderColor: alpha(Colors.greenPrimary, 0.5), backgroundColor: alpha(Colors.greenPrimary, 0.1) },
+  searchBox: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               Spacing.sm,
+    marginTop:         Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    height:            40,
+    borderRadius:      Radius.full,
+    backgroundColor:   Colors.glass,
+    borderWidth:       1,
+    borderColor:       Colors.glassBorder,
+  },
+  searchInput: {
+    flex:            1,
+    fontFamily:      FontFamily.mono,
+    fontSize:        FontSize.base,
+    color:           Colors.text,
+    paddingVertical: 0,
+  },
+  searchCount: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
   layoutBtn: {
     width:           32,
     height:          32,

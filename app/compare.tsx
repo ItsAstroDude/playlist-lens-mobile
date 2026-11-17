@@ -16,6 +16,7 @@ import { usePlaylists } from '@/hooks/useSpotify'
 import { usePalette } from '@/hooks/usePalette'
 import { ensureReadable, vibeColor } from '@/utils/color'
 import type { SpotifyPlaylist, PlaylistAnalysis } from '@/types'
+import { Icon } from '@/components/ui/Icon'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtMs(ms: number) {
@@ -355,7 +356,7 @@ export default function CompareScreen() {
         {/* Empty state */}
         {!hasResult && !loadingA && !loadingB && (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>◎</Text>
+            <Icon name="git-compare-outline" style={styles.emptyIcon} />
             <Text style={styles.emptyText}>Pick two playlists above{'\n'}to see how they stack up</Text>
           </View>
         )}

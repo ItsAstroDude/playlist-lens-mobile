@@ -71,8 +71,8 @@ describe('toast', () => {
   it('broadcasts to subscribers and stops after unsubscribe', () => {
     const cb = jest.fn()
     const unsub = onToast(cb)
-    showToast('Saved', '✓')
-    expect(cb).toHaveBeenCalledWith({ message: 'Saved', glyph: '✓', duration: undefined })
+    showToast('Saved', 'checkmark')
+    expect(cb).toHaveBeenCalledWith({ message: 'Saved', glyph: 'checkmark', duration: undefined })
     unsub()
     showToast('again')
     expect(cb).toHaveBeenCalledTimes(1)

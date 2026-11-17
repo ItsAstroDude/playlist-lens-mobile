@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { SwipeDeck } from '@/components/swipe/SwipeDeck'
 import type { SpotifyPlaylist, SpotifyTrack } from '@/types'
+import { Icon } from '@/components/ui/Icon'
 
 // ─── Swipe-refresh (v1.3 "Lively") ───────────────────────────────────────────
 // Tinder-style playlist cleanup. NON-DESTRUCTIVE by design: the summary offers
@@ -223,7 +224,7 @@ export default function SwipeTab() {
                     <Image source={{ uri: item.images[0].url }} style={styles.pickArt} contentFit="cover" />
                   ) : (
                     <View style={[styles.pickArt, styles.pickArtFallback]}>
-                      <Text style={styles.pickArtGlyph}>♪</Text>
+                      <Icon name="musical-notes" style={styles.pickArtGlyph} />
                     </View>
                   )}
                   <View style={{ flex: 1 }}>
@@ -296,7 +297,7 @@ export default function SwipeTab() {
                 </Text>
               </TouchableOpacity>
             ) : cut.length === 0 ? (
-              <Text style={styles.allKeptText}>You kept everything — nothing to change ✦</Text>
+              <Text style={styles.allKeptText}>You kept everything — nothing to change</Text>
             ) : (
               <>
                 <TouchableOpacity style={styles.primaryBtn} onPress={() => { haptic.medium(); setConfirm('create') }} activeOpacity={0.85}>
@@ -319,7 +320,7 @@ export default function SwipeTab() {
         {/* ════ DONE ════ */}
         {phase === 'done' && done && (
           <View style={styles.center}>
-            <Text style={styles.doneGlyph}>✦</Text>
+            <Icon name="sparkles" style={styles.doneGlyph} />
             <Text style={styles.summaryTitle}>
               {done.kind === 'created' ? 'Playlist created' : 'Playlist trimmed'}
             </Text>
@@ -339,7 +340,7 @@ export default function SwipeTab() {
       {/* Mandatory pre-write confirms */}
       <ConfirmModal
         visible={confirm === 'create'}
-        glyph="♥"
+        glyph="heart"
         title="Save as new playlist?"
         message={`Creates "${playlist?.name ?? ''} (refreshed)" with the ${kept.length} tracks you kept. The original stays exactly as it is.`}
         confirmLabel="Create"
@@ -349,7 +350,7 @@ export default function SwipeTab() {
       />
       <ConfirmModal
         visible={confirm === 'trim'}
-        glyph="✂"
+        glyph="cut"
         title="Trim the original?"
         message={`First a full private backup of "${playlist?.name ?? ''}" is saved to your account, then the ${cut.length} cut track${cut.length === 1 ? '' : 's'} are removed from the original.`}
         confirmLabel="Back up & trim"
@@ -359,7 +360,7 @@ export default function SwipeTab() {
       />
       <ConfirmModal
         visible={exitConfirm}
-        glyph="✕"
+        glyph="exit-outline"
         title="Leave this session?"
         message="Your swipes so far will be discarded — nothing has been saved to Spotify."
         confirmLabel="Leave"

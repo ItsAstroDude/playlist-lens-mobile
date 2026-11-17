@@ -14,6 +14,7 @@ import { loadRecaps } from '@/hooks/useWrapped'
 import { loadBuffer, mergeRecaps, autoPullScopeMissing } from '@/utils/recents'
 import { keptSeasons, setSeasonKept, hiddenYears, setYearHidden } from '@/utils/recapPrefs'
 import type { PeriodKind } from '@/utils/periods'
+import { Icon } from '@/components/ui/Icon'
 
 const KINDS: { id: PeriodKind; label: string }[] = [
   { id: 'year',   label: 'Year' },
@@ -96,7 +97,7 @@ export default function RecapsScreen() {
 
         {!recaps ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>◷</Text>
+            <Icon name="time-outline" style={styles.emptyIcon} />
             <Text style={styles.emptyTitle}>No recaps yet</Text>
             <Text style={styles.emptyDesc}>Import your listening history in the Wrapped tab to unlock weekly, monthly, seasonal and yearly recaps.</Text>
           </View>
@@ -104,7 +105,7 @@ export default function RecapsScreen() {
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
             {needsReconnect && (
               <TouchableOpacity style={styles.reconnect} onPress={() => { haptic.light(); router.push('/settings') }} activeOpacity={0.85}>
-                <Text style={styles.reconnectText}>↻  Reconnect Spotify to keep these fresh</Text>
+                <Text style={styles.reconnectText}><Icon name="sync" inline style={styles.reconnectText} />  Reconnect Spotify to keep these fresh</Text>
               </TouchableOpacity>
             )}
             {/* Kind switcher */}
@@ -127,7 +128,7 @@ export default function RecapsScreen() {
                 return (
                   <TouchableOpacity key={p.key} style={[styles.chip, active && styles.chipActive]} onPress={() => { haptic.light(); setSelKey(p.key) }} activeOpacity={0.8}>
                     <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>{p.label}</Text>
-                    {kind === 'season' && kept.has(p.key) && <Text style={styles.chipStar}>  ✦</Text>}
+                    {kind === 'season' && kept.has(p.key) && <Text style={styles.chipStar}>  <Icon name="bookmark" inline style={styles.chipStar} /></Text>}
                   </TouchableOpacity>
                 )
               })}
@@ -195,7 +196,7 @@ function RecapDetail({ period, kind, isKept, isHidden, onShare, onToggleKeep, on
         </TouchableOpacity>
         {kind === 'season' && (
           <TouchableOpacity style={styles.actionBtn} onPress={() => onToggleKeep(!isKept)} activeOpacity={0.75}>
-            <Text style={styles.actionText}>{isKept ? '✦ Saved' : 'Keep'}</Text>
+            <Text style={styles.actionText}>{isKept ? <><Icon name="bookmark" inline style={styles.actionText} /> Saved</> : <><Icon name="bookmark-outline" inline style={styles.actionText} /> Keep</>}</Text>
           </TouchableOpacity>
         )}
         {kind === 'year' && (

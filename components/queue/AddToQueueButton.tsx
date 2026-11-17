@@ -5,6 +5,7 @@ import { Colors, FontFamily, Radius, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { inCart, toggleCart, onCart, cartFull, CART_MAX, type QueueItem } from '@/utils/queueCart'
 import { showToast } from '@/utils/dialog'
+import { Icon } from '@/components/ui/Icon'
 
 /**
  * The ＋ that lives on every track surface (v1.5 Custom Queues). Toggles the track
@@ -54,9 +55,11 @@ export function AddToQueueButton({ item, size = 28, onFeedback = showToast }: {
           added ? styles.btnOn : styles.btnOff,
         ]}
       >
-        <Text style={[styles.glyph, { color: added ? Colors.background : Colors.greenPrimary }]}>
-          {added ? '✓' : '+'}
-        </Text>
+        <Icon
+          name={added ? 'checkmark' : 'add'}
+          size={Math.round(size * 0.58)}
+          color={added ? Colors.background : Colors.greenPrimary}
+        />
       </Pressable>
     </Animated.View>
   )

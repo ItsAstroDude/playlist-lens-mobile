@@ -17,6 +17,7 @@ import { haptic } from '@/constants/animation'
 import { setTabBarHidden } from '@/utils/tabBar'
 import { getNavbarStyle } from '@/utils/settings'
 import { loadCachedWrapped } from '@/hooks/useWrapped'
+import { Icon, type IconName } from '@/components/ui/Icon'
 
 // The tour scrim is always dark (it dims the live app), so — like the now-playing
 // bar on its dark surface — it uses the RAW accent hue + OnDark text rather than
@@ -36,7 +37,7 @@ const ROUTE_INDEX: Record<TabRoute, number> = { index: 0, queue: 1, wrapped: 2, 
 interface Step {
   route:    TabRoute
   spotlight: boolean        // false = centred card, no cut-out (welcome / closing)
-  glyph:    string
+  glyph:    IconName
   tint:     string
   title:    string
   body:     string
@@ -57,35 +58,35 @@ function buildSteps(): Step[] {
   const hasWrapped = !!loadCachedWrapped()
   const steps: Step[] = [
     {
-      route: 'index', spotlight: false, glyph: '✦', tint: RAW_ACCENT,
+      route: 'index', spotlight: false, glyph: 'sparkles', tint: RAW_ACCENT,
       title: 'Welcome to playlist.lens',
       body:  'Your library, seen in a new light. Here’s a quick guided tour — tap anywhere or Next to move along.',
     },
     {
-      route: 'index', spotlight: true, glyph: '◎', tint: RAW_ACCENT,
+      route: 'index', spotlight: true, glyph: 'aperture', tint: RAW_ACCENT,
       title: 'Lenses',
       body:  'Every playlist you own, analysed. Tap a lens for its sound, genres and era — long-press one for quick actions: Pin, Share or Re-analyze.',
     },
     {
-      route: 'queue', spotlight: true, glyph: '◍', tint: Colors.pink,
+      route: 'queue', spotlight: true, glyph: 'list', tint: Colors.pink,
       title: 'Queue — new',
       body:  'Build a queue from anywhere and play it on your Spotify — hand-pick tracks or let the rediscovery shelves resurface old favorites. (Compare now lives in a playlist’s long-press menu.)',
     },
   ]
   if (hasWrapped) {
     steps.push({
-      route: 'wrapped', spotlight: true, glyph: '◐', tint: Colors.lavender,
+      route: 'wrapped', spotlight: true, glyph: 'disc', tint: Colors.lavender,
       title: 'Wrapped',
       body:  'Your all-time listening stats. Tap any artist, track or album for its artwork — and fix it yourself if it’s ever wrong.',
     })
   }
   steps.push({
-    route: 'swipe', spotlight: true, glyph: '◆', tint: RAW_ACCENT,
+    route: 'swipe', spotlight: true, glyph: 'layers', tint: RAW_ACCENT,
     title: 'Swipe — new',
     body:  'Tidy a playlist Tinder-style: swipe to keep or cut, with 30-second previews. Nothing changes until you confirm — save the keepers as a new playlist, or trim the original with a backup.',
   })
   steps.push({
-    route: 'index', spotlight: false, glyph: '⟳', tint: RAW_ACCENT,
+    route: 'index', spotlight: false, glyph: 'refresh-circle', tint: RAW_ACCENT,
     title: 'You’re all set',
     body:  'When Spotify’s playing, a live bar shows your track — tap it for your personal stats. Updates arrive on their own; grab them anytime from Settings › Check for updates.',
   })
@@ -228,7 +229,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
         <Animated.View key={i} entering={FadeIn.duration(240)}>
           <Pressable style={styles.card} onPress={next}>
             <View style={[styles.glyphChip, { borderColor: alpha(step.tint, 0.5), backgroundColor: alpha(step.tint, 0.12) }]}>
-              <Text style={[styles.glyph, { color: step.tint }]}>{step.glyph}</Text>
+              <Icon name={step.glyph} style={[styles.glyph, { color: step.tint }]} />
             </View>
             <Text style={styles.title}>{step.title}</Text>
             <Text style={styles.body}>{step.body}</Text>

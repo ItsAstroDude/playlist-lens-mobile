@@ -6,13 +6,14 @@ import { Ionicons } from '@expo/vector-icons'
 import Animated, {
   Easing, useAnimatedStyle, useSharedValue, withSequence, withTiming,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Radius, Spacing, alpha, CHROME_FONT_MAX } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { getNowPlayingPos, onNowPlayingPos } from '@/utils/settings'
 import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { useAuth } from '@/hooks/useAuth'
 import { emitOpenNowPlaying } from '@/utils/overlayEvents'
 import { RotatingStrip } from '@/components/ui/RotatingStrip'
+import { Icon } from '@/components/ui/Icon'
 
 // ─── Home-strip now-playing (v1.3 "Pulse") ───────────────────────────────────
 // The alternative placement: now-playing takes over the Lenses quote-strip slot
@@ -67,7 +68,7 @@ export function HomeTopStrip() {
             style={[styles.pill, { borderColor: alpha(accent, 0.3) }]}
           >
             <Ionicons name="sync" size={13} color={accent} />
-            <Text style={styles.text} numberOfLines={1}>
+            <Text style={styles.text} numberOfLines={1} maxFontSizeMultiplier={CHROME_FONT_MAX}>
               {isLoading ? 'Opening Spotify…' : 'Reconnect Spotify — new features await'}
             </Text>
             <TouchableOpacity
@@ -88,9 +89,9 @@ export function HomeTopStrip() {
             {art ? (
               <Image source={{ uri: art }} style={styles.art} contentFit="cover" transition={150} />
             ) : (
-              <Text style={[styles.glyph, { color: accent }]}>♪</Text>
+              <Icon name="musical-note" style={[styles.glyph, { color: accent }]} />
             )}
-            <Text style={styles.text} numberOfLines={1}>
+            <Text style={styles.text} numberOfLines={1} maxFontSizeMultiplier={CHROME_FONT_MAX}>
               <Text style={styles.name}>{np?.item?.name}</Text>
               <Text style={styles.artist}>  ·  {np?.item?.artists?.join(', ')}</Text>
             </Text>

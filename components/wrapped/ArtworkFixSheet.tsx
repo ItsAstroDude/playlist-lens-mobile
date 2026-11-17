@@ -92,7 +92,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (!perm.granted && perm.canAskAgain === false) {
         showDialog({
-          glyph: '◐', title: 'Photo access needed',
+          glyph: 'images-outline', title: 'Photo access needed',
           message: 'Allow photo access for playlist.lens in your phone settings to use your own image.',
           confirmLabel: 'Open settings', cancelLabel: 'Not now',
           onConfirm: () => { Linking.openSettings().catch(() => {}) },
@@ -110,7 +110,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
       await FileSystem.copyAsync({ from: res.assets[0].uri, to: dest })
       onPick(dest)
     } catch {
-      showDialog({ glyph: '!', title: 'Couldn’t use that image', message: 'Something went wrong reading the photo. Try another.' })
+      showDialog({ glyph: 'alert-circle-outline', title: 'Couldn’t use that image', message: 'Something went wrong reading the photo. Try another.' })
     }
   }, [target, onPick])
 
@@ -118,7 +118,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
     if (!target) return
     haptic.warning()
     reportWrongArtwork(target.kind, target.name, target.artist, target.currentArt)
-    showToast('Thanks for the flag — logged for better matching', '⚑')
+    showToast('Thanks for the flag — logged for better matching', 'flag')
     onClose()
   }, [target, onClose])
 
