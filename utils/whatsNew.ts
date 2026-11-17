@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.8',
+    name:    'This Week',
+    date:    '2026-11-17',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Wrapped now leads with this week — hours listened, plays, artists and tracks, a day-by-day chart, and your top artists, tracks and albums. Switch between Week, Month and Year, or All time for your imported lifetime stats.',
+          'See how you compare: every period shows the change against the same point last week, month or year.',
+          'Works without an import — your tracked plays are enough. Turn on listening tracking for complete stats.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.7.1',
     name:    'Always Listening',
     date:    '2026-11-17',

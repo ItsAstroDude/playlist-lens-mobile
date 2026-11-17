@@ -134,10 +134,10 @@ Setup checklist (owner):
 - Estimate real listen time from gaps between consecutive plays (cap at track length)
 - Keep the device pull as a fallback for users who don't opt in
 
-## S3 — Wrapped revamp (logic + UI)
+## S3 — Wrapped revamp (logic + UI) 🚧 v1.8: this-week-first period views shipped
 - One play store (import + tracked) → one stats engine; week/month/season/year/all-time
 - Wrapped tab leads with *this week* (stats.fm-style), lifetime below; works with no import
-- Week-over-week deltas, top artists/tracks/albums, listening clock, streaks
+- Week-over-week deltas ✅, top artists/tracks/albums ✅, by-day bars ✅ — still to do: listening clock per period, streaks, artwork in period lists, Recaps on the new engine
 
 ## S4 — Design system 🚧 foundation shipped (tokens + primitives + gallery); screen migration next
 Tokens (exists: colour/space/radius/type) + primitives in `components/ui`:

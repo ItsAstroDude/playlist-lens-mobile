@@ -3,13 +3,17 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
 import { FlashList } from '@shopify/flash-list'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { useWrapped } from '@/hooks/useWrapped'
-import { fmtHours, type WrappedStats, type NameMs, type TrackStat } from '@/utils/wrapped'
+import { fmtHours, fmtMinutesShort, type WrappedStats, type StreamRow } from '@/utils/wrapped'
+import { comparePeriods, periodTitle, bucketLabels, periodRange, type SummaryKind, type PeriodComparison } from '@/utils/listening'
+import { loadBuffer } from '@/utils/recents'
+import { trackingEnrolled } from '@/utils/tracking'
+import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card } from '@/components/ui'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
@@ -31,6 +35,12 @@ type Block =
   | { t: 'years'; rows: { year: number; ms: number; topArtist: string; frac: number }[] }
   | { t: 'foot'; real: number; skipPct: number; podcast: number }
   | { t: 'manage' }
+  // ── Period views (v1.8): this week / month / year from the play buffer ──
+  | { t: 'pHero'; kind: SummaryKind; title: string; ms: number; delta: number | null }
+  | { t: 'pTiles'; plays: number; playsDelta: number | null; artists: number; tracks: number }
+  | { t: 'pBars'; kind: SummaryKind; buckets: number[]; labels: string[]; current: number }
+  | { t: 'pEmpty'; kind: SummaryKind; tracked: boolean }
+  | { t: 'pCta' }
 
 interface Row { name: string; sub?: string; value: string; frac: number; sel: WrappedSelection; add?: QueueItem }
 
@@ -121,10 +131,89 @@ function buildBlocks(stats: WrappedStats): Block[] {
   return blocks
 }
 
+// ─── Period blocks (week / month / year) ─────────────────────────────────────
+type Mode = SummaryKind | 'all'
+const MODES: { id: Mode; label: string }[] = [
+  { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }, { id: 'year', label: 'Year' }, { id: 'all', label: 'All time' },
+]
+const PERIOD_WORD: Record<SummaryKind, string> = { week: 'week', month: 'month', year: 'year' }
+const fmtPeriod = (kind: SummaryKind, ms: number) => (kind === 'year' ? fmtHours(ms) : fmtMinutesShort(ms))
+
+function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date): Block[] {
+  const s = c.current
+  const kind = s.kind
+  const blocks: Block[] = [{ t: 'pHero', kind, title: periodTitle(s), ms: s.ms, delta: c.deltaMs }]
+  if (!s.plays) {
+    blocks.push({ t: 'pEmpty', kind, tracked })
+    blocks.push({ t: 'recaps' })
+    return blocks
+  }
+  const today = kind === 'year' ? now.getUTCMonth() : Math.floor((now.getTime() - periodRange(kind, now).start) / 86_400_000)
+  blocks.push({ t: 'pTiles', plays: s.plays, playsDelta: c.deltaPlays, artists: s.artists, tracks: s.tracks })
+  blocks.push({ t: 'pBars', kind, buckets: s.buckets, labels: bucketLabels(s), current: today })
+
+  const maxA = s.topArtists[0]?.ms || 1
+  const maxT = s.topTracks[0]?.plays || 1
+  const maxL = s.topAlbums[0]?.ms || 1
+  if (s.topArtists.length) blocks.push({ t: 'list', key: 'p-artists', title: 'TOP ARTISTS', kind: 'artist', color: Colors.greenPrimary,
+    rows: s.topArtists.map((a, i) => ({ name: a.name, value: fmtPeriod(kind, a.ms), frac: a.ms / maxA,
+      sel: { kind: 'artist', name: a.name, rank: i + 1, ms: a.ms, plays: a.plays, accent: Colors.greenPrimary } })) })
+  if (s.topTracks.length) blocks.push({ t: 'list', key: 'p-tracks', title: 'TOP TRACKS', kind: 'track', color: Colors.pink,
+    rows: s.topTracks.map((t, i) => ({ name: t.name, sub: t.sub, value: `${t.plays}×`, frac: t.plays / maxT,
+      sel: { kind: 'track', name: t.name, artist: t.sub ?? '', rank: i + 1, ms: t.ms, plays: t.plays, accent: Colors.pink },
+      add: t.uri ? { uri: t.uri, name: t.name, artist: t.sub ?? '' } : undefined })) })
+  if (s.topAlbums.length) blocks.push({ t: 'list', key: 'p-albums', title: 'TOP ALBUMS', kind: 'album', color: Colors.lavender,
+    rows: s.topAlbums.map((a, i) => ({ name: a.name, sub: a.sub, value: fmtPeriod(kind, a.ms), frac: a.ms / maxL,
+      sel: { kind: 'album', name: a.name, rank: i + 1, ms: a.ms, accent: Colors.lavender } })) })
+  blocks.push({ t: 'recaps' })
+  if (!tracked) blocks.push({ t: 'pCta' })
+  return blocks
+}
+
+const Bars = React.memo(function Bars({ buckets, labels, current, kind }: { buckets: number[]; labels: string[]; current: number; kind: SummaryKind }) {
+  const max = Math.max(...buckets, 1)
+  return (
+    <Card padded style={styles.block}>
+      <Text style={styles.sectionLabel}>{kind === 'year' ? 'BY MONTH' : 'BY DAY'}</Text>
+      <View style={styles.clockRow} accessible accessibilityLabel={`Listening ${kind === 'year' ? 'by month' : 'by day'}`}>
+        {buckets.map((ms, i) => (
+          <View key={i} style={styles.clockCol}>
+            <View style={[styles.clockBar, {
+              height: `${Math.max(3, (ms / max) * 100)}%`,
+              backgroundColor: i === current ? Colors.greenPrimary : alpha(Colors.greenPrimary, i > current ? 0.12 : 0.4),
+            }]} />
+          </View>
+        ))}
+      </View>
+      <View style={styles.bucketLabels}>
+        {labels.map((l, i) => <Text key={i} style={[styles.clockLabel, styles.bucketLabel, i === current && { color: Colors.greenPrimary }]}>{l}</Text>)}
+      </View>
+    </Card>
+  )
+})
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function WrappedTab() {
   const { stats, status, progress, errorMsg, importHistory, clearHistory } = useWrapped()
   const [sel, setSel] = useState<WrappedSelection | null>(null)
+
+  // Play buffer (tracked + device + import tail) — re-read whenever the tab is
+  // focused, since background sync keeps adding to it.
+  const [rows, setRows]       = useState<StreamRow[]>(() => loadBuffer())
+  const [tracked, setTracked] = useState(trackingEnrolled())
+  useFocusEffect(useCallback(() => { setRows(loadBuffer()); setTracked(trackingEnrolled()) }, []))
+  const [mode, setMode] = useState<Mode>('week')
+  // No recent plays at all but a lifetime import → open on All time instead of an
+  // empty week (stats load a tick after mount, so decide once they arrive).
+  const pickedMode = React.useRef(false)
+  React.useEffect(() => {
+    if (pickedMode.current || !stats) return
+    pickedMode.current = true
+    if (rows.length === 0) setMode('all')
+  }, [stats, rows.length])
+  const chooseMode = useCallback((m: Mode) => { pickedMode.current = true; setMode(m) }, [])
+  const now = useMemo(() => new Date(), [rows, mode])
+  const comparison = useMemo(() => (mode === 'all' ? null : comparePeriods(rows, mode, now)), [rows, mode, now])
   const gutter = useNowPlayingGutter()
   const scrollY = useSharedValue(0)
 
@@ -203,6 +292,50 @@ export default function WrappedTab() {
             {item.real.toLocaleString()} full plays (≥30s) · {item.skipPct}% skipped{item.podcast > 0 ? ` · ${item.podcast.toLocaleString()} podcast plays` : ''}
           </Text>
         )
+      case 'pHero':
+        return (
+          <Card tone="accent" padded style={styles.block}>
+            <Text style={styles.sectionLabel}>{item.title}</Text>
+            <Text style={styles.pHeroValue} accessibilityLabel={`${fmtPeriod(item.kind, item.ms)} listened`}>{fmtPeriod(item.kind, item.ms)}</Text>
+            <Text style={Type.caption}>
+              {item.delta === null
+                ? `listened this ${PERIOD_WORD[item.kind]}`
+                : `${item.delta >= 0 ? '+' : ''}${item.delta}% vs last ${PERIOD_WORD[item.kind]} at this point`}
+            </Text>
+          </Card>
+        )
+      case 'pTiles':
+        return (
+          <Card padded style={[styles.block, styles.tiles]}>
+            <Stat value={item.plays.toLocaleString()} label="plays" delta={item.playsDelta} style={{ flex: 1 }} />
+            <Stat value={item.artists.toLocaleString()} label="artists" style={{ flex: 1 }} />
+            <Stat value={item.tracks.toLocaleString()} label="tracks" style={{ flex: 1 }} />
+          </Card>
+        )
+      case 'pBars':
+        return <Bars buckets={item.buckets} labels={item.labels} current={item.current} kind={item.kind} />
+      case 'pEmpty':
+        return (
+          <Card style={styles.block}>
+            <DSEmptyState
+              icon="pulse"
+              title={`No plays this ${PERIOD_WORD[item.kind]} yet`}
+              body={item.tracked
+                ? 'Listening tracking is on — plays show up here within the hour after you listen.'
+                : 'Turn on listening tracking so every play is saved, even when the app is closed.'}
+              actionLabel={item.tracked ? undefined : 'Turn on tracking'}
+              onAction={item.tracked ? undefined : () => router.push('/settings')}
+            />
+          </Card>
+        )
+      case 'pCta':
+        return (
+          <Card style={styles.block}>
+            <ListRow icon="pulse" label="Turn on listening tracking"
+              hint="Spotify only remembers your last 50 plays — tracking saves every one, hourly"
+              onPress={() => { haptic.light(); router.push('/settings') }} last />
+          </Card>
+        )
       case 'manage':
         return (
           <View style={styles.manageRow}>
@@ -214,7 +347,13 @@ export default function WrappedTab() {
   }, [onImport, onClear, onSelect])
 
   const parsing = status === 'parsing'
-  const blocks = useMemo(() => (stats ? buildBlocks(stats) : []), [stats])
+  const blocks = useMemo(
+    () => (comparison ? buildPeriodBlocks(comparison, tracked, now) : stats ? buildBlocks(stats) : []),
+    [comparison, tracked, now, stats],
+  )
+  const subtitle = mode === 'all'
+    ? (stats ? 'Your lifetime listening, from your Spotify export' : 'All-time stats from your Spotify export')
+    : `Your ${PERIOD_WORD[mode]} in music${tracked ? '' : ' — from what Spotify remembers'}`
 
   return (
     <View style={styles.container}>
@@ -226,7 +365,10 @@ export default function WrappedTab() {
         </Animated.View>
         <Animated.View style={[styles.titleBlock, headerStyle]}>
           <Text style={styles.title}>wrapped</Text>
-          <Text style={styles.sub}>{stats ? 'Your lifetime listening' : 'All-time stats from your Spotify export'}</Text>
+          <Text style={styles.sub}>{subtitle}</Text>
+          <View style={styles.modes}>
+            {MODES.map(m => <Chip key={m.id} label={m.label} selected={mode === m.id} onPress={() => chooseMode(m.id)} />)}
+          </View>
         </Animated.View>
 
         {parsing ? (
@@ -234,7 +376,7 @@ export default function WrappedTab() {
             <ActivityIndicator size="large" color={Colors.greenPrimary} />
             <Text style={styles.parsingText}>Crunching your history{progress.total ? `  ${progress.done}/${progress.total}` : ''}…</Text>
           </View>
-        ) : stats ? (
+        ) : (mode !== 'all' || stats) ? (
           <View style={{ flex: 1 }}>
             <FlashList
               data={blocks}
@@ -309,13 +451,19 @@ const styles = StyleSheet.create({
   sub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
 
   scrollPad: { flex: 1, paddingHorizontal: Spacing.lg },
+  modes: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, flexWrap: 'wrap' },
+  block: { marginBottom: Spacing.md },
+  tiles: { flexDirection: 'row', gap: Spacing.md },
+  pHeroValue: { fontFamily: FontFamily.syneBold, fontSize: FontSize['4xl'], color: Colors.greenPrimary, letterSpacing: -2, marginTop: Spacing.xs },
+  bucketLabels: { flexDirection: 'row', gap: 2, marginTop: 4 },
+  bucketLabel: { flex: 1, textAlign: 'center' },
 
-  heroCard: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.xl, overflow: 'hidden', paddingVertical: Spacing.xl, alignItems: 'center', gap: 2, marginBottom: Spacing.md },
+  heroCard: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.lg, overflow: 'hidden', paddingVertical: Spacing.xl, alignItems: 'center', gap: 2, marginBottom: Spacing.md },
   heroValue: { fontFamily: FontFamily.syneBold, fontSize: FontSize['4xl'], color: Colors.greenPrimary, letterSpacing: -2 },
   heroSub: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted },
 
   statRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
-  recapsBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.glass, borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.28), borderRadius: Radius.xl, overflow: 'hidden', padding: Spacing.lg, marginBottom: Spacing.md },
+  recapsBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.glass, borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.28), borderRadius: Radius.lg, overflow: 'hidden', padding: Spacing.lg, marginBottom: Spacing.md },
   recapsTitle: { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, color: Colors.text, letterSpacing: -0.5 },
   recapsSub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
   recapsArrow: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.greenPrimary },
@@ -323,7 +471,7 @@ const styles = StyleSheet.create({
   statValue: { fontFamily: FontFamily.display, fontSize: 16, fontWeight: '700', color: Colors.text, letterSpacing: -0.5, alignSelf: 'stretch', textAlign: 'center' },
   statLabel: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
 
-  card: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.xl, overflow: 'hidden', padding: Spacing.lg, gap: Spacing.sm, marginBottom: Spacing.md },
+  card: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.lg, overflow: 'hidden', padding: Spacing.lg, gap: Spacing.sm, marginBottom: Spacing.md },
   cardSpecular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
   sectionLabel: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, textTransform: 'uppercase', marginBottom: Spacing.xs },
 
