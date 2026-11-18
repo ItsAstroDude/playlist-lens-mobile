@@ -182,6 +182,7 @@ export default function RootLayout() {
             <Stack.Screen name="design"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="load-times" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="errors"    options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="motion-lab" options={{ animation: 'slide_from_right' }} />
           </>
         ) : (
           <Stack.Screen name="auth" options={{ animation: 'fade' }} />
