@@ -5,6 +5,7 @@ import { loadCachedWrapped } from '@/hooks/useWrapped'
 import { pullRecentlyPlayed, setAutoPullScopeMissing } from '@/utils/recents'
 import { ApiError } from '@/utils/api'
 import { trackingEnrolled, syncTrackedPlays } from '@/utils/tracking'
+import { refreshWidget } from '@/utils/widget'
 
 const LAST_PULL_KEY = 'wrapped_last_autopull'
 const THROTTLE_MS   = 6 * 60 * 60 * 1000 // ~6h — device pull (no server tracking): cheap on-device
@@ -28,6 +29,7 @@ export function useAutoWrapped(enabled: boolean): void {
       if (tracked) {
         try {
           await syncTrackedPlays()
+          refreshWidget()
           if (!cancelled) storage.set(LAST_PULL_KEY, Date.now())
         } catch { /* offline / cold start — next foreground retries */ }
         return
@@ -35,6 +37,7 @@ export function useAutoWrapped(enabled: boolean): void {
       try {
         const stats = loadCachedWrapped()
         await pullRecentlyPlayed(stats?.lastTs ?? null)
+        refreshWidget()
         setAutoPullScopeMissing(false)
         if (!cancelled) storage.set(LAST_PULL_KEY, Date.now())
       } catch (e) {

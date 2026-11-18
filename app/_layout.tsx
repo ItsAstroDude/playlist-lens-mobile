@@ -3,6 +3,7 @@ import '@/utils/perf'
 import React, { useEffect, useRef, useState } from 'react'
 import { Stack, router, usePathname, type ErrorBoundaryProps } from 'expo-router'
 import { installErrorReporting, reportError, flushErrors, setErrorScreen } from '@/utils/errorReport'
+import { refreshWidget } from '@/utils/widget'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -126,7 +127,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isAuthenticated) return
     flushErrors()
-    const sub = AppState.addEventListener('change', s => { if (s === 'active') flushErrors() })
+    const sub = AppState.addEventListener('change', s => {
+      if (s === 'active') flushErrors()
+      else if (s === 'background') refreshWidget()   // leave the widget current
+    })
     return () => sub.remove()
   }, [isAuthenticated])
 

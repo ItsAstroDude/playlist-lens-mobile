@@ -11,6 +11,7 @@ import {
 } from '@/utils/wrapped'
 import { clearBuffer } from '@/utils/recents'
 import { beginImport, addImportChunk, finishImport, abortImport } from '@/utils/playDb'
+import { refreshWidget } from '@/utils/widget'
 
 const WRAPPED_KEY     = 'wrapped_stats'
 const TRACK_INDEX_KEY = 'wrapped_track_index'
@@ -166,6 +167,7 @@ export function useWrapped() {
       }
 
       finishImport()
+      refreshWidget()
       const result = finalize(acc)
       storage.set(WRAPPED_KEY, JSON.stringify(result))
       // Full per-track index, stored separately (loaded on demand later).

@@ -94,6 +94,32 @@
             }
           }
         ]
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [
+            "./node_modules/@expo-google-fonts/syne/Syne_800ExtraBold.ttf",
+            "./node_modules/@expo-google-fonts/dm-mono/DMMono_400Regular.ttf",
+            "./node_modules/@expo-google-fonts/dm-mono/DMMono_500Medium.ttf"
+          ],
+          "widgets": [
+            {
+              "name": "ThisWeek",
+              "label": "This week",
+              "description": "Time listened this week, your top artist and last play",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "maxResizeWidth": "420dp",
+              "maxResizeHeight": "220dp",
+              "previewImage": "./assets/widget-preview.png",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
       ]
     ],
     "experiments": {
