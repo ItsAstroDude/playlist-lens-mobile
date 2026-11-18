@@ -29,9 +29,9 @@ export interface FontFamilySet {
 // BRAND identity — the Syne display face is FIXED and never themed, so the
 // "playlist.lens" wordmark and every screen header (Your Lenses, Compare, Wrapped,
 // Swipe, and any future ones) stay on-brand regardless of the user's font choice.
-// 2.0 Liquid: the brand face is Manrope (the `syne*` keys keep their names so every
-// existing style picks it up).
-const BRAND = { syne: 'Manrope_700Bold', syneBold: 'Manrope_800ExtraBold', display: 'Manrope_800ExtraBold' } as const
+// Syne stays the brand face in 2.0 (wordmark, titles, big numbers); Manrope is the
+// new default body face (see FONTS).
+const BRAND = { syne: 'Syne_700Bold', syneBold: 'Syne_800ExtraBold', display: 'Syne_700Bold' } as const
 
 // The font picker swaps ONLY the mono/body face (labels, meta, data, body copy) —
 // which is the bulk of the UI text. Headlines stay Syne.

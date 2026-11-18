@@ -77,6 +77,6 @@ const styles = StyleSheet.create({
   dot:      { color: Colors.greenPrimary },
   actions:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
-  title:    { ...Type.title, fontSize: 34, lineHeight: 38, letterSpacing: -1.4, flexShrink: 1 },
+  title:    { ...Type.title, fontSize: 30, lineHeight: 36, letterSpacing: -1.2, flexShrink: 1 },
   sub:      { ...Type.caption, fontSize: 11 },
 })

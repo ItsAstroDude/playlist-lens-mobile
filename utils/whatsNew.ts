@@ -26,7 +26,7 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'New',
         items: [
-          'A whole new look: the app floats in the colours of the song you’re playing, on frosted glass, in a new typeface (Manrope).',
+          'A whole new look: the app floats in the colours of the song you’re playing, on frosted glass, with a new reading typeface (Manrope) under the Syne headlines.',
           'Playlists are glass tiles now, and Wrapped’s numbers float as bubbles.',
           'A new liquid tab bar: the highlight stretches between tabs like a drop of water.',
           'Story mode: open Wrapped and tap “Play your week” to watch your week as full-screen slides.',

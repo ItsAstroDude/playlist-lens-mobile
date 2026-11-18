@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   close:   { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   body:    { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.xl, gap: Spacing.md },
   kicker:  { fontFamily: FontFamily.mono, fontSize: 16, color: 'rgba(255,255,255,0.86)' },
-  big:     { fontFamily: FontFamily.syneBold, fontSize: 56, lineHeight: 60, color: '#fff', letterSpacing: -2 },
+  big:     { fontFamily: FontFamily.syneBold, fontSize: 46, lineHeight: 52, color: '#fff', letterSpacing: -1.5 },
   bigUnit: { fontFamily: FontFamily.syneBold, fontSize: 26, color: 'rgba(255,255,255,0.8)', marginBottom: 6 },
   sub:     { fontFamily: FontFamily.mono, fontSize: 14, lineHeight: 21, color: 'rgba(255,255,255,0.86)' },
   paused:  { position: 'absolute', alignSelf: 'center', fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.7)' },
