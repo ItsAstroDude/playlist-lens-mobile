@@ -15,17 +15,25 @@ export interface Flight { key: number; uri?: string; from: Rect; to: Rect; fromR
  * arrives, then fades so the real cover takes over. Mount it at screen root, above the
  * sheet it opens.
  */
-export function CoverFlight({ flight, onDone }: { flight: Flight | null; onDone: () => void }) {
+export function CoverFlight({ flight, onLanded, onDone }: {
+  flight: Flight | null
+  /** The flight has arrived: show the real cover now (the flight then fades over it). */
+  onLanded?: () => void
+  onDone: () => void
+}) {
   const reduced = useMotionReduced()
   const p = useSharedValue(0)
   const fade = useSharedValue(1)
 
   useEffect(() => {
     if (!flight) return
-    if (reduced) { onDone(); return }
+    if (reduced) { onLanded?.(); onDone(); return }
     p.value = 0; fade.value = 1
     p.value = withSpring(1, { mass: 1, damping: 20, stiffness: 150, overshootClamping: false })
-    fade.value = withDelay(430, withTiming(0, { duration: 200 }, done => { if (done) runOnJS(onDone)() }))
+    // Land → reveal the real cover underneath → only then fade the flying copy.
+    const t = setTimeout(() => onLanded?.(), 470)
+    fade.value = withDelay(520, withTiming(0, { duration: 180 }, done => { if (done) runOnJS(onDone)() }))
+    return () => clearTimeout(t)
   }, [flight?.key])
 
   const style = useAnimatedStyle(() => {

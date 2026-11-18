@@ -53,13 +53,15 @@ interface DetailSheetProps {
   palette:  PlaylistPalette | null
   onClose:  () => void
   onGone?:  (id: string) => void
+  /** Hide the hero cover while a cover is flying in from the tapped card. */
+  coverHidden?: boolean
 }
 
 /**
  * The playlist lens: hero + full analysis. A full-height, edge-to-edge design-system
  * Sheet (`bleed`) — swipe the handle, tap the backdrop or press back to close.
  */
-export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetProps) {
+export function DetailSheet({ playlist, palette, onClose, onGone, coverHidden = false }: DetailSheetProps) {
   const insets = useSafeAreaInsets()
   const gutter = useNowPlayingGutter()
   const isOpen = playlist !== null
@@ -105,7 +107,7 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
           scrollEventThrottle={16}
         >
           {/* ── Hero Section (collapses as you scroll) ── */}
-          {shown && <HeroSection playlist={shown} palette={shownPalette} cc={cc} />}
+          {shown && <HeroSection playlist={shown} palette={shownPalette} cc={cc} coverHidden={coverHidden} />}
 
           {/* ── Analysis states ── */}
           {status === 'loading' && <AnalysisSkeleton accent={accent} />}
@@ -141,7 +143,7 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
 }
 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
-function HeroSection({ playlist, palette, cc }: { playlist: SpotifyPlaylist; palette: PlaylistPalette | null; cc: ReturnType<typeof useCollapsingCover> }) {
+function HeroSection({ playlist, palette, cc, coverHidden }: { playlist: SpotifyPlaylist; palette: PlaylistPalette | null; cc: ReturnType<typeof useCollapsingCover>; coverHidden: boolean }) {
   const coverUrl = playlist.images?.[0]?.url
 
   return (
@@ -165,7 +167,7 @@ function HeroSection({ playlist, palette, cc }: { playlist: SpotifyPlaylist; pal
       />
 
       {/* Crisp cover art centered */}
-      <Animated.View style={[styles.heroCoverWrap, cc.cover]}>
+      <Animated.View style={[styles.heroCoverWrap, cc.cover, coverHidden && { opacity: 0 }]}>
         {coverUrl ? (
           <Image
             source={{ uri: coverUrl }}

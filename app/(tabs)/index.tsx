@@ -1,17 +1,19 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { View, Text, StyleSheet, RefreshControl, TouchableOpacity, TextInput, Keyboard, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Keyboard, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { DetailSheet, detailCoverRect } from '@/components/sheet/DetailSheet'
 import { CoverFlight, type Flight } from '@/components/motion/CoverFlight'
 import { Aperture } from '@/components/motion/Aperture'
 import { FlashList } from '@shopify/flash-list'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withDelay,
   withTiming,
+  runOnJS,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
@@ -131,6 +133,56 @@ export default function PlaylistsTab() {
     else if (data?.length) { haptic.warning(); showToast('Couldn’t refresh — showing your saved playlists', 'cloud-offline-outline') }
   }, [fetch, data])
 
+  // ── Pull to refresh (2.0, motion #8): the whole list slides down with your finger
+  // and the Aperture in the gap above closes as you pull; release past the line and the
+  // list holds open while it spins, then springs back when the refresh is done. ──
+  const PULL_MAX = 124, PULL_TRIGGER = 78, PULL_HOLD = 68
+  const pull = useSharedValue(0)
+  const pullClose = useSharedValue(0)
+  const touchY = useSharedValue(0)
+  const armed = useSharedValue(0)
+  const busy = useSharedValue(0)
+  const [showAperture, setShowAperture] = useState(false)
+  const triggerRefresh = useCallback(() => { haptic.medium(); onRefresh() }, [onRefresh])
+  useEffect(() => {
+    busy.value = refreshing ? 1 : 0
+    if (refreshing) {
+      setShowAperture(true)
+      pullClose.value = 0
+      pull.value = withSpring(PULL_HOLD, { damping: 16, stiffness: 180 })
+    } else {
+      pull.value = withSpring(0, { damping: 18, stiffness: 160 }, done => { if (done) runOnJS(setShowAperture)(false) })
+    }
+  }, [refreshing])
+  const pullGesture = useMemo(() => Gesture.Pan()
+    .enabled(!reorderMode)
+    .manualActivation(true)
+    .onTouchesDown(e => { touchY.value = e.allTouches[0]?.absoluteY ?? 0; armed.value = 0 })
+    .onTouchesMove((e, state) => {
+      const dy = (e.allTouches[0]?.absoluteY ?? 0) - touchY.value
+      if (busy.value || scrollY.value > 2 || dy < -6) { state.fail(); return }
+      if (dy > 12) { state.activate(); runOnJS(setShowAperture)(true) }
+    })
+    .onUpdate(e => {
+      const y = Math.max(0, e.translationY)
+      pull.value = PULL_MAX * (1 - Math.exp(-y / PULL_MAX))     // rubber band
+      pullClose.value = Math.min(1, pull.value / PULL_TRIGGER)
+      const over = pull.value >= PULL_TRIGGER ? 1 : 0
+      if (over !== armed.value) { armed.value = over; runOnJS(haptic.light)() }
+    })
+    .onEnd(() => {
+      if (pull.value >= PULL_TRIGGER) { runOnJS(triggerRefresh)() }
+      else {
+        pullClose.value = withTiming(0, { duration: 200 })
+        pull.value = withSpring(0, { damping: 18, stiffness: 160 }, done => { if (done && !busy.value) runOnJS(setShowAperture)(false) })
+      }
+    }), [reorderMode, triggerRefresh])
+  const pullStyle = useAnimatedStyle(() => ({ transform: [{ translateY: pull.value }] }))
+  const apertureStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(1, pull.value / 34),
+    transform: [{ translateY: pull.value / 2 - 25 }, { scale: 0.6 + 0.4 * Math.min(1, pull.value / PULL_TRIGGER) }],
+  }))
+
   // ── Extract palette as playlists load ──
   useEffect(() => {
     if (data) {
@@ -143,9 +195,13 @@ export default function PlaylistsTab() {
 
   // 2.0 "card opens into the lens": the cover flies from the card into the sheet.
   const [flight, setFlight] = useState<Flight | null>(null)
+  const [coverHidden, setCoverHidden] = useState(false)
   const flightKey = useRef(0)
   const handleCardPress = useCallback((playlist: SpotifyPlaylist, rect?: { x: number; y: number; w: number; h: number }) => {
-    if (rect) setFlight({ key: ++flightKey.current, uri: playlist.images?.[0]?.url, from: rect, to: detailCoverRect(), fromRadius: Radius.xl, toRadius: Radius.xl })
+    if (rect) {
+      setCoverHidden(true)   // the sheet's own cover waits until the flying one lands
+      setFlight({ key: ++flightKey.current, uri: playlist.images?.[0]?.url, from: rect, to: detailCoverRect(), fromRadius: Radius.xl, toRadius: Radius.xl })
+    }
     setSelected(playlist)
   }, [])
   // The list sinks back while a lens is open.
@@ -324,6 +380,14 @@ export default function PlaylistsTab() {
 
         {/* ── Playlist list ── */}
         <Animated.View style={[styles.listWrap, sinkStyle]}>
+        {/* the aperture sits in the gap the pulled-down list opens */}
+        {showAperture && (
+          <Animated.View style={[styles.aperture, apertureStyle]} pointerEvents="none">
+            <Aperture size={50} close={pullClose} loading={refreshing} cut={Colors.background} label={refreshing ? 'Refreshing your lenses' : 'Pull to refresh'} />
+          </Animated.View>
+        )}
+        <GestureDetector gesture={pullGesture}>
+        <Animated.View style={[styles.listWrap, pullStyle]}>
         {reorderMode ? (
           <DraggableFlatList
             data={orderedData}
@@ -350,31 +414,20 @@ export default function PlaylistsTab() {
             scrollEventThrottle={16}
             ListHeaderComponent={listHeader}
             ListEmptyComponent={ListEmpty}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                // 2.0: the Aperture shows the refresh (motion #8); the system spinner is hidden.
-                tintColor="transparent"
-                colors={['transparent']}
-                progressBackgroundColor="transparent"
-              />
-            }
+            overScrollMode="never"
           />
         )}
-          {refreshing && (
-            <View style={styles.aperture} pointerEvents="none">
-              <Aperture size={46} loading cut={Colors.background} label="Refreshing your lenses" />
-            </View>
-          )}
+        </Animated.View>
+        </GestureDetector>
         </Animated.View>
 
         {/* ── Detail sheet ── */}
         <DetailSheet
           playlist={selectedPlaylist}
           palette={selectedPlaylist ? palettes[selectedPlaylist.id] ?? null : null}
-          onClose={() => setSelected(null)}
+          onClose={() => { setSelected(null); setCoverHidden(false) }}
           onGone={handleGone}
+          coverHidden={coverHidden}
         />
 
         {/* ── Long-press quick actions ── */}
@@ -390,7 +443,7 @@ export default function PlaylistsTab() {
       </SafeAreaView>
 
       {/* Cover flying from the tapped card into the opening lens (above the sheet) */}
-      <CoverFlight flight={flight} onDone={() => setFlight(null)} />
+      <CoverFlight flight={flight} onLanded={() => setCoverHidden(false)} onDone={() => { setFlight(null); setCoverHidden(false) }} />
     </View>
   )
 }
@@ -463,7 +516,7 @@ const styles = StyleSheet.create({
 
   // List content padding — clears the floating pill navbar
   listWrap: { flex: 1 },
-  aperture: { position: 'absolute', top: 10, alignSelf: 'center' },
+  aperture: { position: 'absolute', top: 0, alignSelf: 'center' },
   listContent: {
     paddingBottom: 130,
   },

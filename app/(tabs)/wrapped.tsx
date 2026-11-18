@@ -11,7 +11,7 @@ import { Spring, haptic } from '@/constants/animation'
 import { useWrapped } from '@/hooks/useWrapped'
 import { fmtHours, fmtMinutesShort, type WrappedStats, type StreamRow } from '@/utils/wrapped'
 import { comparePeriods, periodTitle, bucketLabels, periodRange, type SummaryKind, type PeriodComparison } from '@/utils/listening'
-import { loadBuffer } from '@/utils/recents'
+import { playsSince, countSince, windowStartT } from '@/utils/playDb'
 import { trackingEnrolled } from '@/utils/tracking'
 import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow } from '@/components/ui'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
@@ -177,9 +177,13 @@ export default function WrappedTab() {
 
   // Play buffer (tracked + device + import tail) — re-read whenever the tab is
   // focused, since background sync keeps adding to it.
-  const [rows, setRows]       = useState<StreamRow[]>(() => loadBuffer())
+  // Plays are read per mode, only the two periods it compares (this one + the one
+  // before), straight from the play database — not two years of rows on every switch.
+  // `version` bumps on focus, since background sync keeps adding plays.
+  const [version, setVersion] = useState(0)
   const [tracked, setTracked] = useState(trackingEnrolled())
-  useFocusEffect(useCallback(() => { setRows(loadBuffer()); setTracked(trackingEnrolled()) }, []))
+  useFocusEffect(useCallback(() => { setVersion(v => v + 1); setTracked(trackingEnrolled()) }, []))
+  const hasRecent = useMemo(() => countSince(windowStartT()) > 0, [version])
   const [mode, setMode] = useState<Mode>('week')
   // No recent plays at all but a lifetime import → open on All time instead of an
   // empty week (stats load a tick after mount, so decide once they arrive).
@@ -187,11 +191,15 @@ export default function WrappedTab() {
   React.useEffect(() => {
     if (pickedMode.current || !stats) return
     pickedMode.current = true
-    if (rows.length === 0) setMode('all')
-  }, [stats, rows.length])
+    if (!hasRecent) setMode('all')
+  }, [stats, hasRecent])
   const chooseMode = useCallback((m: Mode) => { pickedMode.current = true; setMode(m) }, [])
-  const now = useMemo(() => new Date(), [rows, mode])
-  const comparison = useMemo(() => (mode === 'all' ? null : comparePeriods(rows, mode, now)), [rows, mode, now])
+  const now = useMemo(() => new Date(), [version, mode])
+  const comparison = useMemo(() => {
+    if (mode === 'all') return null
+    const since = Math.floor(periodRange(mode, now, 1).start / 1000)
+    return comparePeriods(playsSince(since), mode, now)
+  }, [mode, now])
   const gutter = useNowPlayingGutter()
   const scrollY = useSharedValue(0)
 

@@ -252,6 +252,11 @@ export function playCounts(): PlayCounts {
   }
 }
 
+/** How many plays at or after `sinceT` (cheap: index range count, no rows built). */
+export function countSince(sinceT: number): number {
+  return db().getFirstSync<{ n: number }>('SELECT COUNT(*) AS n FROM plays WHERE t >= ?', [sinceT])?.n ?? 0
+}
+
 /** Newest play we hold, as an export timestamp (the recently-played watermark). */
 export function newestTs(): string | null {
   const m = db().getFirstSync<{ m: number | null }>('SELECT MAX(t) AS m FROM plays', [])?.m ?? null

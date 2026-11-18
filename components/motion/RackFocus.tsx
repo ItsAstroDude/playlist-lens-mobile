@@ -14,24 +14,27 @@ const BLUR_STEPS = [10, 6, 3, 1, 0]
  *
  *   {rows.map((r, i) => <RackFocus key={r.id} index={i}><Row … /></RackFocus>)}
  */
-export function RackFocus({ index = 0, children, style, trigger, step = 90 }: {
+export function RackFocus({ index = 0, children, style, trigger, step = 90, blur: withBlur = false }: {
   index?: number
   children: React.ReactNode
   style?: StyleProp<ViewStyle>
   /** Any value; changing it replays the entrance. */
   trigger?: unknown
   step?: number
+  /** Real blur (Android 12+). Costs a few re-renders per row — use on short lists only. */
+  blur?: boolean
 }) {
   const reduced = useMotionReduced()
   const p = useSharedValue(reduced ? 1 : 0)
-  const [blur, setBlur] = useState(reduced || !BLUR_OK ? 0 : BLUR_STEPS[0])
+  const useBlur = withBlur && BLUR_OK && !reduced
+  const [blur, setBlur] = useState(useBlur ? BLUR_STEPS[0] : 0)
 
   useEffect(() => {
     if (reduced) { p.value = 1; setBlur(0); return }
     const delay = index * step
     p.value = 0
     p.value = withDelay(delay, withTiming(1, { duration: 720, easing: Easing.bezier(0.2, 0.8, 0.2, 1) }))
-    if (!BLUR_OK) return
+    if (!useBlur) return
     setBlur(BLUR_STEPS[0])
     const timers = BLUR_STEPS.slice(1).map((b, i) => setTimeout(() => setBlur(b), delay + 110 * (i + 1)))
     return () => timers.forEach(clearTimeout)

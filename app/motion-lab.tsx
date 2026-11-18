@@ -62,7 +62,7 @@ export default function MotionLab() {
       <Section label="rack focus">
         <View style={styles.pad}>
           {ARTISTS.map((a, i) => (
-            <RackFocus key={a} index={i} trigger={focus}>
+            <RackFocus key={a} index={i} trigger={focus} blur>
               <View style={styles.row}><Text style={styles.rank}>{i + 1}</Text><Text style={Type.label}>{a}</Text></View>
             </RackFocus>
           ))}
