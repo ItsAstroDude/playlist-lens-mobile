@@ -169,47 +169,73 @@ strangers signing in. Social is parked behind that gate (see the end).
 **Shape:** one native build at the start of 2.0 (everything that changes the runtime
 fingerprint goes in together), then the rest ships over the air in phases.
 
-## Phase 0 — finish 1.8 "refine in place" (OTA, in progress)
+## The headline — three big things (chosen 2026-11-18)
+1. **Full redesign** — a new visual language end to end, new onboarding, a home-screen widget.
+2. **Lifetime history explorer** — every play you've ever made: search, calendar heatmap,
+   streaks, milestones, first listens, "on this day".
+3. **Story mode Wrapped** — your own Wrapped any time: full-screen swipeable story for any
+   week / month / year / all time, ending on a share card.
+
+Order matters: the play database comes first (both 2 and 3 read from it), and the new look is
+settled before 2 and 3 are built, so they're born in it rather than restyled after.
+
+## Phase 0 — finish 1.8 "refine in place" (OTA)
 - [x] DetailSheet + StartQueueSheet onto the shared Sheet (careful: their own drag gestures) — 1.9
 - [x] Lenses PlaylistCard + login screen onto the design system — 1.9
 - [x] Onboarding tour onto the design system — 1.9
-- [ ] Wrapped extras: listening clock per period, artwork in period lists
 - [ ] Measure load times (cold start, Lenses, Wrapped, Recaps) → numbers in this file
+      (the baseline the play database has to beat)
 - [ ] Update the Claude design system with TabHeader / RankRow / TrackRow / Sheet / Button
+- ~~Wrapped extras (listening clock per period, artwork in period lists)~~ → folded into
+  Phase 3, on the new engine
 
 ## Phase 1 — 2.0 foundations (the native build)
-- [ ] **Local play database** (expo-sqlite): one `plays` table for import + tracked +
-      device plays, deduped, indexed by time. Replaces the MMKV JSON buffer (20k cap,
-      re-parsed on every read) and the multi-MB `wrapped_stats` blob. Biggest load-time win.
+- [ ] **Local play database** (expo-sqlite, new native module): one `plays` table for
+      import + tracked + device plays, deduped, indexed by time. Replaces the MMKV JSON
+      buffer (20k cap, re-parsed on every read) and the multi-MB `wrapped_stats` blob.
+      Biggest load-time win, and the base for the explorer and story mode.
 - [ ] Import straight into SQLite (stream the ZIP, no base64 round-trip in JS)
+- [ ] Android home-screen widget: "This week" + now playing (react-native-android-widget,
+      new native module — part of the redesign, but it has to ride this build)
 - [ ] App icon picker (alternate launcher icons: Aperture default + 3–4 variants)
 - [ ] `eas.json` autoIncrement; jest-expo → 54; app version 2.0.0
 - [ ] Crash + error reporting (decide: Sentry free tier vs Expo's built-in insights)
 - [ ] Backend: run on gunicorn; decide on cold starts (paid Render instance vs accept them —
       the hourly tracker already wakes it)
+- Already in the build, so no native work needed later: react-native-view-shot + expo-sharing
+  (share cards), expo-notifications (weekly recap)
 
-## Phase 2 — Stats 2.0 (OTA)
-- [ ] Everything reads from the play database: Week / Month / Year / All time become one
-      engine; Recaps on the same engine
-- [ ] Streaks (days in a row listening, an artist's run), milestones (10,000th play,
-      100th artist), "new this week" (first-ever plays of an artist)
+## Phase 2 — Headline 1: Design 2.0 (OTA)
+- [ ] Define the new language first, in the Claude design system: type, colour, surfaces,
+      motion, cards — mocked up on Lenses / Wrapped / now playing before any code
+- [ ] New playlist cards, calmer ambient glow, motion review, new tab bar
+- [ ] Roll it through every screen (the shared components make this mostly a component pass)
+- [ ] New onboarding: what the app does, tracking opt-in, optional import
+- [ ] Widget styled in the new look
+
+## Phase 3 — Headline 2: Lifetime history explorer (OTA)
+- [ ] One stats engine on the play database: Week / Month / Year / All time and Recaps
+- [ ] History screen: search every play; scroll by day; filter by artist / track / album
+- [ ] Calendar heatmap (a year of listening at a glance, tap a day)
+- [ ] Streaks (days in a row, an artist's run), milestones (10,000th play, 100th artist),
+      first-ever listens ("new this week")
+- [ ] "On this day" throwbacks, one tap to queue them
 - [ ] Listening clock + by-day for every period; artwork on every top list
-- [ ] History browser: search every play you've ever made
-- [ ] Shareable stat cards (story-sized images of your week / year)
-- [ ] Real weekly recap notification ("Your week: 18h, top artist …")
 
-## Phase 3 — Discovery (OTA + backend)
+## Phase 4 — Headline 3: Story mode Wrapped (OTA)
+- [ ] Story player: full-screen slides, progress bars, tap / hold / swipe, music-free
+- [ ] Slides: time listened, top artist reveal, top tracks, genres, listening clock,
+      discoveries, milestones and streaks, a listening "personality"
+- [ ] Any period: this week, a month, a year, all time — from Wrapped and from Recaps
+- [ ] Share card at the end (story-sized image via view-shot + share sheet)
+- [ ] Weekly recap notification opens your week as a story
+
+## Phase 4.5 — Discovery, after the headline (OTA + backend)
 - [ ] Smart playlists, one tap to save to Spotify: Top 50 this month, Discoveries,
       Fading favorites, Second chances, Time machine
 - [ ] Auto-updating smart playlists — the server already holds your (encrypted) token
       and runs hourly, so it can refresh "Your Weekly Top 30" every Monday
 - [ ] Vibe / mood playlists from genres (audio features are unavailable to this app)
-
-## Phase 4 — Design 2.0 (mostly OTA)
-- [ ] Visual refresh pass: calmer ambient glow, new playlist cards, motion review
-- [ ] New onboarding: what the app does, tracking opt-in, optional import
-- [ ] Android home-screen widget: "This week" + now playing (native — needs a build;
-      if it isn't ready for Phase 1's build, it rides the next one)
 
 ## Phase 5 — ship-ready (only if going public)
 - [ ] Privacy policy + in-app data page (what's stored, where; export + delete)
