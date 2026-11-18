@@ -41,6 +41,7 @@ import {
   type TrackingStatus,
 } from '@/utils/tracking'
 import type { SpotifyUser } from '@/types'
+import { useSparkMode, setSparkMode, nextSparkMode } from '@/components/spark'
 import { APP_ICONS, appIconsSupported, getAppIcon, setAppIcon, iconForAccent, type AppIconOption } from '@/utils/appIcon'
 
 // ─── Profile card — who's connected, on what plan ──────────────────────────────
@@ -179,6 +180,7 @@ export default function SettingsScreen() {
   const [reduceMotion, setReduceMotion] = useState(reduceMotionEnabled())
   const [artwork, setArtwork]           = useState(artworkEnabled())
   const [tribute, setTribute]           = useState(tributeEnabled())
+  const sparkMode = useSparkMode()
   const [notifs, setNotifs]             = useState(notificationsEnabled())
   const [notifTested, setNotifTested]   = useState(false)
   const [me, setMe]                     = useState<SpotifyUser | null>(null)
@@ -462,7 +464,12 @@ export default function SettingsScreen() {
             <ToggleRow icon="image-outline" tint="violet" label="Show artwork" hint="Covers and artist photos across the app"
               value={artwork} onValueChange={onToggleArtwork} />
             <ToggleRow icon="flower-outline" tint="pink" label="Memorial marks" hint="A quiet † beside artists who’ve passed"
-              value={tribute} onValueChange={onToggleTribute} last />
+              value={tribute} onValueChange={onToggleTribute} />
+            <SettingRow icon="star-outline" tint="amber" label="Spark"
+              hint={sparkMode === 'on' ? 'Says hi now and then, and answers when you tap him'
+                : sparkMode === 'quiet' ? 'Only talks when you tap him' : 'Hidden — the wordmark gets its dot back'}
+              value={sparkMode === 'on' ? 'On' : sparkMode === 'quiet' ? 'Quiet' : 'Off'}
+              onPress={() => { haptic.light(); setSparkMode(nextSparkMode(sparkMode)) }} last />
           </Section>
 
           {/* Notifications */}

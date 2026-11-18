@@ -3,13 +3,15 @@ import { View, Text, StyleSheet, TouchableOpacity, type StyleProp, type ViewStyl
 import { Colors, Spacing, Radius, Type, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { Icon, type IconName } from '@/components/ui/Icon'
+import { Spark } from '@/components/spark/Spark'
+import { useSparkMode } from '@/components/spark/director'
 
 /**
  * Design system — small controls and display pieces.
  *  IconButton   36px glass circle (header actions, toggles). `active` = accent ring.
  *  Chip         pill for filters/segments. `selected` = filled accent.
  *  Stat         big number + caption (+ optional delta), for stat grids.
- *  EmptyState   icon + title + body + optional action — every empty/no-result screen.
+ *  EmptyState   sleeping Spark (or icon) + title + body + optional action — every empty/no-result screen.
  */
 
 export function IconButton({ icon, onPress, label, active, style }: {
@@ -88,9 +90,13 @@ export function EmptyState({ icon, title, body, actionLabel, onAction }: {
   actionLabel?: string
   onAction?:    () => void
 }) {
+  // Spark naps on every empty screen (unless he's switched off).
+  const spark = useSparkMode() !== 'off'
   return (
     <View style={styles.empty}>
-      <Icon name={icon} size={40} color={alpha(Colors.greenPrimary, 0.85)} />
+      {spark
+        ? <Spark mood="sleeping" size={76} />
+        : <Icon name={icon} size={40} color={alpha(Colors.greenPrimary, 0.85)} />}
       <Text style={styles.emptyTitle} accessibilityRole="header">{title}</Text>
       {body ? <Text style={styles.emptyBody}>{body}</Text> : null}
       {actionLabel && onAction ? (

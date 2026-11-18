@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.1',
+    name:    'Spark',
+    date:    '2026-11-18',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Meet Spark. He lives in the dot of the wordmark, says hi when you’ve been away a while, and talks when you tap him, sometimes about your week. A little smarter than a rock.',
+          'He naps on empty screens. Too chatty? Settings › Experience › Spark: On, Quiet (only when tapped) or Off.',
+          'See all his moods in Settings › About › Motion lab.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0',
     name:    'Liquid',
     date:    '2026-11-18',

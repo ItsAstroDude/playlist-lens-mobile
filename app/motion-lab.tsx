@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native'
 import { Screen, ScreenHeader, Section, Button } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { Colors, Spacing, Radius, Type, FontFamily, alpha } from '@/constants/theme'
+import { Spark, SparkLine, type SparkMood } from '@/components/spark'
 import { RollingNumber, RackFocus, SaveBurst, RippleCell, Aperture, LiquidFill, Aurora } from '@/components/motion'
 
 const PALETTES: [string, string, string, string][] = [
@@ -13,6 +14,7 @@ const PALETTES: [string, string, string, string][] = [
 const WEEKS = [[18, 24, 412], [26, 51, 588], [9, 7, 163]]
 const ARTISTS = ['Radiohead', 'Björk', 'Floating Points', 'Massive Attack', 'Caribou']
 const LV = [alpha(Colors.text, 0.06), alpha(Colors.greenPrimary, 0.3), alpha(Colors.greenPrimary, 0.6), Colors.greenPrimary]
+const MOODS: SparkMood[] = ['idle', 'listening', 'thinking', 'talking', 'happy', 'vibing', 'uwu', 'shocked', 'unsure', 'loading', 'error', 'sleeping', 'unloaded']
 const pad = (n: number) => (n < 10 ? '0' : '') + n
 
 /**
@@ -28,10 +30,29 @@ export default function MotionLab() {
   const [loading, setLoading] = useState(false)
   const [fill, setFill] = useState(0.62)
   const w = WEEKS[wk]
+  const [mood, setMood] = useState(0)
+  const [phones, setPhones] = useState(true)
 
   return (
     <Screen>
       <ScreenHeader title="motion lab" subtitle="The 2.0 animations, one by one. Tap each to replay." />
+
+      <Section label="spark" footer="Tap him for the next mood. One loop at a time; he holds still under Reduce motion.">
+        <View style={[styles.pad, styles.center]}>
+          <Spark key={MOODS[mood]} mood={MOODS[mood]} size={132} headphones={phones}
+            onPress={() => setMood(m => (m + 1) % MOODS.length)} label={`Spark, ${MOODS[mood]}`} />
+          <Text style={Type.label}>{MOODS[mood]}</Text>
+          <SparkLine key={`l${mood}`} line={`this is me, ${MOODS[mood]}.`} showSpark={false} />
+          <View style={styles.moods}>
+            {MOODS.map((m, i) => (
+              <Pressable key={m} onPress={() => setMood(i)} accessibilityRole="button" accessibilityLabel={m} hitSlop={4}>
+                <Spark mood={m} size={34} active={false} />
+              </Pressable>
+            ))}
+          </View>
+          <Button label={phones ? 'Take off headphones' : 'Put on headphones'} variant="secondary" size="sm" onPress={() => setPhones(p => !p)} />
+        </View>
+      </Section>
 
       <Section label="album-art aurora" footer="Tap to change track: the colours cross-fade.">
         <Pressable onPress={() => setPal((pal + 1) % PALETTES.length)} style={styles.stage} accessibilityRole="button" accessibilityLabel="Change track">
@@ -108,6 +129,7 @@ const styles = StyleSheet.create({
   pad:    { padding: Spacing.lg, gap: Spacing.sm },
   center: { alignItems: 'center' },
   inline: { flexDirection: 'row', alignItems: 'flex-end' },
+  moods:  { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginVertical: Spacing.sm },
   big:    { fontFamily: FontFamily.syneBold, fontSize: 56, color: Colors.text, letterSpacing: -2 },
   unit:   { fontFamily: FontFamily.syneBold, fontSize: 24, color: Colors.textMuted, marginBottom: 8 },
   pct:    { fontFamily: FontFamily.syneBold, fontSize: 36, color: '#fff' },

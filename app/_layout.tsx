@@ -20,6 +20,7 @@ import {
 // The Syne display face is the fixed brand face and is always loaded above.
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono'
 import { Manrope_500Medium, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope'
+import { Outfit_500Medium, Outfit_700Bold } from '@expo-google-fonts/outfit'
 import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { usePalette } from '@/hooks/usePalette'
 import { setTint, toHex, fallbackTint, type Tint } from '@/utils/liquidTint'
@@ -118,6 +119,8 @@ export default function RootLayout() {
     Manrope_500Medium,
     Manrope_700Bold,
     Manrope_800ExtraBold,
+    Outfit_500Medium,
+    Outfit_700Bold,
   })
 
   useEffect(() => {
