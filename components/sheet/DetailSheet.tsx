@@ -28,6 +28,7 @@ import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import { fmtDuration } from '@/utils/analyze'
 import { ensureReadable } from '@/utils/color'
 import { Sheet } from '@/components/ui/Sheet'
+import { useCollapsingCover } from '@/components/motion/CollapsingCover'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { RadarChart } from '@/components/ui/RadarChart'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
@@ -81,17 +82,21 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
   // Lift dark cover colours to a readable tone (same clamp Compare uses), so the
   // vibe pill / genre chips / bars aren't invisible on near-black covers.
   const accent = ensureReadable(shownPalette?.primary ?? Colors.greenPrimary)
+  const cc = useCollapsingCover(HERO_H)
 
   return (
     <>
       <Sheet open={isOpen} onClose={onClose} bleed maxHeight={0.9} zIndex={10}>
-        <ScrollView
+        <View style={{ flex: 1 }}>
+        <Animated.ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + 96 + gutter }}
           bounces
+          onScroll={cc.onScroll}
+          scrollEventThrottle={16}
         >
-          {/* ── Hero Section ── */}
-          {shown && <HeroSection playlist={shown} palette={shownPalette} />}
+          {/* ── Hero Section (collapses as you scroll) ── */}
+          {shown && <HeroSection playlist={shown} palette={shownPalette} cc={cc} />}
 
           {/* ── Analysis states ── */}
           {status === 'loading' && <AnalysisSkeleton accent={accent} />}
@@ -113,7 +118,12 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
           {status === 'success' && data && (
             <AnalysisContent data={data} accent={accent} trackTotal={shown?.tracks.total} onSelectArtist={setSel} />
           )}
-        </ScrollView>
+        </Animated.ScrollView>
+        {/* compact title bar, fades in once the hero has scrolled away */}
+        <Animated.View style={[styles.miniBar, cc.bar]} pointerEvents="none" importantForAccessibility="no-hide-descendants">
+          <Text style={styles.miniBarText} numberOfLines={1}>{shown?.name}</Text>
+        </Animated.View>
+        </View>
       </Sheet>
 
       <WrappedItemSheet selection={sel} onClose={() => setSel(null)} />
@@ -122,20 +132,22 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
 }
 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
-function HeroSection({ playlist, palette }: { playlist: SpotifyPlaylist; palette: PlaylistPalette | null }) {
+function HeroSection({ playlist, palette, cc }: { playlist: SpotifyPlaylist; palette: PlaylistPalette | null; cc: ReturnType<typeof useCollapsingCover> }) {
   const coverUrl = playlist.images?.[0]?.url
 
   return (
     <View style={styles.hero}>
-      {/* Blurred cover background */}
-      {coverUrl && (
-        <Image
-          source={{ uri: coverUrl }}
-          style={StyleSheet.absoluteFillObject}
-          contentFit="cover"
-        />
-      )}
-      <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFillObject} />
+      {/* Blurred cover background — scrolls at half speed, stretches on overscroll */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, cc.backdrop]}>
+        {coverUrl && (
+          <Image
+            source={{ uri: coverUrl }}
+            style={StyleSheet.absoluteFillObject}
+            contentFit="cover"
+          />
+        )}
+        <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFillObject} />
+      </Animated.View>
       <LinearGradient
         colors={['rgba(19,19,21,0.15)', 'rgba(19,19,21,1.0)']}
         locations={[0, 0.85]}
@@ -144,7 +156,7 @@ function HeroSection({ playlist, palette }: { playlist: SpotifyPlaylist; palette
       />
 
       {/* Crisp cover art centered */}
-      <View style={styles.heroCoverWrap}>
+      <Animated.View style={[styles.heroCoverWrap, cc.cover]}>
         {coverUrl ? (
           <Image
             source={{ uri: coverUrl }}
@@ -159,13 +171,13 @@ function HeroSection({ playlist, palette }: { playlist: SpotifyPlaylist; palette
         )}
         {/* Specular highlight on cover */}
         <View style={styles.coverSpecular} />
-      </View>
+      </Animated.View>
 
       {/* Playlist info at bottom of hero */}
-      <View style={styles.heroInfo}>
+      <Animated.View style={[styles.heroInfo, cc.title]}>
         <Text style={styles.heroName} numberOfLines={2}>{playlist.name}</Text>
         <Text style={styles.heroOwner}>{playlist.owner.display_name}</Text>
-      </View>
+      </Animated.View>
     </View>
   )
 }
@@ -428,6 +440,15 @@ function AnalysisSkeleton({ accent }: { accent: string }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  // Compact bar over the top of the sheet once the hero has scrolled away
+  miniBar: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 48,
+    justifyContent: 'center', paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.sheet,
+    borderBottomWidth: 1, borderBottomColor: Colors.glassBorder,
+  },
+  miniBarText: { fontFamily: FontFamily.syneBold, fontSize: FontSize.md, color: Colors.text, letterSpacing: -0.3 },
+
   // ── Hero ──
   hero: {
     height:   HERO_H,

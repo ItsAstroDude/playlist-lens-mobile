@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue,
-  withSpring, withTiming,
+  withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated'
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
 import { api } from '@/utils/api'
@@ -52,14 +52,23 @@ function fmtSecs(s: number): string {
 }
 
 // ── One live card (remounts per track via key) ──
-function Card({ track, onDecide, onUndo, canUndo }: {
+function Card({ track, onDecide, onUndo, canUndo, drag }: {
   track:    SpotifyTrack
   onDecide: (keep: boolean) => void
   onUndo:   () => void
   canUndo:  boolean
+  /** 0 → 1 as this card is dragged toward a decision; lifts the card underneath. */
+  drag:     SharedValue<number>
 }) {
   const tx = useSharedValue(0)
   const ty = useSharedValue(0)
+  // 2.0 physics: tilt follows where you grabbed the card (top half tilts one way,
+  // bottom half the other), a tick when you cross the line, and each new card springs
+  // up from where the waiting card sat.
+  const grab  = useSharedValue(1)
+  const armed = useSharedValue(0)
+  const enter = useSharedValue(0)
+  useEffect(() => { drag.value = 0; enter.value = withSpring(1, { mass: 0.8, damping: 13, stiffness: 170 }) }, [])
 
   // ── 30s snippet ──
   // CRASH GUARD: useAudioPlayer releases the native player at unmount BEFORE
@@ -96,37 +105,58 @@ function Card({ track, onDecide, onUndo, canUndo }: {
 
   const flyOut = (keep: boolean) => {
     safe(() => player.pause())
+    drag.value = withTiming(1, { duration: 240 })
+    ty.value = withTiming(-24, { duration: 240 })
     tx.value = withTiming(keep ? FLY_X : -FLY_X, { duration: 240, easing: Easing.in(Easing.quad) },
       finished => { if (finished) runOnJS(decide)(keep) })
   }
 
   const pan = Gesture.Pan()
     .activeOffsetX([-12, 12])
+    .onBegin(e => { grab.value = e.y < CARD_H / 2 ? 1 : -1 })
     .onChange(e => {
       tx.value = e.translationX
       ty.value = e.translationY * 0.4
+      drag.value = Math.min(1, Math.abs(e.translationX) / THRESH)
+      const over = Math.abs(e.translationX) > THRESH ? 1 : 0
+      if (over !== armed.value) { armed.value = over; runOnJS(haptic.light)() }
     })
     .onEnd(e => {
       if (Math.abs(e.translationX) > THRESH || Math.abs(e.velocityX) > 900) {
-        const keep = e.translationX > 0
+        const keep = (Math.abs(e.translationX) > THRESH ? e.translationX : e.velocityX) > 0
         runOnJS(haptic.medium)()
-        tx.value = withTiming(keep ? FLY_X : -FLY_X, { duration: 220, easing: Easing.in(Easing.quad) },
+        // A harder throw leaves faster, and keeps its upward/downward arc.
+        const dur = Math.max(140, Math.min(260, 300 - Math.abs(e.velocityX) / 12))
+        drag.value = withTiming(1, { duration: dur })
+        ty.value = withTiming(ty.value + e.velocityY * 0.12, { duration: dur })
+        tx.value = withTiming(keep ? FLY_X : -FLY_X, { duration: dur, easing: Easing.out(Easing.quad) },
           finished => { if (finished) runOnJS(onDecide)(keep) })
       } else {
-        tx.value = withSpring(0, Spring.snappy)
-        ty.value = withSpring(0, Spring.snappy)
+        // Spring home carrying the finger's speed.
+        tx.value = withSpring(0, { velocity: e.velocityX, mass: 0.8, damping: 12, stiffness: 190 })
+        ty.value = withSpring(0, { velocity: e.velocityY, mass: 0.8, damping: 14, stiffness: 190 })
+        drag.value = withSpring(0, Spring.snappy)
+        armed.value = 0
       }
     })
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: tx.value },
-      { translateY: ty.value },
-      { rotate: `${tx.value / 18}deg` },
+      { translateY: ty.value + (1 - enter.value) * 12 },
+      { rotate: `${(tx.value / 18) * grab.value}deg` },
+      { scale: 0.94 + 0.06 * enter.value },
     ],
   }))
-  const keepBadge = useAnimatedStyle(() => ({ opacity: interpolate(tx.value, [20, THRESH], [0, 1], 'clamp') }))
-  const cutBadge  = useAnimatedStyle(() => ({ opacity: interpolate(tx.value, [-THRESH, -20], [1, 0], 'clamp') }))
+  // Stamps punch in: they fade up and settle from oversized as you lean.
+  const keepBadge = useAnimatedStyle(() => ({
+    opacity: interpolate(tx.value, [20, THRESH], [0, 1], 'clamp'),
+    transform: [{ rotate: '-12deg' }, { scale: interpolate(tx.value, [20, THRESH], [1.6, 1], 'clamp') }],
+  }))
+  const cutBadge = useAnimatedStyle(() => ({
+    opacity: interpolate(tx.value, [-THRESH, -20], [1, 0], 'clamp'),
+    transform: [{ rotate: '12deg' }, { scale: interpolate(tx.value, [-THRESH, -20], [1, 1.6], 'clamp') }],
+  }))
 
   const art = track.album?.images?.[0]?.url ?? null
   const dur = status.duration > 0 ? status.duration : 30
@@ -229,19 +259,25 @@ export function SwipeDeck({ track, nextTrack, onDecide, onUndo, canUndo }: {
   useEffect(() => { if (nextTrack) resolvePreview(nextTrack) }, [nextTrack?.id])
 
   const nextArt = nextTrack?.album?.images?.[0]?.url ?? null
+  // The waiting card rises toward the top as the current one is dragged away.
+  const drag = useSharedValue(0)
+  const nextStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: (1 - drag.value) * 12 }, { scale: 0.94 + 0.06 * drag.value }],
+    opacity: 0.75 + 0.25 * drag.value,
+  }))
 
   return (
     <View style={styles.deck}>
       {/* the card waiting underneath */}
       {nextTrack && (
-        <View style={[styles.card, styles.cardNext]}>
+        <Animated.View style={[styles.card, styles.cardNext, nextStyle]}>
           {nextArt ? (
             <Image source={{ uri: nextArt }} style={StyleSheet.absoluteFill} contentFit="cover" />
           ) : (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.card }]} />
           )}
           <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.overlayLight }]} />
-        </View>
+        </Animated.View>
       )}
 
       <Card
@@ -250,6 +286,7 @@ export function SwipeDeck({ track, nextTrack, onDecide, onUndo, canUndo }: {
         onDecide={onDecide}
         onUndo={onUndo}
         canUndo={canUndo}
+        drag={drag}
       />
     </View>
   )
@@ -278,8 +315,7 @@ const styles = StyleSheet.create({
   },
   cardNext: {
     position: 'absolute',
-    top: Spacing.sm + 12,
-    transform: [{ scale: 0.94 }],
+    top: Spacing.sm,
   },
   scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '62%' },
 
@@ -289,8 +325,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md, paddingVertical: 4,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  badgeKeep: { left: 16,  borderColor: '#53e076', transform: [{ rotate: '-12deg' }] },
-  badgeCut:  { right: 16, borderColor: '#ff6b6b', transform: [{ rotate: '12deg' }] },
+  badgeKeep: { left: 16,  borderColor: '#53e076' },
+  badgeCut:  { right: 16, borderColor: '#ff6b6b' },
   badgeText: { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, letterSpacing: 2 },
 
   meta: {
