@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Pressable, View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
 import Animated, {
-  useSharedValue, useAnimatedStyle, withSequence, withSpring, withTiming, Easing, interpolate, type SharedValue,
+  useSharedValue, useAnimatedStyle, withSequence, withSpring, withTiming, Easing, interpolate, runOnJS, type SharedValue,
 } from 'react-native-reanimated'
 import { haptic } from '@/constants/animation'
 import { burstVectors } from './math'
@@ -32,6 +32,9 @@ export function SaveBurst({ active, onPress, children, colors, size = 48, distan
   const burst = useSharedValue(0)
   const was = useRef(active)
   const vecs = useRef(burstVectors(COUNT, distance)).current
+  // The ring + particles are mounted only for the burst itself. Idle, a SaveBurst is
+  // just the icon — a list of add-to-queue buttons doesn't carry ~15 animated views each.
+  const [bursting, setBursting] = useState(false)
 
   useEffect(() => {
     const turnedOn = active && !was.current
@@ -41,7 +44,8 @@ export function SaveBurst({ active, onPress, children, colors, size = 48, distan
       haptic.success()
       scale.value = withSequence(withTiming(0.6, { duration: 90 }), withSpring(1.3, { damping: 6, stiffness: 320 }), withSpring(1, { damping: 10, stiffness: 220 }))
       burst.value = 0
-      burst.value = withTiming(1, { duration: 720, easing: Easing.out(Easing.cubic) })
+      setBursting(true)
+      burst.value = withTiming(1, { duration: 720, easing: Easing.out(Easing.cubic) }, done => { if (done) runOnJS(setBursting)(false) })
     } else if (!active) {
       scale.value = withSequence(withTiming(0.8, { duration: 110 }), withSpring(1, { damping: 12, stiffness: 260 }))
     }
@@ -60,10 +64,12 @@ export function SaveBurst({ active, onPress, children, colors, size = 48, distan
       style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]}
       accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: active }}
     >
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <Animated.View style={[styles.ring, { width: size, height: size, borderRadius: size / 2, borderColor: colors[0] }, ring]} />
-        {vecs.map((v, i) => <Particle key={i} p={burst} x={v.x} y={v.y} color={colors[i % colors.length]} size={size} chip={i % 3 === 0} />)}
-      </View>
+      {bursting && (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <Animated.View style={[styles.ring, { width: size, height: size, borderRadius: size / 2, borderColor: colors[0] }, ring]} />
+          {vecs.map((v, i) => <Particle key={i} p={burst} x={v.x} y={v.y} color={colors[i % colors.length]} size={size} chip={i % 3 === 0} />)}
+        </View>
+      )}
       <Animated.View style={icon}>{children}</Animated.View>
     </Pressable>
   )

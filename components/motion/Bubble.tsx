@@ -1,9 +1,6 @@
-import React, { useCallback } from 'react'
+import React, { useEffect } from 'react'
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
-import { useFocusEffect } from 'expo-router'
-import Animated, {
-  useSharedValue, useAnimatedStyle, withRepeat, withTiming, withDelay, withSpring, Easing, cancelAnimation,
-} from 'react-native-reanimated'
+import Animated, { useSharedValue, useAnimatedStyle, withDelay, withSpring } from 'react-native-reanimated'
 import { useMotionReduced } from './reduced'
 
 // Fixed blobby corner radii (fractions of the size), one set per bubble. Animating
@@ -16,8 +13,9 @@ const SHAPES = [
 ]
 
 /**
- * Liquid (2.0) — a floating glass bubble: pops in, then bobs gently while its screen
- * is in view (paused otherwise). Used for Wrapped's headline numbers.
+ * Liquid (2.0) — a glass bubble that pops in and then holds still. (It used to bob
+ * forever; endless motion on a scrolling screen makes Android recomposite every frame
+ * through the glass and the aurora, which is what made Wrapped lag.)
  */
 export function Bubble({ size, color, delay = 0, phase = 0, style, children }: {
   size: number
@@ -29,17 +27,14 @@ export function Bubble({ size, color, delay = 0, phase = 0, style, children }: {
 }) {
   const reduced = useMotionReduced()
   const pop = useSharedValue(reduced ? 1 : 0)
-  const bob = useSharedValue(0)
-  useFocusEffect(useCallback(() => {
+  useEffect(() => {
     if (reduced) return
     pop.value = withDelay(delay, withSpring(1, { mass: 0.8, damping: 9, stiffness: 140 }))
-    bob.value = withDelay(phase * 400, withRepeat(withTiming(1, { duration: 3600 + phase * 500, easing: Easing.inOut(Easing.ease) }), -1, true))
-    return () => { cancelAnimation(bob) }
-  }, [reduced]))
+  }, [reduced])
   const shape = SHAPES[phase % SHAPES.length]
   const a = useAnimatedStyle(() => ({
     opacity: Math.min(1, pop.value * 1.5),
-    transform: [{ translateY: (bob.value - 0.5) * 10 }, { scale: pop.value }],
+    transform: [{ scale: pop.value }],
   }))
   return (
     <Animated.View style={[
