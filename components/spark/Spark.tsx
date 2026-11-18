@@ -141,7 +141,7 @@ export function Spark({
     return () => clearTimeout(t)
   }, [live])
   useEffect(() => {
-    if (!live || mood !== 'talking') { setMouthOpen(false); return }
+    if (!live || mood !== 'talking') return
     const i = setInterval(() => setMouthOpen(o => !o), 150)
     return () => clearInterval(i)
   }, [live, mood])
@@ -206,7 +206,7 @@ export function Spark({
           <Ellipse cx={-19} cy={8} rx={5} ry={2.8} fill={SPARK.blush} opacity={0.6} />
           <Ellipse cx={19} cy={8} rx={5} ry={2.8} fill={SPARK.blush} opacity={0.6} />
         </>}
-        <Mouth mood={mood} mouthOpen={mouthOpen} />
+        <Mouth mood={mood} mouthOpen={live && mood === 'talking' && mouthOpen} />
         {mood === 'happy' && <G fill={SPARK.amber}><Path d={sparkle(-58, -48, 7)} /><Path d={sparkle(60, -38, 5)} /><Path d={sparkle(52, 50, 6)} /></G>}
         {mood === 'uwu' && <G fill={SPARK.blush}><Path d={sparkle(-56, -46, 7)} /><Path d={sparkle(58, -40, 5)} /><Path d={sparkle(-50, 52, 5)} /></G>}
       </Svg>
