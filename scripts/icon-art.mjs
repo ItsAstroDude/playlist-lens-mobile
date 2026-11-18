@@ -10,12 +10,40 @@
 const TAU = Math.PI * 2
 const f = n => n.toFixed(2)
 
+// ── Colourways (2.0 icon picker) ──────────────────────────────────────────────
+// The default green keeps its original hand-tuned stops; the other accents derive
+// theirs from the accent hex (same recipe: a light top, the accent, a deep bottom).
+const hexRgb = h => { const n = parseInt(h.replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] }
+const rgbHex = c => '#' + c.map(x => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, '0')).join('').toUpperCase()
+const mix = (a, b, t) => rgbHex(hexRgb(a).map((x, i) => x + (hexRgb(b)[i] - x) * t))
+
+const GREEN = { light: '#9BF7B2', mid: '#53E076', dark: '#1E9E4A', dotHi: '#E9FFEF', dotMid: '#7CF29A', bgTint: '#1F3A28' }
+export function palette(hex) {
+  if (!hex || hex.toUpperCase() === GREEN.mid) return GREEN
+  return {
+    light: mix(hex, '#FFFFFF', 0.42), mid: hex.toUpperCase(), dark: mix(hex, '#000000', 0.42),
+    dotHi: mix(hex, '#FFFFFF', 0.88), dotMid: mix(hex, '#FFFFFF', 0.3),
+    bgTint: mix('#121417', hex, 0.16),
+  }
+}
+
+/** The picker's colourways — one per Appearance accent. `name` is the Android alias. */
+export const ICON_VARIANTS = [
+  { name: 'Default',  label: 'Neon Green', hex: '#53E076' },
+  { name: 'Lavender', label: 'Lavender',   hex: '#CCBDFF' },
+  { name: 'Pink',     label: 'Hot Pink',   hex: '#FF70A5' },
+  { name: 'Sky',      label: 'Sky',        hex: '#4FC3F7' },
+  { name: 'Amber',    label: 'Amber',      hex: '#FFB347' },
+  { name: 'Coral',    label: 'Coral',      hex: '#FF7A5C' },
+]
+
 /**
  * Aperture mark centred at (cx, cy).
  *  R = outer radius, r = iris (hexagon) radius, gap = blade-separator width.
  *  mono = single-colour silhouette (Android themed icon).
  */
-export function aperture({ cx, cy, R, r, gap, mono = false, id = 'a' }) {
+export function aperture({ cx, cy, R, r, gap, mono = false, id = 'a', color }) {
+  const P = palette(color)
   const rot = -Math.PI / 2 + Math.PI / 6          // flat-topped iris, blades spiral clockwise
   const v = Array.from({ length: 6 }, (_, i) => {
     const t = rot + (i * TAU) / 6
@@ -49,18 +77,18 @@ export function aperture({ cx, cy, R, r, gap, mono = false, id = 'a' }) {
   return `
     <defs>
       <linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0"   stop-color="#9BF7B2"/>
-        <stop offset="0.45" stop-color="#53E076"/>
-        <stop offset="1"   stop-color="#1E9E4A"/>
+        <stop offset="0"   stop-color="${P.light}"/>
+        <stop offset="0.45" stop-color="${P.mid}"/>
+        <stop offset="1"   stop-color="${P.dark}"/>
       </linearGradient>
       <radialGradient id="${id}iris" cx="0.5" cy="0.5" r="0.5">
         <stop offset="0"   stop-color="#1B1B21"/>
         <stop offset="1"   stop-color="#08080B"/>
       </radialGradient>
       <radialGradient id="${id}dot" cx="0.5" cy="0.5" r="0.5">
-        <stop offset="0"    stop-color="#E9FFEF"/>
-        <stop offset="0.35" stop-color="#7CF29A"/>
-        <stop offset="1"    stop-color="#53E076" stop-opacity="0"/>
+        <stop offset="0"    stop-color="${P.dotHi}"/>
+        <stop offset="0.35" stop-color="${P.dotMid}"/>
+        <stop offset="1"    stop-color="${P.mid}" stop-opacity="0"/>
       </radialGradient>
       <linearGradient id="${id}spec" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
@@ -94,10 +122,10 @@ function eqBars(cx, cy, r, fill) {
 const svg = (w, h, body, bg = '') =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${bg}${body}</svg>`
 
-const BG = (s) => `
+const BG = (s, hex) => `
   <defs>
     <radialGradient id="bgglow" cx="0.5" cy="0.46" r="0.62">
-      <stop offset="0"   stop-color="#1F3A28"/>
+      <stop offset="0"   stop-color="${palette(hex).bgTint}"/>
       <stop offset="0.55" stop-color="#121417"/>
       <stop offset="1"   stop-color="#0B0B0E"/>
     </radialGradient>
@@ -109,8 +137,12 @@ export const iconSvg = () =>
   svg(1024, 1024, aperture({ cx: 512, cy: 512, R: 318, r: 128, gap: 24 }), BG(1024))
 
 /** Android adaptive foreground — transparent; mark kept inside the 66% safe circle. */
-export const adaptiveSvg = () =>
-  svg(1024, 1024, aperture({ cx: 512, cy: 512, R: 250, r: 100, gap: 19 }))
+export const adaptiveSvg = (hex) =>
+  svg(1024, 1024, aperture({ cx: 512, cy: 512, R: 250, r: 100, gap: 19, color: hex }))
+
+/** In-app picker preview — the full square icon in a colourway. */
+export const previewSvg = (hex) =>
+  svg(1024, 1024, aperture({ cx: 512, cy: 512, R: 318, r: 128, gap: 24, color: hex, id: 'p' }), BG(1024, hex))
 
 /** Android 13+ themed icon — single-colour silhouette, same safe zone. */
 export const monochromeSvg = () =>

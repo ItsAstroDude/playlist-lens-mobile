@@ -54,7 +54,47 @@
           "color": "#53e076"
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "Lavender",
+            "android": {
+              "foregroundImage": "./assets/icons/lavender-foreground.png",
+              "backgroundColor": "#111316"
+            }
+          },
+          {
+            "name": "Pink",
+            "android": {
+              "foregroundImage": "./assets/icons/pink-foreground.png",
+              "backgroundColor": "#111316"
+            }
+          },
+          {
+            "name": "Sky",
+            "android": {
+              "foregroundImage": "./assets/icons/sky-foreground.png",
+              "backgroundColor": "#111316"
+            }
+          },
+          {
+            "name": "Amber",
+            "android": {
+              "foregroundImage": "./assets/icons/amber-foreground.png",
+              "backgroundColor": "#111316"
+            }
+          },
+          {
+            "name": "Coral",
+            "android": {
+              "foregroundImage": "./assets/icons/coral-foreground.png",
+              "backgroundColor": "#111316"
+            }
+          }
+        ]
+      ]
     ],
     "experiments": {
       "typedRoutes": true

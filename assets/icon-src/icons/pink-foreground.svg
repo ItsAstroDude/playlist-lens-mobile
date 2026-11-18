@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+    <defs>
+      <linearGradient id="ag" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0"   stop-color="#FFACCB"/>
+        <stop offset="0.45" stop-color="#FF70A5"/>
+        <stop offset="1"   stop-color="#944160"/>
+      </linearGradient>
+      <radialGradient id="airis" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0"   stop-color="#1B1B21"/>
+        <stop offset="1"   stop-color="#08080B"/>
+      </radialGradient>
+      <radialGradient id="adot" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0"    stop-color="#FFEEF4"/>
+        <stop offset="0.35" stop-color="#FF9BC0"/>
+        <stop offset="1"    stop-color="#FF70A5" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="aspec" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+        <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+      <mask id="am">
+        <circle cx="512" cy="512" r="250" fill="#fff"/>
+        <path d="M562.00,425.40 L612.00,512.00 L562.00,598.60 L462.00,598.60 L412.00,512.00 L462.00,425.40 Z" fill="#000" stroke="#000" stroke-width="19" stroke-linejoin="round"/>
+        <path d="M562.00,425.40 L765.52,425.40 M612.00,512.00 L713.76,688.25 M562.00,598.60 L460.24,774.86 M462.00,598.60 L258.48,598.60 M412.00,512.00 L310.24,335.75 M462.00,425.40 L563.76,249.14" stroke="#000" stroke-width="19" stroke-linecap="round"/>
+      </mask>
+    </defs>
+    <!-- blades -->
+    <circle cx="512" cy="512" r="250" fill="url(#ag)" mask="url(#am)"/>
+    <!-- iris -->
+    <path d="M562.00,425.40 L612.00,512.00 L562.00,598.60 L462.00,598.60 L412.00,512.00 L462.00,425.40 Z" fill="url(#airis)" stroke="url(#airis)" stroke-width="7.6000000000000005" stroke-linejoin="round"/>
+    <!-- the music inside the lens — a 3-bar equalizer with a soft glow -->
+    <circle cx="512" cy="512" r="78" fill="url(#adot)" opacity="0.35"/>
+    <rect x="469.00" y="500.10" width="20.00" height="58.90" rx="10.00" fill="url(#ag)"/><rect x="502.00" y="464.00" width="20.00" height="95.00" rx="10.00" fill="url(#ag)"/><rect x="535.00" y="484.90" width="20.00" height="74.10" rx="10.00" fill="url(#ag)"/></svg>

@@ -41,6 +41,7 @@ import {
   type TrackingStatus,
 } from '@/utils/tracking'
 import type { SpotifyUser } from '@/types'
+import { APP_ICONS, appIconsSupported, getAppIcon, setAppIcon, iconForAccent, type AppIconOption } from '@/utils/appIcon'
 
 // ─── Profile card — who's connected, on what plan ──────────────────────────────
 function ProfileCard({ me, onReconnect, reconnectMsg }: {
@@ -92,6 +93,28 @@ function AccentPicker({ value, onPick }: { value: string; onPick: (id: string) =
             accessibilityRole="radio" accessibilityLabel={a.label} accessibilityState={{ selected: active }}
           >
             {active && <Icon name="checkmark" size={16} color="#000" />}
+          </TouchableOpacity>
+        )
+      })}
+    </View>
+  )
+}
+
+// ─── App icon (2.0) — applies right away, no restart ───────────────────────────────
+function IconPicker({ value, onPick }: { value: AppIconOption['name']; onPick: (name: AppIconOption['name']) => void }) {
+  return (
+    <View style={styles.swatchRow}>
+      {APP_ICONS.map(i => {
+        const active = i.name === value
+        return (
+          <TouchableOpacity
+            key={i.name}
+            onPress={() => onPick(i.name)}
+            activeOpacity={0.7}
+            style={[styles.iconTile, active && styles.iconTileActive]}
+            accessibilityRole="radio" accessibilityLabel={`${i.label} icon`} accessibilityState={{ selected: active }}
+          >
+            <Image source={i.preview} style={styles.iconImg} contentFit="cover" />
           </TouchableOpacity>
         )
       })}
@@ -168,6 +191,18 @@ export default function SettingsScreen() {
   // ── Appearance — selections persist immediately, apply on the next reload ──
   const [pendingMode, setPendingMode]     = useState<ThemeMode>(getThemeMode)
   const [pendingAccent, setPendingAccent] = useState(getAccentId)
+  const [appIcon, setAppIconState] = useState(getAppIcon)
+  const onPickIcon = async (name: AppIconOption['name']) => {
+    if (name === appIcon) return
+    haptic.light()
+    try {
+      await setAppIcon(name)
+      setAppIconState(name)
+      showToast('Icon changed — your home screen updates in a moment', 'sparkles')
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Couldn’t change the icon', 'alert-circle-outline')
+    }
+  }
   const [pendingFont, setPendingFont]     = useState(getFontId)
   const [pendingNavbar, setPendingNavbar] = useState<NavbarStyle>(getNavbarStyle)
   const [showApplyRestart, setShowApplyRestart] = useState(false)
@@ -468,6 +503,21 @@ export default function SettingsScreen() {
               </View>
               <AccentPicker value={pendingAccent} onPick={onPickAccent} />
             </View>
+            {appIconsSupported() && (
+              <View style={styles.appearanceBlock}>
+                <View style={styles.pickerHead}>
+                  <Text style={styles.pickerLabel}>App icon</Text>
+                  {iconForAccent(pendingAccent).name !== appIcon ? (
+                    <TouchableOpacity onPress={() => onPickIcon(iconForAccent(pendingAccent).name)} hitSlop={8} accessibilityRole="button">
+                      <Text style={[styles.pickerValue, { color: Colors.greenPrimary }]}>Match accent</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={styles.pickerValue}>{APP_ICONS.find(i => i.name === appIcon)?.label}</Text>
+                  )}
+                </View>
+                <IconPicker value={appIcon} onPick={onPickIcon} />
+              </View>
+            )}
             <View style={styles.appearanceBlock}>
               <Text style={styles.pickerLabel}>Font</Text>
               <FontPicker value={pendingFont} onPick={onPickFont} />
@@ -734,6 +784,12 @@ const styles = StyleSheet.create({
   swatchActive: {
     borderColor: Colors.text,
   },
+  iconTile: {
+    width: 46, height: 46, borderRadius: 13, overflow: 'hidden',
+    borderWidth: 2, borderColor: 'transparent',
+  },
+  iconTileActive: { borderColor: Colors.text },
+  iconImg: { width: '100%', height: '100%' },
   fontRow: {
     flexDirection:     'row',
     alignItems:        'center',
