@@ -273,3 +273,115 @@ The tracker's per-user play store is the foundation, so nothing in 2.0 blocks it
 2. Backend cold starts: pay for an always-on Render instance (~$7/mo) or live with them?
 3. iOS at all for 2.0, or Android-only?
 4. ~~Alternate icons~~ → the six accents (decided 2026-11-18)
+
+---
+
+# The family — Spark + a sister player (planned 2026-11-18)
+
+Two things, planned together because they share code: **Spark** comes into
+playlist.lens, and a **sister media player** joins the family (local files + Spotify,
+in one app). Spark's source of truth: `docs/spark/SPARK_BRIEF.md` + `docs/spark/art/`.
+
+## A. Spark in playlist.lens
+
+**Who:** a chubby amber four-point star with a face — "a little smarter than a rock.
+but hey." Lowercase one-liners, moves on springs, never covers the music, never makes
+things up. Fixed amber `#FFC23D` — he does NOT take the album-art tint (he's a separate
+little being sitting on the UI). Credit: "made by astro".
+
+**Principle: scripted first.** Every line comes from a line bank filled with the app's
+own computed numbers (code inserts them; nothing generated states a number). A
+generated tier (an LLM writing lines from aggregate stats) stays out unless Andrei
+decides otherwise — no cloud LLM, no new cost, no listening data leaving for Spark.
+
+### S1 — Spark himself (the component)
+- [ ] `Spark` component: the exact SVG spec drawn with react-native-svg, animated with
+      Reanimated — a parametric face (eye shape, mouth path, blush) + body squash/stretch,
+      tilt and an extras layer (ring, orbiting stars, sparkles, z's, glitch ghost)
+- [ ] Moods: idle (bob, sway, blink ~3.4 s ± jitter), listening, thinking, talking,
+      happy (hop + sparkles), error (> <, glitch), sleeping (14° tilt, z's), loading
+      (squish to a square), uwu, shocked — plus the missing ones: unsure (one squinted
+      eye), unloaded/offline (dim), vibing (eyes shut, bob to the beat)
+- [ ] Tiny Spark (body + two eyes) for ≤ 24 px: chips, the widget, notification icon
+- [ ] Rules baked in: transform/opacity only, ONE loop at a time, pauses off-screen and
+      in the background, static pose under Reduce motion, soft dark glow when he sits
+      on yellow/orange artwork
+- [ ] Speech bubble: Outfit 500/700, cream on dark glass, auto-dismiss ~4 s,
+      `accessibilityLabel="Spark: <line>"`
+- [ ] Motion lab page for Spark: every mood, the tiny version, the bubble
+
+### S2 — his brain (the director + line banks)
+- [ ] `SparkDirector`: decides when he speaks — at most 1 unprompted line per screen
+      visit and ~3 per session; quiet while scrolling, editing or reading a chart;
+      never on every song change; greeting only on first open or after ≥ 12 h
+- [ ] Line banks per event × mood, drawn as a shuffled deck (no repeats), in his voice
+      (canon lines from the brief + the proposed ones, all lowercase, no emoji)
+- [ ] Memory on the phone only (MMKV): last greeting, lines shown, milestones already
+      celebrated, mute setting
+- [ ] Setting: Spark **on / quiet (visible, silent) / off**
+
+### S3 — where he lives in playlist.lens
+| Place | Spark |
+|---|---|
+| Home | **the dot in the playlist.lens wordmark is his home** (his lore: he lives in the crossbar of the A). Off duty it's just a dot; he pops out of it, squash-lands, and hops back in |
+| Lenses strip | the live weekly lines (already built) become things Spark says when you tap him |
+| Opening a lens | `loading` while analysing → `happy` hop + one headline insight |
+| Vibe from genres | `unsure` face + an honest line (audio features are unavailable to this app) |
+| Stat explainer | long-press a stat → Spark explains it in one line |
+| Wrapped / story mode | reacts to the week; the story's last slide is his ("that's your week. i counted. twice.") |
+| Pull to refresh | sits inside the aperture while it spins |
+| Empty states | `sleeping` ("nothing here yet. i'll nap till you add one.") |
+| Errors / offline | `error` / `unloaded` + one honest line — the real message and its button come first |
+| Widget | tiny Spark beside the week's time |
+| Notifications | off by default; the weekly recap in his voice, opt-in |
+| Easter eggs | tap him 5× → big hop + a rock joke; a hidden rock somewhere ("that's my rival. we don't talk.") |
+| About | fine-print humour ("the most intelligent star ever made.* *out of 1 star tested.") + "made by astro" |
+
+## B. The sister player — local files + Spotify, one app
+
+**What:** a music player in the playlist.lens family. It plays music files on the
+phone (MP3, FLAC, M4A, OGG) AND drives Spotify, from one Liquid interface, with Spark
+vibing in the corner. playlist.lens stays the stats/analysis app; the player is where
+you listen. Your local plays count in playlist.lens's Wrapped too.
+
+### The honest constraint
+Spotify does not let third-party apps stream its audio. "Spotify" in the player means
+**controlling the Spotify app** (play, pause, skip, seek, queue, start playlists) and
+showing it beautifully — the same thing playlist.lens's transport already does, done
+properly. It needs Premium. Local files play inside the player itself.
+
+### Architecture
+- **One repo, two apps, shared packages** (a monorepo): `apps/lens` (playlist.lens),
+  `apps/player`, and `packages/` for what both use — the design system + Liquid tokens,
+  the motion primitives (aurora, tab bar, rolling numbers…), **Spark**, the Spotify API
+  client, palette extraction, the play-database schema. Built once, used twice.
+- **Two playback engines behind one `Player` interface:**
+  - *Local* — react-native-track-player (Android Media3/ExoPlayer): background play,
+    lock-screen + notification controls, Bluetooth buttons, gapless, FLAC
+  - *Spotify* — remote control through the existing backend's playback endpoints (and
+    later the Spotify App Remote SDK for instant state, if it's worth a native module)
+  - One "now playing" state, one queue screen; the UI never cares which engine plays
+- **Library:** Android's media store (expo-media-library) for songs/albums/artists/
+  folders; embedded cover art; `.lrc` lyrics next to the file when present
+- **Shared listening:** local plays are posted to the same backend tracker
+  (`src = local`), so playlist.lens shows them in Wrapped, recaps and story mode
+- Same Spotify app + backend + allow-list as playlist.lens (Development Mode cap applies)
+
+### Phases
+- **P0 — the family split** *(no visible change)*: move playlist.lens into the monorepo;
+  extract the shared packages; both apps build from it; Spark lands in `packages/spark`
+- **P1 — local player MVP:** library (songs / albums / artists / folders), search, queue,
+  full-screen Liquid Now Playing (cover-tinted aurora, big cover, swipe to change track),
+  lock-screen controls, gapless, shuffle/repeat, sleep timer, Spark vibing
+- **P2 — Spotify mode:** your Spotify now playing in the same screen; browse your
+  playlists and start them; the queue cart from playlist.lens works here too
+- **P3 — the family link:** local plays flow into playlist.lens stats; "open in
+  playlist.lens" from any album/artist; shared accent + icon colourways
+- **P4 — nice to have:** an equaliser (native effect), `.lrc` synced lyrics, a widget,
+  Android Auto, a mixed queue (local → Spotify hand-off), iOS
+
+### Decisions for Andrei
+1. The player's name (family: playlist.lens → ?)
+2. Spark's default: on, or quiet until you meet him in onboarding?
+3. Headphones on Spark in the music apps — the brief says ask first
+4. Monorepo (recommended) or a separate repo that copies the shared code
