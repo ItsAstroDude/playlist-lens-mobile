@@ -19,6 +19,11 @@ import {
 // Selectable mono/body faces for Expressive Expressions (see FONTS in theme.ts).
 // The Syne display face is the fixed brand face and is always loaded above.
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono'
+import { Manrope_500Medium, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope'
+import { useNowPlaying } from '@/hooks/useNowPlaying'
+import { usePalette } from '@/hooks/usePalette'
+import { setTint, toHex, fallbackTint, type Tint } from '@/utils/liquidTint'
+import { ensureReadable } from '@/utils/color'
 import { IBMPlexMono_400Regular, IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono'
 import * as SecureStore from 'expo-secure-store'
 import { SecureKeys } from '@/utils/cache'
@@ -61,6 +66,30 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   )
 }
 
+/**
+ * Liquid (2.0): feeds the playing song's cover colours into the app-wide tint the
+ * aurora background floats in. Keeps the last song's colours when playback stops.
+ */
+function LiquidTintFeeder() {
+  const { np } = useNowPlaying()
+  const { extract } = usePalette()
+  const id = np?.item?.id ?? null
+  const art = np?.item?.album?.images?.[0]?.url ?? null
+  useEffect(() => {
+    if (!id || !art) return
+    let alive = true
+    extract(`np-${id}`, art).then(p => {
+      if (!alive) return
+      const fb = fallbackTint()
+      const pick = (c: string | undefined, i: number) => ensureReadable(toHex(c) ?? fb[i], 2.2)
+      const t: Tint = [pick(p.primary, 0), pick(p.detail, 1), pick(p.secondary, 2), pick(p.background, 3)]
+      setTint(t)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [id, art])
+  return null
+}
+
 export default function RootLayout() {
   // Keep the current screen on error reports.
   const pathname = usePathname()
@@ -86,6 +115,9 @@ export default function RootLayout() {
     SpaceMono_700Bold,
     IBMPlexMono_400Regular,
     IBMPlexMono_500Medium,
+    Manrope_500Medium,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
   })
 
   useEffect(() => {
@@ -193,6 +225,7 @@ export default function RootLayout() {
       </Stack>
 
       {/* Root-mounted overlays (above the whole navigator) */}
+      {isAuthenticated && <LiquidTintFeeder />}
       {isAuthenticated && <QueueCartTray />}
       <StartQueueSheet visible={showQueue} tracks={queueTracks} onClose={() => { setShowQueue(false); setQueueTracks(undefined) }} />
       <WhatsNew visible={showWhatsNew} all={whatsNewAll} onClose={onWhatsNewClose} />

@@ -29,17 +29,20 @@ export interface FontFamilySet {
 // BRAND identity — the Syne display face is FIXED and never themed, so the
 // "playlist.lens" wordmark and every screen header (Your Lenses, Compare, Wrapped,
 // Swipe, and any future ones) stay on-brand regardless of the user's font choice.
-const BRAND = { syne: 'Syne_700Bold', syneBold: 'Syne_800ExtraBold', display: 'Syne_700Bold' } as const
+// 2.0 Liquid: the brand face is Manrope (the `syne*` keys keep their names so every
+// existing style picks it up).
+const BRAND = { syne: 'Manrope_700Bold', syneBold: 'Manrope_800ExtraBold', display: 'Manrope_800ExtraBold' } as const
 
 // The font picker swaps ONLY the mono/body face (labels, meta, data, body copy) —
 // which is the bulk of the UI text. Headlines stay Syne.
 export interface FontOption { id: string; label: string; mono: string; monoMedium: string }
 export const FONTS: FontOption[] = [
-  { id: 'dmmono',    label: 'DM Mono',       mono: 'DMMono_400Regular',      monoMedium: 'DMMono_500Medium'  }, // default
+  { id: 'manrope',   label: 'Manrope',       mono: 'Manrope_500Medium',      monoMedium: 'Manrope_700Bold'   }, // 2.0 default
+  { id: 'dmmono',    label: 'DM Mono',       mono: 'DMMono_400Regular',      monoMedium: 'DMMono_500Medium'  }, // 1.x default
   { id: 'spacemono', label: 'Space Mono',    mono: 'SpaceMono_400Regular',   monoMedium: 'SpaceMono_700Bold' },
   { id: 'plexmono',  label: 'IBM Plex Mono', mono: 'IBMPlexMono_400Regular', monoMedium: 'IBMPlexMono_500Medium' },
 ]
-export const DEFAULT_FONT_ID = 'dmmono'
+export const DEFAULT_FONT_ID = 'manrope'
 
 function hexToRgb(hex: string): [number, number, number] {
   let h = hex.replace('#', '').trim()
@@ -109,10 +112,10 @@ const NEUTRALS = _isLight ? {
 } : {
   background:     '#131315',
   sheet:          '#17171b',                 // slightly lifted off the bg
-  glass:          'rgba(255,255,255,0.04)',
-  glassBorder:    'rgba(255,255,255,0.10)',
+  glass:          'rgba(255,255,255,0.075)',  // 2.0 Liquid: frosted glass over the aurora
+  glassBorder:    'rgba(255,255,255,0.15)',
   glassHighlight: 'rgba(255,255,255,0.13)',
-  card:           'rgba(255,255,255,0.04)',
+  card:           'rgba(255,255,255,0.07)',
   cardHover:      'rgba(255,255,255,0.08)',
   border:         'rgba(255,255,255,0.10)',
   text:           '#E5E1E4',
