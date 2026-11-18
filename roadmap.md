@@ -382,8 +382,9 @@ properly. It needs Premium. Local files play inside the player itself.
   pulled into both apps as a git dependency. Everything else is copied once and then
   allowed to diverge.
 - **Two playback engines behind one `Player` interface:**
-  - *Local* — react-native-track-player (Android Media3/ExoPlayer): background play,
-    lock-screen + notification controls, Bluetooth buttons, gapless, FLAC
+  - *Local* — expo-audio's native `AudioPlaylist` (Media3/ExoPlayer): background play,
+    lock-screen + notification controls, Bluetooth buttons, FLAC. (Changed 2026-11-18:
+    react-native-track-player still isn't solid on the new architecture that SDK 58 requires.)
   - *Spotify* — remote control through the existing backend's playback endpoints (and
     later the Spotify App Remote SDK for instant state, if it's worth a native module)
   - One "now playing" state, one queue screen; the UI never cares which engine plays
@@ -405,6 +406,15 @@ properly. It needs Premium. Local files play inside the player itself.
   playlist.lens" from any album/artist; shared accent + icon colourways
 - **P4 — nice to have:** an equaliser (native effect), `.lrc` synced lyrics, a widget,
   Android Auto, a mixed queue (local → Spotify hand-off), iOS
+
+### Status (2026-11-18)
+- **P0 + P1 built** as Soundwave 0.1: Expo SDK 58, local library (tags + covers via
+  `@missingcore/react-native-metadata-retriever`), queue engine, Wave UI, Spark, play log.
+  First APK built on EAS (`@itsastrodudr/soundwave`). Waiting on a GitHub repo to push to.
+- **Design — "Wave":** flat ink surfaces (no glass), cream type, one mint accent,
+  Bricolage Grotesque headlines + Outfit body; wave scrubber, live wave, swipeable cover.
+- Spark is copied in for now (`src/spark`), identical to playlist.lens; becomes the
+  shared package in P3.
 
 ### Decisions
 - ~~Spark default~~ → **on**, with his AI working (S2b) · ~~Headphones~~ → **both apps**
