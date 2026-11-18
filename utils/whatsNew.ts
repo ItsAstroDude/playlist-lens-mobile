@@ -26,6 +26,12 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'New',
         items: [
+          'A new liquid tab bar: the highlight stretches between tabs like a drop of water.',
+          'Story mode: open Wrapped and tap “Play your week” to watch your week as full-screen slides.',
+          'Playlists open with their cover flying into place, and the cover collapses smoothly as you scroll.',
+          'Numbers roll into place, lists come into focus, adding to the queue throws confetti, and the Now Playing sheet glows in the colours of the cover.',
+          'Swipe has real physics now: throw cards, and the next one springs up.',
+          'Pull to refresh your lenses and the app’s aperture spins. Try every animation in Settings › About › Motion lab.',
           'A home-screen widget: this week’s listening time, how it compares with last week, your top artist and your last play. Long-press your home screen › Widgets › playlist.lens.',
           'Pick your app icon in Settings › Appearance: the Aperture in all six accent colours.',
           'Crash reports go to your own server, so problems get fixed. See them in Settings › About › Errors.',

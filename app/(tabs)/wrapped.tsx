@@ -23,6 +23,7 @@ import { confirmDialog } from '@/utils/dialog'
 import type { ArtKind } from '@/hooks/useArtwork'
 import { Icon } from '@/components/ui/Icon'
 import { useLoadTime, useRenderStart } from '@/utils/perf'
+import { RollingNumber, RackFocus, LiquidFill } from '@/components/motion'
 
 const PRIVACY_URL = 'https://www.spotify.com/account/privacy/'
 
@@ -241,7 +242,9 @@ export default function WrappedTab() {
             <View style={styles.cardSpecular} />
             <Text style={styles.sectionLabel}>{item.title}</Text>
             {item.rows.map((r, i) => (
-              <RankRow key={r.name + i} rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)} trailing={r.add ? <AddToQueueButton item={r.add} /> : undefined} />
+              <RackFocus key={r.name + i} index={Math.min(i, 8)} step={70}>
+                <RankRow rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)} trailing={r.add ? <AddToQueueButton item={r.add} /> : undefined} />
+              </RackFocus>
             ))}
           </View>
         )
@@ -267,7 +270,7 @@ export default function WrappedTab() {
         return (
           <Card tone="accent" padded style={styles.block}>
             <Text style={styles.sectionLabel}>{item.title}</Text>
-            <Text style={styles.pHeroValue} accessibilityLabel={`${fmtPeriod(item.kind, item.ms)} listened`}>{fmtPeriod(item.kind, item.ms)}</Text>
+            <RollingNumber value={fmtPeriod(item.kind, item.ms)} style={styles.pHeroValue} containerStyle={{ marginTop: Spacing.xs }} />
             <Text style={Type.caption}>
               {item.delta === null
                 ? `listened this ${PERIOD_WORD[item.kind]}`
@@ -348,8 +351,11 @@ export default function WrappedTab() {
 
         {parsing ? (
           <View style={styles.parsing}>
-            <ActivityIndicator size="large" color={Colors.greenPrimary} />
-            <Text style={styles.parsingText}>Crunching your history{progress.total ? `  ${progress.done}/${progress.total}` : ''}…</Text>
+            {/* 2.0: the import fills like a glass — motion #7 */}
+            <LiquidFill progress={progress.total ? progress.done / progress.total : 0.04} size={190} color={Colors.greenPrimary} label="Importing your history">
+              <RollingNumber value={`${progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%`} style={styles.fillPct} />
+            </LiquidFill>
+            <Text style={styles.parsingText}>Crunching your history{progress.total ? `  ${progress.done}/${progress.total} files` : ''}…</Text>
           </View>
         ) : (mode !== 'all' || stats) ? (
           <View style={{ flex: 1 }}>
@@ -422,7 +428,8 @@ const styles = StyleSheet.create({
   modes: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, flexWrap: 'wrap' },
   block: { marginBottom: Spacing.md },
   tiles: { flexDirection: 'row', gap: Spacing.md },
-  pHeroValue: { fontFamily: FontFamily.syneBold, fontSize: FontSize['4xl'], color: Colors.greenPrimary, letterSpacing: -2, marginTop: Spacing.xs },
+  pHeroValue: { fontFamily: FontFamily.syneBold, fontSize: FontSize['4xl'], color: Colors.greenPrimary, letterSpacing: -2 },
+  fillPct: { fontFamily: FontFamily.syneBold, fontSize: 34, color: '#ffffff', letterSpacing: -1 },
   bucketLabels: { flexDirection: 'row', gap: 2, marginTop: 4 },
   bucketLabel: { flex: 1, textAlign: 'center' },
 

@@ -11,6 +11,9 @@ import Animated, {
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { Sheet, Button } from '@/components/ui'
+import { Aurora } from '@/components/motion/Aurora'
+import { usePalette } from '@/hooks/usePalette'
+import { activeThemeMode } from '@/constants/theme'
 import { loadTrackIndex } from '@/hooks/useWrapped'
 import { fmtMinutesShort, type TrackStat } from '@/utils/wrapped'
 import { pokeNowPlaying, type NowPlaying } from '@/hooks/useNowPlaying'
@@ -125,11 +128,23 @@ export function NowPlayingSheet({ np, onClose }: {
 
   const accent = Colors.greenPrimary
   const art = item?.album?.images?.[0]?.url ?? null
+  // 2.0 — motion #1: an aurora in the cover's colours drifts behind the sheet (dark theme).
+  const { palettes, extract } = usePalette()
+  const palKey = item?.id ? `np-${item.id}` : null
+  useEffect(() => { if (palKey && art) extract(palKey, art) }, [palKey, art])
+  const pal = palKey ? palettes[palKey] : undefined
+  const auroraColors: [string, string, string, string] | null = pal && activeThemeMode() === 'dark'
+    ? [pal.primary, pal.secondary, pal.detail, pal.background] : null
   const initial = (item?.name ?? '?').trim().charAt(0).toUpperCase()
 
   return (
     <>
       <Sheet open={isOpen} onClose={onClose} zIndex={30}>
+        {auroraColors && (
+          <View style={styles.aurora} pointerEvents="none">
+            <Aurora colors={auroraColors} base={Colors.sheet} dim={0.5} style={StyleSheet.absoluteFill} />
+          </View>
+        )}
         <View style={styles.body}>
 
         {/* Artwork */}
@@ -204,6 +219,7 @@ export function NowPlayingSheet({ np, onClose }: {
 }
 
 const styles = StyleSheet.create({
+  aurora: { ...StyleSheet.absoluteFillObject, zIndex: -1, borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: Radius['2xl'], overflow: 'hidden' },
   body: { alignItems: 'center', paddingHorizontal: Spacing.xs, paddingTop: Spacing.xs },
   artWrap: {
     width: 148, height: 148, borderRadius: Radius.xl, overflow: 'hidden',

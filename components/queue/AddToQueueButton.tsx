@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { Pressable, Text, StyleSheet } from 'react-native'
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
-import { Colors, FontFamily, Radius, alpha } from '@/constants/theme'
-import { Spring, haptic } from '@/constants/animation'
+import { View, StyleSheet } from 'react-native'
+import { Colors, FontFamily, alpha } from '@/constants/theme'
+import { haptic } from '@/constants/animation'
+import { SaveBurst } from '@/components/motion/SaveBurst'
 import { inCart, toggleCart, onCart, cartFull, CART_MAX, type QueueItem } from '@/utils/queueCart'
 import { showToast } from '@/utils/dialog'
 import { Icon } from '@/components/ui/Icon'
@@ -20,14 +20,11 @@ export function AddToQueueButton({ item, size = 28, onFeedback = showToast }: {
   onFeedback?: (msg: string) => void
 }) {
   const [added, setAdded] = useState(() => inCart(item.uri))
-  const scale = useSharedValue(1)
 
   useEffect(() => {
     setAdded(inCart(item.uri))
     return onCart(() => setAdded(inCart(item.uri)))
   }, [item.uri])
-
-  const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
 
   const onPress = () => {
     if (!added && cartFull()) {
@@ -37,31 +34,20 @@ export function AddToQueueButton({ item, size = 28, onFeedback = showToast }: {
     }
     const nowAdded = toggleCart(item)
     setAdded(nowAdded)
-    nowAdded ? haptic.medium() : haptic.light()
-    scale.value = 0.78
-    scale.value = withSpring(1, Spring.snappy)
+    if (!nowAdded) haptic.light()   // adding: SaveBurst gives the success buzz
   }
 
+  // 2.0: adding bursts (spring pop, ring, confetti) — motion #2.
   return (
-    <Animated.View style={aStyle}>
-      <Pressable
-        onPress={onPress}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={added ? 'Remove from queue' : 'Add to queue'}
-        style={[
-          styles.btn,
-          { width: size, height: size, borderRadius: size / 2 },
-          added ? styles.btnOn : styles.btnOff,
-        ]}
-      >
-        <Icon
-          name={added ? 'checkmark' : 'add'}
-          size={Math.round(size * 0.58)}
-          color={added ? Colors.background : Colors.greenPrimary}
-        />
-      </Pressable>
-    </Animated.View>
+    <SaveBurst
+      active={added} onPress={onPress} size={size} distance={size * 1.3}
+      colors={[Colors.greenPrimary, Colors.lavender, Colors.pink, Colors.warning]}
+      label={added ? 'Remove from queue' : 'Add to queue'}
+    >
+      <View style={[styles.btn, { width: size, height: size, borderRadius: size / 2 }, added ? styles.btnOn : styles.btnOff]}>
+        <Icon name={added ? 'checkmark' : 'add'} size={Math.round(size * 0.58)} color={added ? Colors.background : Colors.greenPrimary} />
+      </View>
+    </SaveBurst>
   )
 }
 

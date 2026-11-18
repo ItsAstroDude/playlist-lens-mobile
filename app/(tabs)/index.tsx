@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { DetailSheet, detailCoverRect } from '@/components/sheet/DetailSheet'
 import { CoverFlight, type Flight } from '@/components/motion/CoverFlight'
+import { Aperture } from '@/components/motion/Aperture'
 import { FlashList } from '@shopify/flash-list'
 import Animated, {
   useSharedValue,
@@ -353,13 +354,19 @@ export default function PlaylistsTab() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor={Colors.greenPrimary}
-                colors={[Colors.greenPrimary]}
-                progressBackgroundColor={Colors.card}
+                // 2.0: the Aperture shows the refresh (motion #8); the system spinner is hidden.
+                tintColor="transparent"
+                colors={['transparent']}
+                progressBackgroundColor="transparent"
               />
             }
           />
         )}
+          {refreshing && (
+            <View style={styles.aperture} pointerEvents="none">
+              <Aperture size={46} loading cut={Colors.background} label="Refreshing your lenses" />
+            </View>
+          )}
         </Animated.View>
 
         {/* ── Detail sheet ── */}
@@ -456,6 +463,7 @@ const styles = StyleSheet.create({
 
   // List content padding — clears the floating pill navbar
   listWrap: { flex: 1 },
+  aperture: { position: 'absolute', top: 10, alignSelf: 'center' },
   listContent: {
     paddingBottom: 130,
   },
