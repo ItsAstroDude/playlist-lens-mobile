@@ -171,7 +171,8 @@ fingerprint goes in together), then the rest ships over the air in phases.
 
 ## Phase 0 — finish 1.8 "refine in place" (OTA, in progress)
 - [x] DetailSheet + StartQueueSheet onto the shared Sheet (careful: their own drag gestures) — 1.8.5
-- [ ] Lenses PlaylistCard, login screen, onboarding tour onto the design system
+- [x] Lenses PlaylistCard + login screen onto the design system — 1.8.6
+- [ ] Onboarding tour onto the design system
 - [ ] Wrapped extras: listening clock per period, artwork in period lists
 - [ ] Measure load times (cold start, Lenses, Wrapped, Recaps) → numbers in this file
 - [ ] Update the Claude design system with TabHeader / RankRow / TrackRow / Sheet / Button

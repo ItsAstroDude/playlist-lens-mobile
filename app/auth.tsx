@@ -17,10 +17,11 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, GreenGlow } from '@/constants/theme'
+import { Colors, FontFamily, FontSize, Spacing, Type, GreenGlow } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/Button'
+import { reduceMotionEnabled } from '@/utils/settings'
 
 const { width, height } = Dimensions.get('window')
 
@@ -40,6 +41,14 @@ export default function AuthScreen() {
   const tagOpacity  = useSharedValue(0)
 
   useEffect(() => {
+    // Reduce motion: everything simply appears, and the orb holds still.
+    if (reduceMotionEnabled()) {
+      logoY.value = 0; logoOpacity.value = 1
+      tagY.value  = 0; tagOpacity.value  = 1
+      btnY.value  = 0; btnOpacity.value  = 1
+      return
+    }
+
     // Orb pulse — breathes in and out on repeat
     orbScale.value = withRepeat(
       withSequence(
@@ -104,6 +113,7 @@ export default function AuthScreen() {
       <Animated.View style={[styles.logoWrap, logoStyle]}>
         <Text
           style={styles.logoText}
+          accessibilityRole="header"
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.6}
@@ -114,7 +124,7 @@ export default function AuthScreen() {
 
       {/* Tagline */}
       <Animated.Text style={[styles.tagline, tagStyle]}>
-        Deep analysis for your Spotify playlists.{'\n'}Moods, genres, hidden gems, and more.
+        Lenses on your playlists, your week in music,{'\n'}and everything you’ve been playing.
       </Animated.Text>
 
       {/* Login button */}
@@ -126,17 +136,17 @@ export default function AuthScreen() {
           loading={isLoading}
           size="lg"
           fullWidth
-          style={styles.loginBtn}
-          textStyle={styles.loginBtnText}
+          accessibilityRole="button"
+          accessibilityLabel="Log in with Spotify"
         />
         {error && (
-          <Text style={styles.error}>{error}</Text>
+          <Text style={styles.error} accessibilityRole="alert">{error}</Text>
         )}
       </Animated.View>
 
-      {/* Subtle bottom note */}
+      {/* Subtle bottom note — what's stored where, in one honest line */}
       <Animated.Text style={[styles.note, tagStyle]}>
-        Your data never leaves your device.
+        Your stats stay on this phone. Server tracking is opt-in.
       </Animated.Text>
     </View>
   )
@@ -184,14 +194,7 @@ const styles = StyleSheet.create({
   logoDot: { color: Colors.greenPrimary },
 
   // Tagline
-  tagline: {
-    fontFamily: FontFamily.mono,
-    fontSize:   FontSize.base,
-    color:      Colors.textMuted,
-    textAlign:  'center',
-    lineHeight: FontSize.base * 1.7,
-    maxWidth:   280,
-  },
+  tagline: { ...Type.body, color: Colors.textMuted, textAlign: 'center', lineHeight: FontSize.base * 1.7, maxWidth: 300 },
 
   // Button
   btnWrap: {
@@ -199,27 +202,7 @@ const styles = StyleSheet.create({
     gap:    Spacing.md,
     alignItems: 'center',
   },
-  loginBtn: {
-    borderRadius: 40,
-    ...GreenGlow,
-  },
-  loginBtnText: {
-    fontFamily: FontFamily.monoMedium,
-    fontSize:   FontSize.md,
-  },
+  error: { ...Type.caption, fontSize: FontSize.sm, color: Colors.error, textAlign: 'center' },
 
-  error: {
-    fontFamily: FontFamily.mono,
-    fontSize:   FontSize.sm,
-    color:      Colors.error,
-    textAlign:  'center',
-  },
-
-  note: {
-    position:   'absolute',
-    bottom:     Spacing['3xl'],
-    fontFamily: FontFamily.mono,
-    fontSize:   FontSize.xs,
-    color:      Colors.textDim,
-  },
+  note: { ...Type.caption, position: 'absolute', bottom: Spacing['3xl'], left: Spacing['3xl'], right: Spacing['3xl'], textAlign: 'center' },
 })

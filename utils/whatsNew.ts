@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.8.6',
+    name:    'First Impressions',
+    date:    '2026-11-18',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Playlist cards use the app’s type scale, and screen readers now read each card’s name, track count and vibe.',
+          'The login screen is on the design system, with an up-to-date tagline and a clearer line about what’s stored where.',
+          'Reduce motion now also stills the playlist card entrance and the login glow.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.8.5',
     name:    'Every Sheet',
     date:    '2026-11-18',

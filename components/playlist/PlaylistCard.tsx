@@ -15,10 +15,11 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated'
-import { Colors, FontFamily, FontSize, Spacing, Radius, OnDark } from '@/constants/theme'
+import { Colors, FontSize, Spacing, Radius, Type, OnDark } from '@/constants/theme'
 import { Spring, STAGGER_DELAY_MS, haptic } from '@/constants/animation'
 import { getCache, CacheKeys } from '@/utils/cache'
 import { vibeColor } from '@/utils/color'
+import { reduceMotionEnabled } from '@/utils/settings'
 import type { SpotifyPlaylist, PlaylistPalette, PlaylistAnalysis } from '@/types'
 
 const { width: SCREEN_W } = Dimensions.get('window')
@@ -51,11 +52,13 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, l
     return cached?.vibe ?? null
   }, [playlist.id])
 
-  // ── Staggered entrance ──
-  const translateY = useSharedValue(32)
-  const opacity    = useSharedValue(0)
+  // ── Staggered entrance (skipped under Reduce motion: cards are just there) ──
+  const still      = reduceMotionEnabled()
+  const translateY = useSharedValue(still ? 0 : 32)
+  const opacity    = useSharedValue(still ? 1 : 0)
 
   useEffect(() => {
+    if (still) return
     const delay = Math.min(index * STAGGER_DELAY_MS, 400)
     translateY.value = withDelay(delay, withSpring(0, Spring.entrance))
     opacity.value    = withDelay(delay, withTiming(1, { duration: 380 }))
@@ -115,6 +118,9 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, l
         onLongPress={handleLongPress}
         delayLongPress={300}
         style={[pressStyle, styles.card, { borderColor, shadowColor: glowColor }]}
+        accessibilityRole="button"
+        accessibilityLabel={`${playlist.name}, ${playlist.tracks.total} tracks${cachedVibe ? `, ${cachedVibe}` : ''}`}
+        accessibilityHint={onLongPress ? 'Opens the lens. Long-press for more actions.' : 'Opens the lens.'}
       >
         {/* Cover art fills the card */}
         {coverUrl ? (
@@ -218,12 +224,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical:   3,
   },
-  vibeText: {
-    fontFamily: FontFamily.mono,
-    fontSize:   FontSize.xs,
-    color:      Colors.greenPrimary,
-    letterSpacing: 0.5,
-  },
+  vibeText: { ...Type.caption, letterSpacing: 0.5 },
 
   // Bottom info overlay
   bottomInfo: {
@@ -234,33 +235,14 @@ const styles = StyleSheet.create({
     padding:  Spacing.md,
     gap:      3,
   },
-  name: {
-    fontFamily:    FontFamily.syneBold,
-    fontSize:      FontSize.lg,
-    color:         OnDark.text,   // card is always a dark cover gradient
-    letterSpacing: -0.5,
-    lineHeight:    FontSize.lg * 1.2,
-  },
-  nameGrid: {
-    fontFamily:    FontFamily.syneBold,
-    fontSize:      FontSize.base,
-    color:         OnDark.text,
-    letterSpacing: -0.3,
-    lineHeight:    FontSize.base * 1.2,
-  },
+  // The card is always a dark cover gradient, so text uses OnDark, not the theme.
+  name:     { ...Type.heading, color: OnDark.text, lineHeight: FontSize.lg * 1.2 },
+  nameGrid: { ...Type.heading, fontSize: FontSize.base, letterSpacing: -0.3, color: OnDark.text, lineHeight: FontSize.base * 1.2 },
   metaRow: {
     flexDirection: 'row',
     alignItems:    'center',
     gap:           Spacing.xs,
   },
-  metaText: {
-    fontFamily: FontFamily.mono,
-    fontSize:   FontSize.xs,
-    color:      OnDark.textMuted,
-  },
-  metaDot: {
-    fontFamily: FontFamily.mono,
-    fontSize:   FontSize.xs,
-    color:      OnDark.textDim,
-  },
+  metaText: { ...Type.caption, color: OnDark.textMuted },
+  metaDot:  { ...Type.caption, color: OnDark.textDim },
 })
