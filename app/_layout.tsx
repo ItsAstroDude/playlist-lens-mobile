@@ -1,7 +1,8 @@
 // First import: starts the JS-side load-time clock (utils/perf).
 import '@/utils/perf'
 import React, { useEffect, useRef, useState } from 'react'
-import { Stack, router } from 'expo-router'
+import { Stack, router, usePathname, type ErrorBoundaryProps } from 'expo-router'
+import { installErrorReporting, reportError, flushErrors, setErrorScreen } from '@/utils/errorReport'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -35,10 +36,34 @@ import {
 } from '@/utils/whatsNew'
 import { useAutoWrapped } from '@/hooks/useAutoWrapped'
 import { syncNotificationsOnLaunch } from '@/utils/notifications'
-import { View, StyleSheet } from 'react-native'
-import { Colors, activeThemeMode } from '@/constants/theme'
+import { View, StyleSheet, AppState, Text, Pressable } from 'react-native'
+import { Colors, Spacing, Radius, Type, activeThemeMode } from '@/constants/theme'
+
+// Hook the global error handlers before anything renders (crash-safe MMKV queue).
+installErrorReporting()
+
+/**
+ * Root error boundary (expo-router): a render crash anywhere lands here instead of a
+ * blank app. Reported once, with a way back in.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const reported = useRef(false)
+  if (!reported.current) { reported.current = true; reportError(error, { fatal: true, screen: 'error-boundary' }) }
+  return (
+    <View style={[styles.splash, styles.crash]}>
+      <Text style={styles.crashTitle}>Something went wrong</Text>
+      <Text style={styles.crashBody}>The error was saved and will be sent with your next sync, so it can be fixed.</Text>
+      <Pressable onPress={retry} style={styles.crashBtn} accessibilityRole="button">
+        <Text style={styles.crashBtnText}>Try again</Text>
+      </Pressable>
+    </View>
+  )
+}
 
 export default function RootLayout() {
+  // Keep the current screen on error reports.
+  const pathname = usePathname()
+  useEffect(() => { setErrorScreen(pathname) }, [pathname])
   const [isReady,        setIsReady]        = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [showTutorial,   setShowTutorial]   = useState(false)
@@ -97,6 +122,14 @@ export default function RootLayout() {
     else if (shouldShowWhatsNew()) { setWhatsNewAll(false); setShowWhatsNew(true) }
   }, [isReady, isAuthenticated])
 
+  // Send queued error reports once logged in, and whenever the app comes back.
+  useEffect(() => {
+    if (!isAuthenticated) return
+    flushErrors()
+    const sub = AppState.addEventListener('change', s => { if (s === 'active') flushErrors() })
+    return () => sub.remove()
+  }, [isAuthenticated])
+
   // ── Recap notifications (v1.5) — re-assert the schedule on launch + open Recaps
   // from a cold-start tap. The live tap listener is registered once below. ──
   const authedRef = useRef(false)
@@ -144,6 +177,7 @@ export default function RootLayout() {
             <Stack.Screen name="flagged-covers" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="design"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="load-times" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="errors"    options={{ animation: 'slide_from_right' }} />
           </>
         ) : (
           <Stack.Screen name="auth" options={{ animation: 'fade' }} />
@@ -176,4 +210,9 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   splash: { flex: 1, backgroundColor: Colors.background },
+  crash:        { alignItems: 'center', justifyContent: 'center', padding: Spacing['3xl'], gap: Spacing.md },
+  crashTitle:   { ...Type.title, textAlign: 'center' },
+  crashBody:    { ...Type.body, color: Colors.textMuted, textAlign: 'center' },
+  crashBtn:     { marginTop: Spacing.md, backgroundColor: Colors.greenPrimary, borderRadius: Radius.full, paddingVertical: Spacing.md, paddingHorizontal: Spacing['2xl'] },
+  crashBtnText: { ...Type.label, color: Colors.background },
 })
