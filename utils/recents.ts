@@ -10,7 +10,8 @@
  * there's no double-counting. On-device, additive, non-destructive.
  */
 import { storage } from '@/utils/cache'
-import { timed, recordSize } from '@/utils/perf'
+import { timed } from '@/utils/perf'
+import { windowPlays, insertPlays, newestTs, clearAllPlays } from '@/utils/playDb'
 import { api } from '@/utils/api'
 import { periodKeys } from '@/utils/periods'
 import {
@@ -18,9 +19,8 @@ import {
   type StreamRow, type RecapBundle, type RecapPeriod,
 } from '@/utils/wrapped'
 
-const BUFFER_KEY = 'wrapped_recent'
-// Cap rows so the buffer stays a few MB. Raised for server tracking (v1.8): ~20k plays
-// is roughly a year of heavy listening. The Wrapped revamp moves this to a real store.
+// The "buffer" is now a window onto the play database (utils/playDb, 2.0): this year
+// and last, no cap. BUFFER_MAX only bounds the pure appendToBuffer helper.
 const BUFFER_MAX = 20000
 const SCOPE_FLAG_KEY = 'wrapped_autopull_scope_missing'
 
@@ -43,17 +43,13 @@ interface RpItem {
   }
 }
 
-// ─── Buffer storage ───────────────────────────────────────────────────────────
+// ─── Buffer storage (the play database) ─────────────────────────────────────────
+/** Recent plays (this year and last), oldest first — from the play database. */
 export function loadBuffer(): StreamRow[] {
-  const raw = storage.getString(BUFFER_KEY)
-  if (!raw) return []
-  recordSize('buffer', raw.length)
-  try { return timed('read_buffer', () => JSON.parse(raw) as StreamRow[]) } catch { return [] }
+  return timed('read_buffer', () => windowPlays())
 }
-export function saveBuffer(rows: StreamRow[]): void {
-  storage.set(BUFFER_KEY, JSON.stringify(rows))
-}
-export function clearBuffer(): void { storage.remove(BUFFER_KEY) }
+/** Wipe every stored play (import, tracked, recent). */
+export function clearBuffer(): void { clearAllPlays() }
 
 /** Newest play timestamp we hold (buffer's max ts), or null. */
 export function bufferWatermark(buffer: StreamRow[]): string | null {
@@ -111,9 +107,8 @@ function toStreamRow(it: RpItem): StreamRow {
  * landed. Throws on network/auth errors — callers treat it as best-effort.
  */
 export async function pullRecentlyPlayed(importLastTs?: string | null): Promise<number> {
-  const buffer = loadBuffer()
-  // Watermark = newest of (what's in the buffer, the import's last play).
-  const candidates = [bufferWatermark(buffer), importLastTs ?? null].filter(Boolean) as string[]
+  // Watermark = newest of (what's in the database, the import's last play).
+  const candidates = [newestTs(), importLastTs ?? null].filter(Boolean) as string[]
   const after = candidates.length ? candidates.sort().pop()! : null
   const afterMs = after ? Date.parse(after) : NaN
   const q = Number.isFinite(afterMs) ? `?after=${afterMs}` : '?limit=50'
@@ -122,8 +117,7 @@ export async function pullRecentlyPlayed(importLastTs?: string | null): Promise<
   const rows = (data.items ?? []).map(toStreamRow).filter(r => !!r.ts)
   if (!rows.length) return 0
 
-  saveBuffer(appendToBuffer(buffer, rows))
-  return rows.length
+  return insertPlays(rows, 'recent')
 }
 
 // ─── Merge stored (import) recaps with a live recompute of the buffer ──────────

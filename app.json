@@ -53,7 +53,8 @@
         {
           "color": "#53e076"
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true

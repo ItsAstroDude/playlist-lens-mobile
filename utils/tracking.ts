@@ -9,7 +9,7 @@
 import * as SecureStore from 'expo-secure-store'
 import { api } from '@/utils/api'
 import { storage, SecureKeys } from '@/utils/cache'
-import { appendToBuffer, loadBuffer, saveBuffer } from '@/utils/recents'
+import { insertPlays } from '@/utils/playDb'
 import type { StreamRow } from '@/utils/wrapped'
 
 const ENROLLED_KEY = 'tracking_enrolled'
@@ -132,7 +132,7 @@ export async function syncTrackedPlays(): Promise<number> {
     const items = res.items ?? []
     if (!items.length) break
     const batch = tail ? [tail, ...items] : items
-    saveBuffer(appendToBuffer(loadBuffer(), toStreamRows(batch), { replace: true }))
+    insertPlays(toStreamRows(batch), 'tracked', { replace: true })
     total += items.length
     tail = items[items.length - 1]
     cursor = tail.played_at

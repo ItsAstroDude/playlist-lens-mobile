@@ -52,3 +52,39 @@ jest.mock('@shopify/flash-list', () => {
   const { FlatList } = require('react-native')
   return { FlashList: FlatList }
 })
+
+// expo-sqlite — backed by Node's built-in SQLite (node:sqlite), in memory, so the play
+// database runs real SQL in tests. Each openDatabaseSync() is a fresh empty database.
+jest.mock('expo-sqlite', () => {
+  const emit = process.emitWarning
+  process.emitWarning = (() => {}) as typeof process.emitWarning   // hush "SQLite is experimental"
+  const { DatabaseSync } = require('node:sqlite')
+  process.emitWarning = emit
+  const plain = (r: any) => (r ? { ...r } : null)
+  return {
+    openDatabaseSync: jest.fn(() => {
+      const d = new DatabaseSync(':memory:')
+      return {
+        execSync: (sql: string) => d.exec(sql),
+        runSync: (sql: string, params: any[] = []) => {
+          const r = d.prepare(sql).run(...params)
+          return { changes: Number(r.changes), lastInsertRowId: Number(r.lastInsertRowid) }
+        },
+        getFirstSync: (sql: string, params: any[] = []) => plain(d.prepare(sql).get(...params)),
+        getAllSync:   (sql: string, params: any[] = []) => d.prepare(sql).all(...params).map(plain),
+        withTransactionSync: (task: () => void) => {
+          d.exec('BEGIN')
+          try { task(); d.exec('COMMIT') } catch (e) { d.exec('ROLLBACK'); throw e }
+        },
+        prepareSync: (sql: string) => {
+          const s = d.prepare(sql)
+          return {
+            executeSync: (params: any[] = []) => ({ changes: Number(s.run(...params).changes) }),
+            finalizeSync: () => {},
+          }
+        },
+        closeSync: () => d.close(),
+      }
+    }),
+  }
+})

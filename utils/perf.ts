@@ -36,7 +36,7 @@ export const METRIC_LABEL: Record<Metric, string> = {
   lenses:      'Lenses',
   wrapped:     'Wrapped',
   recaps:      'Recaps',
-  read_buffer: 'Read play buffer',
+  read_buffer: 'Read recent plays',
   read_stats:  'Read lifetime stats',
 }
 

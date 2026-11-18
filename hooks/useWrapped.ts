@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import * as DocumentPicker from 'expo-document-picker'
 import * as FileSystem from 'expo-file-system/legacy'
+import { File } from 'expo-file-system'
 import { unzipSync, strFromU8 } from 'fflate'
 import { storage } from '@/utils/cache'
 import { timed, recordSize } from '@/utils/perf'
@@ -8,7 +9,8 @@ import {
   createAccumulator, addRows, finalize, buildTrackIndex, buildRecaps,
   type StreamRow, type WrappedStats, type TrackStat, type RecapBundle,
 } from '@/utils/wrapped'
-import { normalizeRow, appendToBuffer, loadBuffer, saveBuffer, clearBuffer } from '@/utils/recents'
+import { clearBuffer } from '@/utils/recents'
+import { beginImport, addImportChunk, finishImport, abortImport } from '@/utils/playDb'
 
 const WRAPPED_KEY     = 'wrapped_stats'
 const TRACK_INDEX_KEY = 'wrapped_track_index'
@@ -18,7 +20,18 @@ const LEGACY_RE   = /StreamingHistory[^/]*\.json$/i
 
 type Status = 'idle' | 'parsing' | 'ready' | 'error'
 
-// ─── base64 → bytes (no native dep) ───────────────────────────────────────────
+/**
+ * The file's raw bytes. Native read (expo-file-system's File) — no base64 string of
+ * the whole ZIP in JS. Falls back to the old base64 route if the native read fails.
+ */
+async function readBytes(uri: string): Promise<Uint8Array> {
+  try { return await new File(uri).bytes() } catch {
+    const b64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 })
+    return base64ToBytes(b64)
+  }
+}
+
+// ─── base64 → bytes (fallback) ───────────────────────────────────────────────
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 const LUT = (() => { const l = new Uint8Array(256); for (let i = 0; i < B64.length; i++) l[B64.charCodeAt(i)] = i; return l })()
 function base64ToBytes(b64: string): Uint8Array {
@@ -101,15 +114,12 @@ export function useWrapped() {
       await new Promise(r => setTimeout(r, 30))
 
       const acc = createAccumulator()
-      // Collect the import's recent tail to seed the live buffer (powers fresh recaps).
-      const recentSeed: StreamRow[] = []
-      const seedCutoff = new Date(Date.now() - 400 * 86_400_000).toISOString()
+      // Every play goes into the play database (a re-import replaces the last one);
+      // the accumulator still builds the lifetime stats + recaps blobs for now.
+      beginImport()
       const ingest = (rows: StreamRow[]) => {
         addRows(acc, rows)
-        for (const r of rows) {
-          const ts = r.ts ?? r.endTime
-          if (ts && ts >= seedCutoff) recentSeed.push(normalizeRow(r))
-        }
+        addImportChunk(rows)
       }
       let done = 0
       let sawAny = false
@@ -119,8 +129,7 @@ export function useWrapped() {
         const isZip = name.toLowerCase().endsWith('.zip') || asset.mimeType === 'application/zip'
 
         if (isZip) {
-          const b64   = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 })
-          const bytes = base64ToBytes(b64)
+          const bytes = await readBytes(asset.uri)
           // pass 1 — collect matching entry names without decompressing
           const targets: string[] = []
           unzipSync(bytes, { filter: f => {
@@ -150,22 +159,23 @@ export function useWrapped() {
       }
 
       if (!sawAny) {
+        abortImport()
         setStatus('error')
         setErrorMsg('No streaming history found. Pick the ZIP from Spotify (or its Streaming_History_Audio_*.json files).')
         return
       }
 
+      finishImport()
       const result = finalize(acc)
       storage.set(WRAPPED_KEY, JSON.stringify(result))
       // Full per-track index, stored separately (loaded on demand later).
       try { storage.set(TRACK_INDEX_KEY, JSON.stringify(buildTrackIndex(acc))) } catch { /* index is best-effort */ }
       // Per-period recaps (week/month/season/year), loaded on demand by the Recaps view.
       try { storage.set(RECAPS_KEY, JSON.stringify(buildRecaps(acc))) } catch { /* recaps best-effort */ }
-      // Seed the live buffer with the import's recent tail so recaps are fresh immediately.
-      try { saveBuffer(appendToBuffer(loadBuffer(), recentSeed)) } catch { /* buffer best-effort */ }
       setStats(result)
       setStatus('ready')
     } catch (e: any) {
+      try { abortImport() } catch { /* nothing staged */ }
       setStatus('error')
       setErrorMsg(e?.message ?? 'Could not read that file. Make sure it’s your Spotify data export.')
     }
