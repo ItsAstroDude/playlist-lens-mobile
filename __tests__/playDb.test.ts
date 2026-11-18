@@ -125,3 +125,18 @@ describe('import staging', () => {
     expect(playCounts().import).toBe(1)
   })
 })
+
+describe('weekly facts queries', () => {
+  it('counts artists new since a time, and the days with plays', () => {
+    const { newArtistsSince, activeDays } = require('@/utils/playDb')
+    insertPlays([
+      row('2026-11-01T10:00:00Z', 'u:1', 1000, 'Old Friend'),
+      row('2026-11-17T10:00:00Z', 'u:2', 1000, 'Old Friend'),
+      row('2026-11-17T11:00:00Z', 'u:3', 1000, 'Newcomer'),
+      row('2026-11-18T09:00:00Z', 'u:4', 1000, 'Another New'),
+    ], 'tracked')
+    const weekStart = toT('2026-11-16T00:00:00Z')
+    expect(newArtistsSince(weekStart)).toBe(2)
+    expect(activeDays(weekStart, 0)).toEqual([Math.floor(toT('2026-11-18T00:00:00Z') / 86400), Math.floor(toT('2026-11-17T00:00:00Z') / 86400)])
+  })
+})

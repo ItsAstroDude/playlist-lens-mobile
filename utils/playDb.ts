@@ -257,6 +257,23 @@ export function countSince(sinceT: number): number {
   return db().getFirstSync<{ n: number }>('SELECT COUNT(*) AS n FROM plays WHERE t >= ?', [sinceT])?.n ?? 0
 }
 
+/** Artists heard at or after `sinceT` that never appear before it ("new to you"). */
+export function newArtistsSince(sinceT: number): number {
+  return db().getFirstSync<{ n: number }>(
+    `SELECT COUNT(DISTINCT artist) AS n FROM plays
+     WHERE t >= ? AND artist IS NOT NULL
+       AND artist NOT IN (SELECT DISTINCT artist FROM plays WHERE t < ? AND artist IS NOT NULL)`,
+    [sinceT, sinceT],
+  )?.n ?? 0
+}
+
+/** Distinct local days (days since epoch, shifted by `offsetSec`) with a play since `sinceT`, newest first. */
+export function activeDays(sinceT: number, offsetSec: number): number[] {
+  return db()
+    .getAllSync<{ d: number }>('SELECT DISTINCT CAST((t + ?) / 86400 AS INTEGER) AS d FROM plays WHERE t >= ? ORDER BY d DESC', [offsetSec, sinceT])
+    .map(r => r.d)
+}
+
 /** Newest play we hold, as an export timestamp (the recently-played watermark). */
 export function newestTs(): string | null {
   const m = db().getFirstSync<{ m: number | null }>('SELECT MAX(t) AS m FROM plays', [])?.m ?? null
