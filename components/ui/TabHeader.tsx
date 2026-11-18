@@ -52,8 +52,10 @@ export function TabHeader({ title, subtitle, actions, titleRight, children, sett
           )}
         </View>
       </View>
+      {/* 2.0 Liquid: a greeting over a big sentence-case title */}
+      <Text style={styles.greet}>{greeting()}</Text>
       <View style={styles.titleRow}>
-        <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>{title}</Text>
+        <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>{title.charAt(0).toUpperCase() + title.slice(1)}</Text>
         {titleRight ? <View style={styles.actions}>{titleRight}</View> : null}
       </View>
       {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
@@ -62,13 +64,19 @@ export function TabHeader({ title, subtitle, actions, titleRight, children, sett
   )
 }
 
+function greeting(): string {
+  const h = new Date().getHours()
+  return h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+}
+
 const styles = StyleSheet.create({
   wrap:     { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.lg, gap: 4 },
   brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 36 },
-  logo:     { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -1 },
+  logo:     { fontFamily: FontFamily.syneBold, fontSize: FontSize.md, color: Colors.textSecondary, letterSpacing: -0.5 },
+  greet:    { ...Type.caption, fontSize: 13, color: Colors.textSecondary, marginTop: Spacing.sm },
   dot:      { color: Colors.greenPrimary },
   actions:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md, marginTop: Spacing.sm },
-  title:    { ...Type.title, flexShrink: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
+  title:    { ...Type.title, fontSize: 34, lineHeight: 38, letterSpacing: -1.4, flexShrink: 1 },
   sub:      { ...Type.caption, fontSize: 11 },
 })

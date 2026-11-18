@@ -20,7 +20,7 @@ import { Spring, haptic } from '@/constants/animation'
 import { deleteCache, CacheKeys } from '@/utils/cache'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { usePalette } from '@/hooks/usePalette'
-import { PlaylistCard, GRID_W, GRID_GAP } from '@/components/playlist/PlaylistCard'
+import { PlaylistCard, GRID_W, GRID_GAP, COVER_RADIUS } from '@/components/playlist/PlaylistCard'
 import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
@@ -200,7 +200,7 @@ export default function PlaylistsTab() {
   const handleCardPress = useCallback((playlist: SpotifyPlaylist, rect?: { x: number; y: number; w: number; h: number }) => {
     if (rect) {
       setCoverHidden(true)   // the sheet's own cover waits until the flying one lands
-      setFlight({ key: ++flightKey.current, uri: playlist.images?.[0]?.url, from: rect, to: detailCoverRect(), fromRadius: Radius.xl, toRadius: Radius.xl })
+      setFlight({ key: ++flightKey.current, uri: playlist.images?.[0]?.url, from: rect, to: detailCoverRect(), fromRadius: COVER_RADIUS, toRadius: Radius.xl })
     }
     setSelected(playlist)
   }, [])
@@ -239,13 +239,13 @@ export default function PlaylistsTab() {
   const renderSkeletons = () => layout === 'grid' ? (
     <View style={styles.skeletonGrid}>
       {Array.from({ length: SKELETON_COUNT * 2 }).map((_, i) => (
-        <PlaylistCardSkeleton key={i} height={GRID_W} style={{ width: GRID_W }} />
+        <PlaylistCardSkeleton key={i} height={GRID_W + 48} style={{ width: GRID_W }} />
       ))}
     </View>
   ) : (
     <View style={styles.skeletonList}>
       {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
-        <PlaylistCardSkeleton key={i} />
+        <PlaylistCardSkeleton key={i} height={110} />
       ))}
     </View>
   )
@@ -323,7 +323,7 @@ export default function PlaylistsTab() {
       <SafeAreaView style={styles.safe} edges={['top']}>
 
         <TabHeader
-          title={reorderMode ? 'reorder' : 'lenses'}
+          title={reorderMode ? 'reorder' : 'your lenses'}
           subtitle={
             searchOpen && !reorderMode ? undefined
             : reorderMode ? 'Long-press a lens and drag to arrange.'

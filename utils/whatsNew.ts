@@ -19,13 +19,15 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
-    version: '1.10',
-    name:    'Under the Hood',
+    version: '2.0',
+    name:    'Liquid',
     date:    '2026-11-18',
     sections: [
       {
         label: 'New',
         items: [
+          'A whole new look: the app floats in the colours of the song you’re playing, on frosted glass, in a new typeface (Manrope).',
+          'Playlists are glass tiles now, and Wrapped’s numbers float as bubbles.',
           'A new liquid tab bar: the highlight stretches between tabs like a drop of water.',
           'Story mode: open Wrapped and tap “Play your week” to watch your week as full-screen slides.',
           'Playlists open with their cover flying into place, and the cover collapses smoothly as you scroll.',

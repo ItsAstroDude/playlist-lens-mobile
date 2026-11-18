@@ -24,6 +24,7 @@ import type { ArtKind } from '@/hooks/useArtwork'
 import { Icon } from '@/components/ui/Icon'
 import { useLoadTime, useRenderStart } from '@/utils/perf'
 import { RollingNumber, RackFocus, LiquidFill } from '@/components/motion'
+import { Bubble } from '@/components/motion/Bubble'
 
 const PRIVACY_URL = 'https://www.spotify.com/account/privacy/'
 
@@ -294,12 +295,22 @@ export default function WrappedTab() {
           </Card>
         )
       case 'pTiles':
+        // 2.0 Liquid: the headline numbers float as glass bubbles
         return (
-          <Card padded style={[styles.block, styles.tiles]}>
-            <Stat value={item.plays.toLocaleString()} label="plays" delta={item.playsDelta} style={{ flex: 1 }} />
-            <Stat value={item.artists.toLocaleString()} label="artists" style={{ flex: 1 }} />
-            <Stat value={item.tracks.toLocaleString()} label="tracks" style={{ flex: 1 }} />
-          </Card>
+          <View style={[styles.block, styles.bubbles]} accessible accessibilityLabel={`${item.plays} plays, ${item.artists} artists, ${item.tracks} tracks`}>
+            <Bubble size={148} color={alpha(Colors.greenPrimary, 0.32)} style={{ left: 4, top: 14 }} phase={0}>
+              <RollingNumber value={item.plays.toLocaleString()} style={styles.bubbleNum} />
+              <Text style={styles.bubbleLabel}>plays{item.playsDelta !== null ? ` · ${item.playsDelta >= 0 ? '+' : ''}${item.playsDelta}%` : ''}</Text>
+            </Bubble>
+            <Bubble size={116} color={alpha(Colors.lavender, 0.3)} style={{ right: 6, top: 0 }} delay={140} phase={1}>
+              <RollingNumber value={item.artists.toLocaleString()} style={styles.bubbleNum} />
+              <Text style={styles.bubbleLabel}>artists</Text>
+            </Bubble>
+            <Bubble size={104} color={alpha(Colors.pink, 0.3)} style={{ right: 70, top: 112 }} delay={280} phase={2}>
+              <RollingNumber value={item.tracks.toLocaleString()} style={styles.bubbleNum} />
+              <Text style={styles.bubbleLabel}>tracks</Text>
+            </Bubble>
+          </View>
         )
       case 'pBars':
         return <Bars buckets={item.buckets} labels={item.labels} current={item.current} kind={item.kind} />
@@ -351,7 +362,7 @@ export default function WrappedTab() {
       <AmbientBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <TabHeader title="wrapped" subtitle={subtitle}>
+        <TabHeader title={mode === 'all' ? 'all time' : `your ${PERIOD_WORD[mode]}`} subtitle={subtitle}>
           <View style={styles.modes}>
             {MODES.map(m => <Chip key={m.id} label={m.label} selected={mode === m.id} onPress={() => chooseMode(m.id)} />)}
           </View>
@@ -428,6 +439,9 @@ function EmptyState({ onImport }: { onImport: () => void }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  bubbles:     { height: 226, position: 'relative' },
+  bubbleNum:   { fontFamily: FontFamily.syneBold, fontSize: 24, color: Colors.text, letterSpacing: -0.8 },
+  bubbleLabel: { ...Type.caption, fontSize: 11, color: Colors.textSecondary, textAlign: 'center' },
   container: { flex: 1, backgroundColor: Colors.background },
   safe: { flex: 1, zIndex: 1 },
 
