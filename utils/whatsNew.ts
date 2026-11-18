@@ -19,6 +19,25 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.9.1',
+    name:    'Stopwatch',
+    date:    '2026-11-18',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Settings › About › Load times: how fast cold start, Lenses, Wrapped and Recaps open on your phone. These are the numbers 2.0’s faster storage has to beat.',
+        ],
+      },
+      {
+        label: 'Fixed',
+        items: [
+          'Skipped a few updates? You now get the notes for all of them, not just the latest.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.9',
     name:    'All Together',
     date:    '2026-11-18',
@@ -370,6 +389,28 @@ export function shouldShowWhatsNew(): boolean {
   return seen !== latestPatch().version
 }
 export function markWhatsNewSeen(): void { storage.set(SEEN_KEY, latestPatch().version) }
+
+/** -1 / 0 / 1 for dotted versions: "1.9" > "1.8.7", "1.9.1" > "1.9". */
+export function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map(n => parseInt(n, 10) || 0)
+  const pb = b.split('.').map(n => parseInt(n, 10) || 0)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0)
+    if (d) return d > 0 ? 1 : -1
+  }
+  return 0
+}
+
+/**
+ * Every entry newer than the one last seen (newest first, at most `max`), so jumping
+ * several updates at once shows all their notes — not just the top one. Compared by
+ * version, so a seen version that's since been merged away still works.
+ */
+export function unseenPatches(max = 5): PatchEntry[] {
+  const seen = storage.getString(SEEN_KEY)
+  const newer = seen ? CHANGELOG.filter(p => compareVersions(p.version, seen) > 0) : []
+  return (newer.length ? newer : [latestPatch()]).slice(0, max)
+}
 
 // ── Tutorial ──
 export function shouldShowTutorial(): boolean { return storage.getBoolean(TUT_KEY) !== true }

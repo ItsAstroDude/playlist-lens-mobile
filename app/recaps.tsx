@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react'
+import { useLoadTime, useRenderStart } from '@/utils/perf'
 import { View, Text, StyleSheet, ScrollView, Share } from 'react-native'
 import { router } from 'expo-router'
 import { Colors, FontFamily, FontSize, Spacing, Type } from '@/constants/theme'
@@ -28,7 +29,9 @@ function listFor(recaps: ReturnType<typeof mergeRecaps>, kind: PeriodKind): Reca
 }
 
 export default function RecapsScreen() {
+  const t0 = useRenderStart()
   const recaps = useMemo(() => mergeRecaps(loadRecaps(), loadBuffer()), [])
+  useLoadTime('recaps', t0, true)  // everything above is synchronous on first render
   const needsReconnect = useMemo(() => autoPullScopeMissing(), [])
   const [kind, setKind] = useState<PeriodKind>('year')
   const [hidden, setHidden] = useState<Set<string>>(() => hiddenYears())

@@ -1,3 +1,5 @@
+// First import: starts the JS-side load-time clock (utils/perf).
+import '@/utils/perf'
 import React, { useEffect, useRef, useState } from 'react'
 import { Stack, router } from 'expo-router'
 import * as Notifications from 'expo-notifications'
@@ -141,6 +143,7 @@ export default function RootLayout() {
             <Stack.Screen name="recaps"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="flagged-covers" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="design"    options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="load-times" options={{ animation: 'slide_from_right' }} />
           </>
         ) : (
           <Stack.Screen name="auth" options={{ animation: 'fade' }} />

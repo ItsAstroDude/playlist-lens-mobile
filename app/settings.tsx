@@ -565,6 +565,9 @@ export default function SettingsScreen() {
             <SettingRow icon="color-palette-outline" label="Design system"
               hint="Every colour, type style and component the app is built from"
               onPress={() => { haptic.light(); router.push('/design') }} />
+            <SettingRow icon="timer-outline" tint="amber" label="Load times"
+              hint="How fast each screen opens on this phone"
+              onPress={() => { haptic.light(); router.push('/load-times') }} />
             <SettingRow icon="shapes-outline" tint="pink" label="Icons" hint="Ionicons by Ionic — MIT licence"
               onPress={() => { Linking.openURL('https://ionic.io/ionicons').catch(() => {}) }} last />
           </Section>

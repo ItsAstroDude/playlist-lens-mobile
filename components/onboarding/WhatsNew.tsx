@@ -4,7 +4,7 @@ import { BlurView } from 'expo-blur'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
-import { latestPatch, CHANGELOG, type ChangeKind } from '@/utils/whatsNew'
+import { unseenPatches, CHANGELOG, type ChangeKind } from '@/utils/whatsNew'
 
 const { height: SH } = Dimensions.get('window')
 
@@ -15,8 +15,9 @@ const KIND_COLOR: Record<ChangeKind, string> = {
 }
 
 export function WhatsNew({ visible, all, onClose }: { visible: boolean; all?: boolean; onClose: () => void }) {
-  // `all` (opened from Settings) lists the full history; otherwise just the newest.
-  const patches  = all ? CHANGELOG : [latestPatch()]
+  // `all` (opened from Settings) lists the full history; otherwise everything since
+  // the last update you saw. Captured on open, before it's marked seen on close.
+  const patches  = React.useMemo(() => (all ? CHANGELOG : unseenPatches()), [all, visible])
   const scale    = useSharedValue(0.92)
   const opacity  = useSharedValue(0)
   const backdrop = useSharedValue(0)

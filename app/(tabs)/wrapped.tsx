@@ -22,6 +22,7 @@ import type { QueueItem } from '@/utils/queueCart'
 import { confirmDialog } from '@/utils/dialog'
 import type { ArtKind } from '@/hooks/useArtwork'
 import { Icon } from '@/components/ui/Icon'
+import { useLoadTime, useRenderStart } from '@/utils/perf'
 
 const PRIVACY_URL = 'https://www.spotify.com/account/privacy/'
 
@@ -167,6 +168,7 @@ const Bars = React.memo(function Bars({ buckets, labels, current, kind }: { buck
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function WrappedTab() {
+  const t0 = useRenderStart()
   const { stats, status, progress, errorMsg, importHistory, clearHistory } = useWrapped()
   const [sel, setSel] = useState<WrappedSelection | null>(null)
 
@@ -318,6 +320,8 @@ export default function WrappedTab() {
     () => (comparison ? buildPeriodBlocks(comparison, tracked, now) : stats ? buildBlocks(stats) : []),
     [comparison, tracked, now, stats],
   )
+  // Content on screen: a period view, lifetime stats, or the settled empty state.
+  useLoadTime('wrapped', t0, !parsing && (blocks.length > 0 || stats === null))
   const subtitle = mode === 'all'
     ? (stats ? 'Your lifetime listening, from your Spotify export' : 'All-time stats from your Spotify export')
     : `Your ${PERIOD_WORD[mode]} in music${tracked ? '' : ' — from what Spotify remembers'}`

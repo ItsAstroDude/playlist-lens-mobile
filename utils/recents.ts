@@ -10,6 +10,7 @@
  * there's no double-counting. On-device, additive, non-destructive.
  */
 import { storage } from '@/utils/cache'
+import { timed, recordSize } from '@/utils/perf'
 import { api } from '@/utils/api'
 import { periodKeys } from '@/utils/periods'
 import {
@@ -46,7 +47,8 @@ interface RpItem {
 export function loadBuffer(): StreamRow[] {
   const raw = storage.getString(BUFFER_KEY)
   if (!raw) return []
-  try { return JSON.parse(raw) as StreamRow[] } catch { return [] }
+  recordSize('buffer', raw.length)
+  try { return timed('read_buffer', () => JSON.parse(raw) as StreamRow[]) } catch { return [] }
 }
 export function saveBuffer(rows: StreamRow[]): void {
   storage.set(BUFFER_KEY, JSON.stringify(rows))

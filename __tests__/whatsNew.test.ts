@@ -42,3 +42,33 @@ describe('tutorial gating', () => {
     expect(shouldShowTutorial()).toBe(true)
   })
 })
+
+describe('unseen patches', () => {
+  const { unseenPatches, compareVersions, CHANGELOG } = require('@/utils/whatsNew')
+
+  it('compares dotted versions numerically', () => {
+    expect(compareVersions('1.9', '1.8.7')).toBe(1)
+    expect(compareVersions('1.9.1', '1.9')).toBe(1)
+    expect(compareVersions('1.10', '1.9')).toBe(1)
+    expect(compareVersions('1.8', '1.8.0')).toBe(0)
+    expect(compareVersions('1.8.3', '1.8.4')).toBe(-1)
+  })
+
+  it('lists every entry newer than the seen one, newest first', () => {
+    const third = CHANGELOG[2].version
+    storage.set('patch_seen_version', third)
+    expect(unseenPatches().map((p: { version: string }) => p.version))
+      .toEqual([CHANGELOG[0].version, CHANGELOG[1].version])
+  })
+
+  it('works when the seen version was merged away (compares by version)', () => {
+    storage.set('patch_seen_version', '1.8.6')   // folded into 1.9
+    const v = unseenPatches().map((p: { version: string }) => p.version)
+    expect(v).toContain('1.9')
+    expect(v).not.toContain('1.8.4')
+  })
+
+  it('falls back to just the newest entry', () => {
+    expect(unseenPatches()).toEqual([CHANGELOG[0]])
+  })
+})

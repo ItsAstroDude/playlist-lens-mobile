@@ -3,6 +3,7 @@ import * as DocumentPicker from 'expo-document-picker'
 import * as FileSystem from 'expo-file-system/legacy'
 import { unzipSync, strFromU8 } from 'fflate'
 import { storage } from '@/utils/cache'
+import { timed, recordSize } from '@/utils/perf'
 import {
   createAccumulator, addRows, finalize, buildTrackIndex, buildRecaps,
   type StreamRow, type WrappedStats, type TrackStat, type RecapBundle,
@@ -41,7 +42,8 @@ function base64ToBytes(b64: string): Uint8Array {
 function readCached(): WrappedStats | null {
   const raw = storage.getString(WRAPPED_KEY)
   if (!raw) return null
-  try { return JSON.parse(raw) as WrappedStats } catch { return null }
+  recordSize('stats', raw.length)
+  try { return timed('read_stats', () => JSON.parse(raw) as WrappedStats) } catch { return null }
 }
 
 /** Synchronous one-shot read of the cached Wrapped stats (for non-hook callers). */

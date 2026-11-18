@@ -183,8 +183,9 @@ settled before 2 and 3 are built, so they're born in it rather than restyled aft
 - [x] DetailSheet + StartQueueSheet onto the shared Sheet (careful: their own drag gestures) — 1.9
 - [x] Lenses PlaylistCard + login screen onto the design system — 1.9
 - [x] Onboarding tour onto the design system — 1.9
-- [ ] Measure load times (cold start, Lenses, Wrapped, Recaps) → numbers in this file
-      (the baseline the play database has to beat)
+- [~] Measure load times (cold start, Lenses, Wrapped, Recaps) → numbers in this file
+      (the baseline the play database has to beat). Instrumentation shipped in 1.9.1
+      (`utils/perf.ts`, Settings › About › Load times); numbers from the phone still to copy here.
 - [ ] Update the Claude design system with TabHeader / RankRow / TrackRow / Sheet / Button
 - ~~Wrapped extras (listening clock per period, artwork in period lists)~~ → folded into
   Phase 3, on the new engine

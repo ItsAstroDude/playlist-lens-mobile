@@ -32,11 +32,14 @@ import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import type { SpotifyPlaylist } from '@/types'
 import { Icon } from '@/components/ui/Icon'
 import { TabHeader, IconButton } from '@/components/ui'
+import { useLoadTime, useRenderStart } from '@/utils/perf'
 
 const SKELETON_COUNT = 4
 
 export default function PlaylistsTab() {
+  const t0 = useRenderStart()
   const { status, data, error, fetch, removePlaylist } = usePlaylists()
+  useLoadTime('lenses', t0, status === 'success' && !!data, { firstContent: true })
   const { palettes, extract }          = usePalette()
 
   const [refreshing, setRefreshing]     = useState(false)
