@@ -19,46 +19,26 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
-    version: '1.8.7',
-    name:    'Fresh Tour',
+    version: '1.9',
+    name:    'All Together',
     date:    '2026-11-18',
     sections: [
       {
         label: 'Improved',
         items: [
-          'The guided tour is up to date: Wrapped now always gets its stop, and each step says what the tab does today.',
-          'The tour shows which step you’re on, reads properly with a screen reader, and holds still with Reduce motion on.',
-          'Lenses: your playlist count now sits in the header line (“42 playlists · …”) instead of a bare number beside Settings.',
-        ],
-      },
-    ],
-  },
-  {
-    version: '1.8.6',
-    name:    'First Impressions',
-    date:    '2026-11-18',
-    sections: [
-      {
-        label: 'Improved',
-        items: [
-          'Playlist cards use the app’s type scale, and screen readers now read each card’s name, track count and vibe.',
-          'The login screen is on the design system, with an up-to-date tagline and a clearer line about what’s stored where.',
-          'Reduce motion now also stills the playlist card entrance and the login glow.',
-        ],
-      },
-    ],
-  },
-  {
-    version: '1.8.5',
-    name:    'Every Sheet',
-    date:    '2026-11-18',
-    sections: [
-      {
-        label: 'Improved',
-        items: [
-          'The playlist lens and the start-queue sheet now behave like every other sheet: swipe the handle down, tap outside or press back to close.',
+          'Every sheet now works the same way: swipe the handle down, tap outside or press back to close. That includes the playlist lens and the start-queue sheet.',
           'The playlist lens keeps its cover and name while it slides away, instead of going blank.',
-          'Start-queue buttons match the rest of the app.',
+          'Lenses: your playlist count now sits in the header line (“42 playlists · …”) instead of a bare number beside Settings.',
+          'A fresh guided tour: Wrapped always gets its stop, each step says what the tab does today, and it shows which step you’re on.',
+          'The login screen has an up-to-date tagline and a clearer line about what’s stored where.',
+          'Playlist cards, the login screen, the tour and the start-queue buttons all match the rest of the app.',
+        ],
+      },
+      {
+        label: 'Fixed',
+        items: [
+          'Screen readers now read playlist cards (name, track count, vibe) and every step of the tour.',
+          'Reduce motion now also stills the playlist card entrance, the login glow and the tour spotlight.',
         ],
       },
     ],
