@@ -255,12 +255,13 @@ export default function PlaylistsTab() {
 
         <TabHeader
           title={reorderMode ? 'reorder' : 'lenses'}
-          subtitle={searchOpen && !reorderMode ? undefined : reorderMode ? 'Long-press a lens and drag to arrange.' : 'Sonic profiles from your library.'}
-          actions={data && data.length > 0 ? (
-            <View style={styles.countBadge} accessibilityLabel={`${data.length} playlists`}>
-              <Text style={styles.countText}>{data.length}</Text>
-            </View>
-          ) : null}
+          subtitle={
+            searchOpen && !reorderMode ? undefined
+            : reorderMode ? 'Long-press a lens and drag to arrange.'
+            : data && data.length > 0
+              ? `${data.length.toLocaleString()} ${data.length === 1 ? 'playlist' : 'playlists'} · sonic profiles from your library.`
+              : 'Sonic profiles from your library.'
+          }
           titleRight={reorderMode ? (
             <TouchableOpacity
               style={styles.doneBtn}
@@ -384,20 +385,6 @@ const styles = StyleSheet.create({
   },
 
   // ── Header ──
-  countBadge: {
-    backgroundColor:   Colors.glass,
-    borderWidth:       1,
-    borderColor:       Colors.glassBorder,
-    borderRadius:      Radius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical:   3,
-  },
-  countText: {
-    fontFamily: FontFamily.mono,
-    fontSize:   FontSize.xs,
-    color:      Colors.textMuted,
-  },
-
   // "Your taste" pill — lives in the top strip, opens the pushed taste screen
   tastePill: {
     flexDirection:     'row',

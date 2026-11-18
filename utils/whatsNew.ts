@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.8.7',
+    name:    'Fresh Tour',
+    date:    '2026-11-18',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'The guided tour is up to date: Wrapped now always gets its stop, and each step says what the tab does today.',
+          'The tour shows which step you’re on, reads properly with a screen reader, and holds still with Reduce motion on.',
+          'Lenses: your playlist count now sits in the header line (“42 playlists · …”) instead of a bare number beside Settings.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.8.6',
     name:    'First Impressions',
     date:    '2026-11-18',

@@ -10,14 +10,14 @@ import Animated, {
   withRepeat, withTiming, FadeIn, Easing,
 } from 'react-native-reanimated'
 import {
-  ACCENTS, Colors, FontFamily, FontSize, Spacing, Radius, OnDark,
+  ACCENTS, Colors, FontSize, Spacing, Radius, Type, OnDark,
   activeAccentId, alpha,
 } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { setTabBarHidden } from '@/utils/tabBar'
-import { getNavbarStyle } from '@/utils/settings'
-import { loadCachedWrapped } from '@/hooks/useWrapped'
+import { getNavbarStyle, reduceMotionEnabled } from '@/utils/settings'
 import { Icon, type IconName } from '@/components/ui/Icon'
+import { Button } from '@/components/ui/Button'
 
 // The tour scrim is always dark (it dims the live app), so — like the now-playing
 // bar on its dark surface — it uses the RAW accent hue + OnDark text rather than
@@ -52,11 +52,10 @@ const ROUTE_HREF: Record<TabRoute, string> = {
   swipe:   '/swipe',
 }
 
-// Built once per run so the Wrapped step can be dropped when there's no history
-// imported yet (nothing to show there — locked decision, see v1.3 progress).
+// Wrapped always has something to show now (Spotify's recent plays, tracked plays
+// or an import), so every tab gets its step.
 function buildSteps(): Step[] {
-  const hasWrapped = !!loadCachedWrapped()
-  const steps: Step[] = [
+  return [
     {
       route: 'index', spotlight: false, glyph: 'sparkles', tint: RAW_ACCENT,
       title: 'Welcome to playlist.lens',
@@ -65,36 +64,37 @@ function buildSteps(): Step[] {
     {
       route: 'index', spotlight: true, glyph: 'aperture', tint: RAW_ACCENT,
       title: 'Lenses',
-      body:  'Every playlist you own, analysed. Tap a lens for its sound, genres and era — long-press one for quick actions: Pin, Share or Re-analyze.',
+      body:  'Every playlist in your library, analysed. Tap a lens for its sound, genres and era — long-press one to pin, share, re-analyze or compare it.',
     },
     {
       route: 'queue', spotlight: true, glyph: 'list', tint: Colors.pink,
-      title: 'Queue — new',
-      body:  'Build a queue from anywhere and play it on your Spotify — hand-pick tracks or let the rediscovery shelves resurface old favorites. (Compare now lives in a playlist’s long-press menu.)',
+      title: 'Queue',
+      body:  'Build a queue from anywhere and play it on your Spotify — hand-pick tracks, or let the rediscovery shelves bring back old favorites.',
     },
-  ]
-  if (hasWrapped) {
-    steps.push({
+    {
       route: 'wrapped', spotlight: true, glyph: 'disc', tint: Colors.lavender,
       title: 'Wrapped',
-      body:  'Your all-time listening stats. Tap any artist, track or album for its artwork — and fix it yourself if it’s ever wrong.',
-    })
-  }
-  steps.push({
-    route: 'swipe', spotlight: true, glyph: 'layers', tint: RAW_ACCENT,
-    title: 'Swipe — new',
-    body:  'Tidy a playlist Tinder-style: swipe to keep or cut, with 30-second previews. Nothing changes until you confirm — save the keepers as a new playlist, or trim the original with a backup.',
-  })
-  steps.push({
-    route: 'index', spotlight: false, glyph: 'refresh-circle', tint: RAW_ACCENT,
-    title: 'You’re all set',
-    body:  'When Spotify’s playing, a live bar shows your track — tap it for your personal stats. Updates arrive on their own; grab them anytime from Settings › Check for updates.',
-  })
-  return steps
+      body:  'Your week, month and year in music: top artists, tracks and time listened. For the full picture, turn on tracking in Settings or import your Spotify history under All time.',
+    },
+    {
+      route: 'swipe', spotlight: true, glyph: 'layers', tint: RAW_ACCENT,
+      title: 'Swipe',
+      body:  'Tidy a playlist by swiping: keep or cut, with 30-second previews. Nothing changes until you confirm — save the keepers as a new playlist, or trim the original with a backup.',
+    },
+    {
+      route: 'index', spotlight: false, glyph: 'refresh-circle', tint: RAW_ACCENT,
+      title: 'You’re all set',
+      body:  'When Spotify’s playing, a live bar shows your track — tap it for your stats on it. Updates arrive on their own; grab them anytime from Settings › Check for updates.',
+    },
+  ]
 }
 
 export function Tutorial({ onDone }: { onDone: () => void }) {
   const steps   = useMemo(buildSteps, [])
+  // Reduce motion: the spotlight jumps instead of gliding, and the ring doesn't pulse.
+  const still   = useMemo(reduceMotionEnabled, [])
+  const glide    = still ? { duration: 0 } : GLIDE
+  const collapse = still ? { duration: 0 } : COLLAPSE
   const insets  = useSafeAreaInsets()
   const navStyle = getNavbarStyle()
   const [i, setI]       = useState(0)
@@ -133,7 +133,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
   const hh = useSharedValue(0)
   const ringO = useSharedValue(0)
   const pulse = useSharedValue(0)
-  useEffect(() => { pulse.value = withRepeat(withTiming(1, { duration: 1100 }), -1, true) }, [])
+  useEffect(() => { if (!still) pulse.value = withRepeat(withTiming(1, { duration: 1100 }), -1, true) }, [])
 
   const finish = useCallback(() => {
     haptic.success()
@@ -165,24 +165,25 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
         hx.value = hole.x + hole.w / 2
         hy.value = hole.y + hole.h / 2
       }
-      hx.value = withTiming(hole.x, GLIDE)
-      hy.value = withTiming(hole.y, GLIDE)
-      hw.value = withTiming(hole.w, GLIDE)
-      hh.value = withTiming(hole.h, GLIDE)
-      ringO.value = withTiming(1, GLIDE)
+      hx.value = withTiming(hole.x, glide)
+      hy.value = withTiming(hole.y, glide)
+      hw.value = withTiming(hole.w, glide)
+      hh.value = withTiming(hole.h, glide)
+      ringO.value = withTiming(1, glide)
     } else {
       // Collapse toward the current centre so it shrinks away in place.
       const cx = hx.value + hw.value / 2
       const cy = hy.value + hh.value / 2
-      hx.value = withTiming(cx, COLLAPSE)
-      hy.value = withTiming(cy, COLLAPSE)
-      hw.value = withTiming(0, COLLAPSE)
-      hh.value = withTiming(0, COLLAPSE)
-      ringO.value = withTiming(0, COLLAPSE)
+      hx.value = withTiming(cx, collapse)
+      hy.value = withTiming(cy, collapse)
+      hw.value = withTiming(0, collapse)
+      hh.value = withTiming(0, collapse)
+      ringO.value = withTiming(0, collapse)
     }
   }, [i, navStyle, W, H, insets.bottom])
 
-  const next = () => { if (last) finish(); else { haptic.light(); setI(i + 1) } }
+  // `quiet` = the Button already gave its own press haptic.
+  const next = (quiet = false) => { if (last) finish(); else { if (!quiet) haptic.light(); setI(i + 1) } }
   const onRootLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout
     if (width && height) setSize({ width, height })
@@ -216,7 +217,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
       <Animated.View pointerEvents="none" style={[styles.bandRight, bandRight]} />
 
       {/* Tap anywhere to advance (sits above the scrim, below the controls) */}
-      <Pressable style={StyleSheet.absoluteFill} onPress={next} />
+      <Pressable style={StyleSheet.absoluteFill} onPress={() => next()} importantForAccessibility="no" accessible={false} />
 
       {/* Spotlight ring around the cut-out */}
       <Animated.View
@@ -226,23 +227,29 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
 
       {/* Caption card */}
       <View style={[styles.cardWrap, { bottom: cardBottom }]} pointerEvents="box-none">
-        <Animated.View key={i} entering={FadeIn.duration(240)}>
-          <Pressable style={styles.card} onPress={next}>
+        <Animated.View key={i} entering={still ? undefined : FadeIn.duration(240)}>
+          <Pressable style={styles.card} onPress={() => next()} accessible={false}>
             <View style={[styles.glyphChip, { borderColor: alpha(step.tint, 0.5), backgroundColor: alpha(step.tint, 0.12) }]}>
               <Icon name={step.glyph} style={[styles.glyph, { color: step.tint }]} />
             </View>
-            <Text style={styles.title}>{step.title}</Text>
+            <Text style={[Type.overline, styles.stepNo]}>{i + 1} of {steps.length}</Text>
+            <Text style={styles.title} accessibilityRole="header" accessibilityLiveRegion="polite">{step.title}</Text>
             <Text style={styles.body}>{step.body}</Text>
 
             <View style={styles.cardFooter}>
-              <View style={styles.dots}>
+              <View style={styles.dots} importantForAccessibility="no-hide-descendants">
                 {steps.map((_, idx) => (
                   <View key={idx} style={[styles.dot, idx === i && [styles.dotActive, { backgroundColor: step.tint }]]} />
                 ))}
               </View>
-              <Pressable style={[styles.btn, { backgroundColor: step.tint }]} onPress={next} hitSlop={8}>
-                <Text style={styles.btnText}>{last ? 'Start exploring' : 'Next'}</Text>
-              </Pressable>
+              <Button
+                label={last ? 'Start exploring' : 'Next'}
+                onPress={() => next(true)}
+                style={{ backgroundColor: step.tint }}
+                textStyle={styles.btnText}
+                hitSlop={8}
+                accessibilityRole="button"
+              />
             </View>
           </Pressable>
         </Animated.View>
@@ -250,7 +257,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
 
       {/* Skip — always available */}
       <SafeAreaView style={styles.skipWrap} edges={['top']} pointerEvents="box-none">
-        <Pressable hitSlop={12} onPress={() => { haptic.light(); finish() }}>
+        <Pressable hitSlop={12} onPress={() => { haptic.light(); finish() }} accessibilityRole="button" accessibilityLabel="Skip the tour">
           <Text style={styles.skip}>Skip</Text>
         </Pressable>
       </SafeAreaView>
@@ -293,14 +300,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md,
   },
   glyph: { fontSize: 24 },
-  title: {
-    fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: OnDark.text,
-    letterSpacing: -0.6,
-  },
-  body: {
-    fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: BODY_TXT,
-    lineHeight: FontSize.sm * 1.6, marginTop: Spacing.sm,
-  },
+  // The scrim is always dark → Type styles with OnDark colours, never the theme's.
+  stepNo: { color: OnDark.textMuted, marginBottom: Spacing.xs },
+  title:  { ...Type.stat, color: OnDark.text },
+  body:   { ...Type.body, fontSize: FontSize.sm, color: BODY_TXT, lineHeight: FontSize.sm * 1.6, marginTop: Spacing.sm },
 
   cardFooter: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -310,16 +313,11 @@ const styles = StyleSheet.create({
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.22)' },
   dotActive: { width: 20 },
 
-  btn: {
-    borderRadius: Radius.full,
-    paddingVertical: Spacing.sm + 2,
-    paddingHorizontal: Spacing.xl,
-  },
-  btnText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.md, color: '#0b0b0d' },
+  btnText: { fontSize: FontSize.md, color: '#0b0b0d' },
 
   skipWrap: {
     position: 'absolute', top: 0, right: 0,
     paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm,
   },
-  skip: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: 'rgba(231,228,236,0.6)' },
+  skip: { ...Type.body, fontSize: FontSize.sm, color: 'rgba(231,228,236,0.6)' },
 })
