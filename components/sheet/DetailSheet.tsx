@@ -35,8 +35,17 @@ import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/Wr
 import { withMemorialMark } from '@/utils/tribute'
 import type { SpotifyPlaylist, PlaylistAnalysis, PlaylistPalette } from '@/types'
 
-const { width: SW } = Dimensions.get('window')
+const { width: SW, height: SH } = Dimensions.get('window')
 const HERO_H = 260
+const SHEET_MAX = 0.9
+const COVER = 132
+
+/** Where the sheet's hero cover sits once open (window coordinates) — the target for
+ *  the Lenses "card opens into the lens" flight. Sheet top + its grab area + margin. */
+export function detailCoverRect() {
+  const grab = Spacing.sm + 4 + Spacing.md + Spacing.sm
+  return { x: (SW - COVER) / 2, y: SH * (1 - SHEET_MAX) + grab + Spacing.xl, w: COVER, h: COVER }
+}
 
 // ─── Sheet ────────────────────────────────────────────────────────────────────
 interface DetailSheetProps {
@@ -86,7 +95,7 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
 
   return (
     <>
-      <Sheet open={isOpen} onClose={onClose} bleed maxHeight={0.9} zIndex={10}>
+      <Sheet open={isOpen} onClose={onClose} bleed maxHeight={SHEET_MAX} zIndex={10}>
         <View style={{ flex: 1 }}>
         <Animated.ScrollView
           showsVerticalScrollIndicator={false}

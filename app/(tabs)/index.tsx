@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { View, Text, StyleSheet, RefreshControl, TouchableOpacity, TextInput, Keyboard, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { DetailSheet } from '@/components/sheet/DetailSheet'
+import { DetailSheet, detailCoverRect } from '@/components/sheet/DetailSheet'
+import { CoverFlight, type Flight } from '@/components/motion/CoverFlight'
 import { FlashList } from '@shopify/flash-list'
 import Animated, {
   useSharedValue,
@@ -139,9 +140,17 @@ export default function PlaylistsTab() {
     }
   }, [data])
 
-  const handleCardPress = useCallback((playlist: SpotifyPlaylist) => {
+  // 2.0 "card opens into the lens": the cover flies from the card into the sheet.
+  const [flight, setFlight] = useState<Flight | null>(null)
+  const flightKey = useRef(0)
+  const handleCardPress = useCallback((playlist: SpotifyPlaylist, rect?: { x: number; y: number; w: number; h: number }) => {
+    if (rect) setFlight({ key: ++flightKey.current, uri: playlist.images?.[0]?.url, from: rect, to: detailCoverRect(), fromRadius: Radius.xl, toRadius: Radius.xl })
     setSelected(playlist)
   }, [])
+  // The list sinks back while a lens is open.
+  const sink = useSharedValue(0)
+  useEffect(() => { sink.value = withTiming(selectedPlaylist ? 1 : 0, { duration: 420 }) }, [!!selectedPlaylist])
+  const sinkStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 - sink.value * 0.05 }], opacity: 1 - sink.value * 0.35 }))
 
   const renderItem = useCallback(({ item, index }: { item: SpotifyPlaylist; index: number }) => (
     <PlaylistCard
@@ -313,7 +322,7 @@ export default function PlaylistsTab() {
         </TabHeader>
 
         {/* ── Playlist list ── */}
-        <View style={styles.listWrap}>
+        <Animated.View style={[styles.listWrap, sinkStyle]}>
         {reorderMode ? (
           <DraggableFlatList
             data={orderedData}
@@ -351,7 +360,7 @@ export default function PlaylistsTab() {
             }
           />
         )}
-        </View>
+        </Animated.View>
 
         {/* ── Detail sheet ── */}
         <DetailSheet
@@ -372,6 +381,9 @@ export default function PlaylistsTab() {
         />
 
       </SafeAreaView>
+
+      {/* Cover flying from the tapped card into the opening lens (above the sheet) */}
+      <CoverFlight flight={flight} onDone={() => setFlight(null)} />
     </View>
   )
 }

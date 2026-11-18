@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useRef } from 'react'
 import {
   View,
   Text,
@@ -36,7 +36,8 @@ interface PlaylistCardProps {
   playlist:      SpotifyPlaylist
   palette:       PlaylistPalette | null
   index:         number
-  onPress:       (playlist: SpotifyPlaylist) => void
+  /** `rect` = the card's frame in window coordinates (for the open transition). */
+  onPress:       (playlist: SpotifyPlaylist, rect?: { x: number; y: number; w: number; h: number }) => void
   onLongPress?:  (playlist: SpotifyPlaylist) => void
   /** 'full' (default) = full-width 188dp card · 'grid' = square 2-column card */
   layout?:       'full' | 'grid'
@@ -86,9 +87,12 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, l
     scale.value      = withSpring(1, Spring.snappy)
     shadowAnim.value = withSpring(0.25, Spring.snappy)
   }
+  const probe = useRef<View>(null)
   const handlePress = () => {
     haptic.medium()
-    onPress(playlist)
+    const node = probe.current
+    if (!node) { onPress(playlist); return }
+    node.measureInWindow((x, y, w, h) => onPress(playlist, w > 0 ? { x, y, w, h } : undefined))
   }
   const handleLongPress = () => {
     if (!onLongPress) return
@@ -122,6 +126,9 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, l
         accessibilityLabel={`${playlist.name}, ${playlist.tracks.total} tracks${cachedVibe ? `, ${cachedVibe}` : ''}`}
         accessibilityHint={onLongPress ? 'Opens the lens. Long-press for more actions.' : 'Opens the lens.'}
       >
+        {/* Invisible probe: measures the card's frame for the open transition */}
+        <View ref={probe} collapsable={false} pointerEvents="none" style={StyleSheet.absoluteFill} />
+
         {/* Cover art fills the card */}
         {coverUrl ? (
           <Image
