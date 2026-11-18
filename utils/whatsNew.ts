@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.8.5',
+    name:    'Every Sheet',
+    date:    '2026-11-18',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'The playlist lens and the start-queue sheet now behave like every other sheet: swipe the handle down, tap outside or press back to close.',
+          'The playlist lens keeps its cover and name while it slides away, instead of going blank.',
+          'Start-queue buttons match the rest of the app.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.8.4',
     name:    'No More Smudge',
     date:    '2026-11-17',

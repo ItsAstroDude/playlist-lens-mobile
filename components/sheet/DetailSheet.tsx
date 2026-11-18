@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -6,13 +6,11 @@ import {
   StyleSheet,
   Dimensions,
   Pressable,
-  BackHandler,
 } from 'react-native'
 import { Image } from 'expo-image'
 import { BlurView } from 'expo-blur'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -21,26 +19,23 @@ import Animated, {
   withDelay,
   withRepeat,
   withSequence,
-  runOnJS,
   Easing,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, OnDark } from '@/constants/theme'
-import { Spring, haptic } from '@/constants/animation'
+import { Spring } from '@/constants/animation'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import { fmtDuration } from '@/utils/analyze'
 import { ensureReadable } from '@/utils/color'
+import { Sheet } from '@/components/ui/Sheet'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { RadarChart } from '@/components/ui/RadarChart'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { withMemorialMark } from '@/utils/tribute'
 import type { SpotifyPlaylist, PlaylistAnalysis, PlaylistPalette } from '@/types'
 
-const { width: SW, height: SH } = Dimensions.get('window')
-const SHEET_H     = SH * 0.90
-const HERO_H      = 260
-const DISMISS_VEL = 900
-const DISMISS_Y   = SHEET_H * 0.26
+const { width: SW } = Dimensions.get('window')
+const HERO_H = 260
 
 // ─── Sheet ────────────────────────────────────────────────────────────────────
 interface DetailSheetProps {
@@ -50,29 +45,30 @@ interface DetailSheetProps {
   onGone?:  (id: string) => void
 }
 
+/**
+ * The playlist lens: hero + full analysis. A full-height, edge-to-edge design-system
+ * Sheet (`bleed`) — swipe the handle, tap the backdrop or press back to close.
+ */
 export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetProps) {
   const insets = useSafeAreaInsets()
   const gutter = useNowPlayingGutter()
   const isOpen = playlist !== null
   const { status, data, error, analyze, reset } = useAnalysis()
-  // Tap a top artist → expand the same item sheet Wrapped uses (mounted at the
-  // sheet ROOT, not inside the ScrollView, so it anchors to the screen).
+  // Tap a top artist → expand the same item sheet Wrapped uses (mounted beside the
+  // sheet, not inside the ScrollView, so it anchors to the screen).
   const [sel, setSel] = useState<WrappedSelection | null>(null)
 
-  const translateY      = useSharedValue(SHEET_H)
-  const backdropOpacity = useSharedValue(0)
+  // Keep showing the last playlist (and palette) while the sheet slides closed.
+  const last = useRef({ playlist, palette })
+  if (playlist) last.current = { playlist, palette }
+  const shown        = playlist ?? last.current.playlist
+  const shownPalette = playlist ? palette : last.current.palette
 
   useEffect(() => {
-    if (isOpen) {
-      translateY.value      = withSpring(0, Spring.sheet)
-      backdropOpacity.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.ease) })
-    } else {
-      translateY.value      = withSpring(SHEET_H, Spring.sheet)
-      backdropOpacity.value = withTiming(0, { duration: 200 })
-      setSel(null)
-      const t = setTimeout(reset, 360)
-      return () => clearTimeout(t)
-    }
+    if (isOpen) return
+    setSel(null)
+    const t = setTimeout(reset, 360)
+    return () => clearTimeout(t)
   }, [isOpen])
 
   useEffect(() => {
@@ -82,63 +78,20 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
     }
   }, [playlist?.id])
 
-  const dismiss = useCallback(() => {
-    haptic.light()
-    onClose()
-  }, [onClose])
-
-  const panGesture = Gesture.Pan()
-    .onUpdate(e => { translateY.value = Math.max(0, e.translationY) })
-    .onEnd(e => {
-      if (e.translationY > DISMISS_Y || e.velocityY > DISMISS_VEL) {
-        translateY.value      = withSpring(SHEET_H, Spring.sheet)
-        backdropOpacity.value = withTiming(0, { duration: 200 })
-        runOnJS(dismiss)()
-      } else {
-        translateY.value = withSpring(0, Spring.sheet)
-      }
-    })
-
-  const sheetStyle    = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }))
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOpacity.value }))
-
   // Lift dark cover colours to a readable tone (same clamp Compare uses), so the
   // vibe pill / genre chips / bars aren't invisible on near-black covers.
-  const accent = ensureReadable(palette?.primary ?? Colors.greenPrimary)
-
-  // While the sheet is open, hardware/gesture back should close it — not pop the
-  // navigator (which could otherwise jump away from the current tab).
-  useEffect(() => {
-    if (!isOpen) return
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      dismiss()
-      return true
-    })
-    return () => sub.remove()
-  }, [isOpen, dismiss])
+  const accent = ensureReadable(shownPalette?.primary ?? Colors.greenPrimary)
 
   return (
     <>
-      <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents={isOpen ? 'auto' : 'none'}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
-      </Animated.View>
-
-      <Animated.View style={[styles.sheet, sheetStyle]} pointerEvents={isOpen ? 'auto' : 'none'}>
-
-        {/* Drag handle */}
-        <GestureDetector gesture={panGesture}>
-          <View style={styles.handleArea}>
-            <View style={styles.handle} />
-          </View>
-        </GestureDetector>
-
+      <Sheet open={isOpen} onClose={onClose} bleed maxHeight={0.9} zIndex={10}>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + 96 + gutter }}
           bounces
         >
           {/* ── Hero Section ── */}
-          {playlist && <HeroSection playlist={playlist} palette={palette} />}
+          {shown && <HeroSection playlist={shown} palette={shownPalette} />}
 
           {/* ── Analysis states ── */}
           {status === 'loading' && <AnalysisSkeleton accent={accent} />}
@@ -150,6 +103,7 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
                 onPress={() => playlist && analyze(playlist.id, playlist.name, playlist.images?.[0]?.url ?? '', palette,
                   { onGone: () => onGone?.(playlist.id) })}
                 style={[styles.retryBtn, { borderColor: accent }]}
+                accessibilityRole="button"
               >
                 <Text style={[styles.retryBtnText, { color: accent }]}>Retry</Text>
               </Pressable>
@@ -157,10 +111,10 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
           )}
 
           {status === 'success' && data && (
-            <AnalysisContent data={data} accent={accent} trackTotal={playlist?.tracks.total} onSelectArtist={setSel} />
+            <AnalysisContent data={data} accent={accent} trackTotal={shown?.tracks.total} onSelectArtist={setSel} />
           )}
         </ScrollView>
-      </Animated.View>
+      </Sheet>
 
       <WrappedItemSheet selection={sel} onClose={() => setSel(null)} />
     </>
@@ -474,43 +428,6 @@ function AnalysisSkeleton({ accent }: { accent: string }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  // Backdrop
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    zIndex: 10,
-  },
-
-  // Sheet
-  sheet: {
-    position:             'absolute',
-    bottom:               0,
-    left:                 0,
-    right:                0,
-    height:               SHEET_H,
-    backgroundColor:      Colors.sheet,
-    borderTopLeftRadius:  Radius['2xl'],
-    borderTopRightRadius: Radius['2xl'],
-    borderTopWidth:       1,
-    borderLeftWidth:      1,
-    borderRightWidth:     1,
-    borderColor:          Colors.glassBorder,
-    zIndex:               11,
-    overflow:             'hidden',
-  },
-
-  // Drag handle
-  handleArea: {
-    alignItems:      'center',
-    paddingVertical: Spacing.md,
-  },
-  handle: {
-    width:           40,
-    height:          4,
-    borderRadius:    Radius.full,
-    backgroundColor: Colors.glassBorder,
-  },
-
   // ── Hero ──
   hero: {
     height:   HERO_H,

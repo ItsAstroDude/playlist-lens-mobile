@@ -19,9 +19,14 @@ const CLOSE_VELOCITY = 900
  * Mount it at screen level (it positions itself absolutely). `bottomInset` adds room
  * for floating chrome (the tab bar) under the content. `zIndex` keeps stacked sheets
  * in order — a sheet opened from another sheet passes a higher one.
+ *
+ * `bleed` makes it a full-height, edge-to-edge sheet (no side/bottom padding, content
+ * clipped to the rounded corners) for content with its own hero and insets — the
+ * playlist detail sheet. Only the handle area drags, so lists inside keep their own
+ * scroll and drag gestures.
  */
 export function Sheet({
-  open, onClose, title, subtitle, children, header, bottomInset = 0, zIndex = 25, maxHeight = 0.88, style,
+  open, onClose, title, subtitle, children, header, bottomInset = 0, zIndex = 25, maxHeight = 0.88, bleed = false, style,
 }: {
   open:         boolean
   onClose:      () => void
@@ -34,6 +39,8 @@ export function Sheet({
   zIndex?:      number
   /** Fraction of screen height the sheet may take. */
   maxHeight?:   number
+  /** Full-height, edge-to-edge: the content handles its own padding and insets. */
+  bleed?:       boolean
   style?:       StyleProp<ViewStyle>
 }) {
   const insets = useSafeAreaInsets()
@@ -77,7 +84,12 @@ export function Sheet({
       </Animated.View>
 
       <Animated.View
-        style={[styles.sheet, { zIndex: zIndex + 1, maxHeight: SH * maxHeight, paddingBottom: insets.bottom + Spacing.lg + bottomInset }, sheetStyle, style]}
+        style={[
+          styles.sheet,
+          { zIndex: zIndex + 1, maxHeight: SH * maxHeight },
+          bleed ? [styles.bleed, { height: SH * maxHeight }] : { paddingBottom: insets.bottom + Spacing.lg + bottomInset },
+          sheetStyle, style,
+        ]}
         pointerEvents={open ? 'auto' : 'none'}
         accessibilityViewIsModal={open}
         importantForAccessibility={open ? 'yes' : 'no-hide-descendants'}
@@ -108,6 +120,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderColor: Colors.glassBorder,
     paddingHorizontal: Spacing.lg,
   },
+  bleed:  { paddingHorizontal: 0, overflow: 'hidden', borderLeftWidth: 1, borderRightWidth: 1 },
   grab:   { paddingTop: Spacing.sm, paddingBottom: Spacing.sm },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.glassBorder, marginBottom: Spacing.md },
   head:   { gap: 2 },
