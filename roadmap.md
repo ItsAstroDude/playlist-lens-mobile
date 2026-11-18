@@ -206,13 +206,33 @@ settled before 2 and 3 are built, so they're born in it rather than restyled aft
 - Already in the build, so no native work needed later: react-native-view-shot + expo-sharing
   (share cards), expo-notifications (weekly recap)
 
-## Phase 2 — Headline 1: Design 2.0 (OTA)
-- [ ] Define the new language first, in the Claude design system: type, colour, surfaces,
-      motion, cards — mocked up on Lenses / Wrapped / now playing before any code
-- [ ] New playlist cards, calmer ambient glow, motion review, new tab bar
-- [ ] Roll it through every screen (the shared components make this mostly a component pass)
+## Phase 2 — Headline 1: Design 2.0 = a NEW UI, motion-first (OTA)
+Decided 2026-11-18. Not a restyle of the 1.x look: a new interface whose design starts
+from motion. Direction: **Liquid** (prototype: claude.ai/artifact/YJ8PEesdsJxQpXH2KdALjS):
+the playing song's cover colours the whole UI, frosted glass over a moving aurora, controls
+that melt into each other. (Bouncy was the other prototype, not chosen.)
+The 12 motions picked from the Motion Reel (claude.ai/artifact/5bdHJcHSDSsQb26SinuFLn):
+
+| # | Motion | Where | Built with |
+|---|---|---|---|
+| 1 | Album-art aurora | Now Playing + story backgrounds; tints the app | Skia |
+| 2 | Save burst | Save / pin / add to queue | Reanimated |
+| 3 | Rolling numbers | Every stat (Wrapped hero, counts) | Reanimated |
+| 4 | Liquid tab bar | Tab bar (gooey stretch between tabs) | Skia + Reanimated |
+| 5 | Card opens into the lens | Lenses → playlist detail | Reanimated |
+| 6 | Story mode, kinetic type | Story mode Wrapped | Reanimated |
+| 7 | Liquid fill | Import progress, weekly goal | Skia |
+| 8 | Aperture pull-to-refresh | Pull to refresh, splash, loading | Reanimated + SVG |
+| 9 | Calendar ripple | History heatmap | Reanimated |
+| 10 | Collapsing cover | Playlist / artist pages | Reanimated |
+| 11 | Rack focus | Lists and sheets entering | Reanimated |
+| 12 | Swipe with physics | Swipe tab | Gesture Handler + Reanimated |
+
+- [x] Skia (`@shopify/react-native-skia`) added to the 2.0 native build
+- [ ] Motion primitives in `components/motion/` (one per row above), each honouring Reduce motion
+- [ ] Liquid visual language: tokens (glass, aurora, type), tab bar, screens rebuilt on it
 - [ ] New onboarding: what the app does, tracking opt-in, optional import
-- [ ] Widget styled in the new look
+- [ ] Widget restyled in the new look
 
 ## Phase 3 — Headline 2: Lifetime history explorer (OTA)
 - [ ] One stats engine on the play database: Week / Month / Year / All time and Recaps

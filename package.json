@@ -20,6 +20,7 @@
     "@expo-google-fonts/syne": "^0.2.3",
     "@expo/vector-icons": "^15.1.1",
     "@shopify/flash-list": "2.0.2",
+    "@shopify/react-native-skia": "2.2.12",
     "expo": "~54.0.34",
     "expo-alternate-app-icons": "11.0.0",
     "expo-audio": "~1.1.1",
