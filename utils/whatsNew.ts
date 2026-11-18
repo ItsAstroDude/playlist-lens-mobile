@@ -19,6 +19,29 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '1.10',
+    name:    'Under the Hood',
+    date:    '2026-11-18',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'A home-screen widget: this week’s listening time, how it compares with last week, your top artist and your last play. Long-press your home screen › Widgets › playlist.lens.',
+          'Pick your app icon in Settings › Appearance: the Aperture in all six accent colours.',
+          'Crash reports go to your own server, so problems get fixed. See them in Settings › About › Errors.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Every play now lives in a real database on your phone: faster to read, no 20,000-play limit, and the base for 2.0’s history explorer and story mode.',
+          'Importing your Spotify history is lighter on memory, and a failed import no longer touches the history you already have.',
+          'Re-import your Spotify export once to load every play you’ve ever made into the new database.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.9.1',
     name:    'Stopwatch',
     date:    '2026-11-18',

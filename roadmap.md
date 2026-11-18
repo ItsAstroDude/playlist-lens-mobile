@@ -191,17 +191,17 @@ settled before 2 and 3 are built, so they're born in it rather than restyled aft
   Phase 3, on the new engine
 
 ## Phase 1 — 2.0 foundations (the native build)
-- [ ] **Local play database** (expo-sqlite, new native module): one `plays` table for
+- [x] **Local play database** (expo-sqlite, new native module): one `plays` table for
       import + tracked + device plays, deduped, indexed by time. Replaces the MMKV JSON
       buffer (20k cap, re-parsed on every read) and the multi-MB `wrapped_stats` blob.
       Biggest load-time win, and the base for the explorer and story mode.
-- [ ] Import straight into SQLite (stream the ZIP, no base64 round-trip in JS)
-- [ ] Android home-screen widget: "This week" + now playing (react-native-android-widget,
+- [x] Import straight into SQLite (native byte read, no base64 round-trip in JS; staged + atomic)
+- [x] Android home-screen widget: "This week" + now playing (react-native-android-widget,
       new native module — part of the redesign, but it has to ride this build)
-- [ ] App icon picker (alternate launcher icons: Aperture default + 3–4 variants)
-- [ ] `eas.json` autoIncrement; jest-expo → 54; app version 2.0.0
-- [ ] Crash + error reporting (decide: Sentry free tier vs Expo's built-in insights)
-- [ ] Backend: run on gunicorn; decide on cold starts (paid Render instance vs accept them —
+- [x] App icon picker (the Aperture in all six accent colours)
+- [x] `eas.json` autoIncrement; jest-expo → 54; app version 2.0.0 (+ expo-system-ui)
+- [x] Crash + error reporting → own backend (`/api/errors`, Neon) + Settings › About › Errors
+- [~] Backend: run on gunicorn (Procfile done — deploys when merged; check Render's start command); decide on cold starts (paid Render instance vs accept them —
       the hourly tracker already wakes it)
 - Already in the build, so no native work needed later: react-native-view-shot + expo-sharing
   (share cards), expo-notifications (weekly recap)
@@ -249,7 +249,7 @@ Real friend profiles, compatibility scores, weekly friend leaderboard, compare w
 The tracker's per-user play store is the foundation, so nothing in 2.0 blocks it.
 
 ## Open decisions
-1. Crash reporting: Sentry (free tier, needs an account) or Expo insights?
+1. ~~Crash reporting~~ → own backend (decided 2026-11-18)
 2. Backend cold starts: pay for an always-on Render instance (~$7/mo) or live with them?
 3. iOS at all for 2.0, or Android-only?
-4. Which alternate icons for the picker?
+4. ~~Alternate icons~~ → the six accents (decided 2026-11-18)
