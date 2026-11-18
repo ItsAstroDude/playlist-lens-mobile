@@ -41,6 +41,7 @@ type Block =
   | { t: 'pBars'; kind: SummaryKind; buckets: number[]; labels: string[]; current: number }
   | { t: 'pEmpty'; kind: SummaryKind; tracked: boolean }
   | { t: 'pCta' }
+  | { t: 'pStory'; kind: SummaryKind }
 
 interface Row { name: string; sub?: string; value: string; frac: number; sel: WrappedSelection; add?: QueueItem }
 
@@ -123,6 +124,7 @@ function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date): Bl
     return blocks
   }
   const today = kind === 'year' ? now.getUTCMonth() : Math.floor((now.getTime() - periodRange(kind, now).start) / 86_400_000)
+  blocks.push({ t: 'pStory', kind })
   blocks.push({ t: 'pTiles', plays: s.plays, playsDelta: c.deltaPlays, artists: s.artists, tracks: s.tracks })
   blocks.push({ t: 'pBars', kind, buckets: s.buckets, labels: bucketLabels(s), current: today })
 
@@ -271,6 +273,13 @@ export default function WrappedTab() {
                 ? `listened this ${PERIOD_WORD[item.kind]}`
                 : `${item.delta >= 0 ? '+' : ''}${item.delta}% vs last ${PERIOD_WORD[item.kind]} at this point`}
             </Text>
+          </Card>
+        )
+      case 'pStory':
+        return (
+          <Card tone="accent" style={styles.block}>
+            <ListRow icon="play" label={`Play your ${PERIOD_WORD[item.kind]}`} hint="As a story: top artist, on repeat, your biggest day"
+              onPress={() => { haptic.medium(); router.push(`/story?kind=${item.kind}`) }} last />
           </Card>
         )
       case 'pTiles':
