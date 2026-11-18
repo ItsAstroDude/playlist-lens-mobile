@@ -362,7 +362,7 @@ on astrobox, just somewhere that's always on.
 | Easter eggs | tap him 5× → big hop + a rock joke; a hidden rock somewhere ("that's my rival. we don't talk.") |
 | About | fine-print humour ("the most intelligent star ever made.* *out of 1 star tested.") + "made by astro" |
 
-## B. The sister player — local files + Spotify, one app
+## B. Soundwave — the sister player (local files + Spotify, one app)
 
 **What:** a music player in the playlist.lens family. It plays music files on the
 phone (MP3, FLAC, M4A, OGG) AND drives Spotify, from one Liquid interface, with Spark
@@ -409,4 +409,5 @@ properly. It needs Premium. Local files play inside the player itself.
 ### Decisions
 - ~~Spark default~~ → **on**, with his AI working (S2b) · ~~Headphones~~ → **both apps**
   · ~~Code setup~~ → **separate repo**, Spark shared as a package
-- Still open: **the player's name**
+- ~~Name~~ → **Soundwave** (decided 2026-11-18). Wordmark idea to try: **sound.wave**, the
+  family dot like playlist.lens, which is also a home for Spark
