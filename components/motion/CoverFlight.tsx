@@ -29,10 +29,11 @@ export function CoverFlight({ flight, onLanded, onDone }: {
     if (!flight) return
     if (reduced) { onLanded?.(); onDone(); return }
     p.value = 0; fade.value = 1
-    p.value = withSpring(1, { mass: 1, damping: 20, stiffness: 150, overshootClamping: false })
+    // Same spring as the sheet, so the cover lands as the sheet arrives.
+    p.value = withSpring(1, { mass: 1, damping: 22, stiffness: 180 })
     // Land → reveal the real cover underneath → only then fade the flying copy.
-    const t = setTimeout(() => onLanded?.(), 470)
-    fade.value = withDelay(520, withTiming(0, { duration: 180 }, done => { if (done) runOnJS(onDone)() }))
+    const t = setTimeout(() => onLanded?.(), 400)
+    fade.value = withDelay(440, withTiming(0, { duration: 160 }, done => { if (done) runOnJS(onDone)() }))
     return () => clearTimeout(t)
   }, [flight?.key])
 

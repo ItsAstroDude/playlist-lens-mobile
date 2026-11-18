@@ -145,19 +145,28 @@ export function DetailSheet({ playlist, palette, onClose, onGone, coverHidden = 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
 function HeroSection({ playlist, palette, cc, coverHidden }: { playlist: SpotifyPlaylist; palette: PlaylistPalette | null; cc: ReturnType<typeof useCollapsingCover>; coverHidden: boolean }) {
   const coverUrl = playlist.images?.[0]?.url
+  // While a cover is flying in from the tapped card, the hero's own cover and its big
+  // backdrop wait; the backdrop then fades in under the landed cover.
+  const reveal = useSharedValue(coverHidden ? 0 : 1)
+  useEffect(() => { reveal.value = withTiming(coverHidden ? 0 : 1, { duration: coverHidden ? 0 : 380 }) }, [coverHidden])
+  const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value }))
 
   return (
     <View style={styles.hero}>
-      {/* Blurred cover background — scrolls at half speed, stretches on overscroll */}
-      <Animated.View style={[StyleSheet.absoluteFillObject, cc.backdrop]}>
-        {coverUrl && (
-          <Image
-            source={{ uri: coverUrl }}
-            style={StyleSheet.absoluteFillObject}
-            contentFit="cover"
-          />
-        )}
-        <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFillObject} />
+      {/* Blurred cover background — scrolls at half speed, stretches on overscroll.
+          (Its own wrapper fades it in: cc.backdrop sets the transform.) */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, revealStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFillObject, cc.backdrop]}>
+          {coverUrl && (
+            <Image
+              source={{ uri: coverUrl }}
+              style={StyleSheet.absoluteFillObject}
+              contentFit="cover"
+              blurRadius={40}
+            />
+          )}
+          <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFillObject} />
+        </Animated.View>
       </Animated.View>
       <LinearGradient
         colors={['rgba(19,19,21,0.15)', 'rgba(19,19,21,1.0)']}
@@ -167,7 +176,10 @@ function HeroSection({ playlist, palette, cc, coverHidden }: { playlist: Spotify
       />
 
       {/* Crisp cover art centered */}
-      <Animated.View style={[styles.heroCoverWrap, cc.cover, coverHidden && { opacity: 0 }]}>
+      {/* Hidden by an OUTER wrapper: cc.cover animates opacity on the inner view and
+          would override a plain opacity there. */}
+      <View style={{ alignSelf: 'center', opacity: coverHidden ? 0 : 1 }}>
+      <Animated.View style={[styles.heroCoverWrap, cc.cover]}>
         {coverUrl ? (
           <Image
             source={{ uri: coverUrl }}
@@ -183,6 +195,7 @@ function HeroSection({ playlist, palette, cc, coverHidden }: { playlist: Spotify
         {/* Specular highlight on cover */}
         <View style={styles.coverSpecular} />
       </Animated.View>
+      </View>
 
       {/* Playlist info at bottom of hero */}
       <Animated.View style={[styles.heroInfo, cc.title]}>
