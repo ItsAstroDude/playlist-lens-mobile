@@ -284,6 +284,9 @@ in one app). Spark's source of truth: `docs/spark/SPARK_BRIEF.md` + `docs/spark/
 
 ## A. Spark in playlist.lens
 
+**Accessory (decided):** Spark wears **headphones in both apps** — designed to fit the
+SVG spec (a band over the top point, cups on the side points), amber body unchanged.
+
 **Who:** a chubby amber four-point star with a face — "a little smarter than a rock.
 but hey." Lowercase one-liners, moves on springs, never covers the music, never makes
 things up. Fixed amber `#FFC23D` — he does NOT take the album-art tint (he's a separate
@@ -320,6 +323,28 @@ decides otherwise — no cloud LLM, no new cost, no listening data leaving for S
       celebrated, mute setting
 - [ ] Setting: Spark **on / quiet (visible, silent) / off**
 
+### S2b — his AI brain ("local on cloud", $0) — decided 2026-11-18: Spark's AI must work
+Andrei wants Spark's real AI, free. Free AI APIs shrank in 2026 (Gemini free ≈ 20
+requests/day on Flash; Groq's free limits keep moving), and the laptop is only sometimes
+on — so Spark gets **his own small model on a free cloud server**, like he runs locally
+on astrobox, just somewhere that's always on.
+- [ ] **spark-brain**: llama.cpp server with a small instruct model (Qwen-class, ~2–4B,
+      Q4) on **Oracle Cloud Always Free ARM** (2 OCPU / 12 GB since the June 2026 cut).
+      HTTPS + an API key; only the playlist.lens backend talks to it, never the phone.
+- [ ] **Pre-baked, not live**: the backend asks Spark for lines when your stats change
+      (after each hourly tracker run, after an import, on Monday for the week) and stores
+      them; the app reads ready lines instantly. CPU slowness (seconds per line) never
+      shows. Tap-to-ask questions use the same server live, with a "thinking" Spark.
+- [ ] **Guard rails in code**: Spark's system prompt from the brief; output must be one
+      line, ≤ 14 words, lowercase, no emoji, and **every number in it must appear in the
+      facts sent** (else rejected and a scripted line is used). Only aggregates go in —
+      no tokens, ids or play-by-play history.
+- [ ] **Fallback chain**: spark-brain → (optional) the laptop over Tailscale Funnel when
+      it's on → scripted line banks. Spark never goes silent because a server is down;
+      he just gets less clever ("unloaded" mood when the brain is unreachable).
+- [ ] Free cloud APIs (Groq / Gemini / Cloudflare Workers AI's 10k neurons/day) stay an
+      optional extra fallback, not the plan — their free tiers keep shrinking.
+
 ### S3 — where he lives in playlist.lens
 | Place | Spark |
 |---|---|
@@ -351,10 +376,11 @@ showing it beautifully — the same thing playlist.lens's transport already does
 properly. It needs Premium. Local files play inside the player itself.
 
 ### Architecture
-- **One repo, two apps, shared packages** (a monorepo): `apps/lens` (playlist.lens),
-  `apps/player`, and `packages/` for what both use — the design system + Liquid tokens,
-  the motion primitives (aurora, tab bar, rolling numbers…), **Spark**, the Spotify API
-  client, palette extraction, the play-database schema. Built once, used twice.
+- **Separate repo** (decided: the two apps' designs will differ a lot). The player gets
+  its own design language; only **Spark** must be identical in both, so he lives in a
+  tiny shared package (`spark`: component + moods + line banks + the brain client),
+  pulled into both apps as a git dependency. Everything else is copied once and then
+  allowed to diverge.
 - **Two playback engines behind one `Player` interface:**
   - *Local* — react-native-track-player (Android Media3/ExoPlayer): background play,
     lock-screen + notification controls, Bluetooth buttons, gapless, FLAC
@@ -368,8 +394,8 @@ properly. It needs Premium. Local files play inside the player itself.
 - Same Spotify app + backend + allow-list as playlist.lens (Development Mode cap applies)
 
 ### Phases
-- **P0 — the family split** *(no visible change)*: move playlist.lens into the monorepo;
-  extract the shared packages; both apps build from it; Spark lands in `packages/spark`
+- **P0 — setup**: new repo + Expo app; the `spark` package extracted from playlist.lens and
+  shared by both; same Spotify app + backend
 - **P1 — local player MVP:** library (songs / albums / artists / folders), search, queue,
   full-screen Liquid Now Playing (cover-tinted aurora, big cover, swipe to change track),
   lock-screen controls, gapless, shuffle/repeat, sleep timer, Spark vibing
@@ -380,8 +406,7 @@ properly. It needs Premium. Local files play inside the player itself.
 - **P4 — nice to have:** an equaliser (native effect), `.lrc` synced lyrics, a widget,
   Android Auto, a mixed queue (local → Spotify hand-off), iOS
 
-### Decisions for Andrei
-1. The player's name (family: playlist.lens → ?)
-2. Spark's default: on, or quiet until you meet him in onboarding?
-3. Headphones on Spark in the music apps — the brief says ask first
-4. Monorepo (recommended) or a separate repo that copies the shared code
+### Decisions
+- ~~Spark default~~ → **on**, with his AI working (S2b) · ~~Headphones~~ → **both apps**
+  · ~~Code setup~~ → **separate repo**, Spark shared as a package
+- Still open: **the player's name**
