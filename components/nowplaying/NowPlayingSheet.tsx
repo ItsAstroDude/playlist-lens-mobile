@@ -140,7 +140,8 @@ export function NowPlayingSheet({ np, onClose }: {
   return (
     <>
       <Sheet open={isOpen} onClose={onClose} zIndex={30}>
-        {auroraColors && (
+        {/* only while open — it redraws every frame */}
+        {auroraColors && isOpen && (
           <View style={styles.aurora} pointerEvents="none">
             <Aurora colors={auroraColors} base={Colors.sheet} dim={0.5} style={StyleSheet.absoluteFill} />
           </View>

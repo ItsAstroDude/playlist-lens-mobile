@@ -29,7 +29,7 @@ export function RollingNumber({ value, style, unitStyle, stagger = 70, container
       {parts.map((p, i) =>
         p.kind === 'digit'
           ? <DigitColumn key={p.key} digit={p.d} delay={delays[i]} lineH={lineH} style={[style, { lineHeight: lineH }]} />
-          : <Text key={p.key} style={[unitStyle ?? style]} importantForAccessibility="no">{p.ch === ' ' ? ' ' : p.ch}</Text>,
+          : <Text key={p.key} style={[unitStyle ?? style, styles.tight]} importantForAccessibility="no">{p.ch === ' ' ? ' ' : p.ch}</Text>,
       )}
     </View>
   )
@@ -47,7 +47,7 @@ function DigitColumn({ digit, delay, lineH, style }: { digit: number; delay: num
   return (
     <View style={{ height: lineH, overflow: 'hidden' }} importantForAccessibility="no-hide-descendants">
       <Animated.View style={a}>
-        {DIGITS.map(d => <Text key={d} style={[style, styles.digit]}>{d}</Text>)}
+        {DIGITS.map(d => <Text key={d} style={[style, styles.digit, { height: lineH }]}>{d}</Text>)}
       </Animated.View>
     </View>
   )
@@ -55,5 +55,8 @@ function DigitColumn({ digit, delay, lineH, style }: { digit: number; delay: num
 
 const styles = StyleSheet.create({
   row:   { flexDirection: 'row', alignItems: 'flex-end' },
-  digit: { textAlign: 'center', fontVariant: ['tabular-nums'] },
+  // Android pads text with extra font ascent/descent; without this a column is taller
+  // than its window and slivers of the neighbouring digits show.
+  digit: { textAlign: 'center', fontVariant: ['tabular-nums'], includeFontPadding: false, textAlignVertical: 'center' },
+  tight: { includeFontPadding: false },
 })

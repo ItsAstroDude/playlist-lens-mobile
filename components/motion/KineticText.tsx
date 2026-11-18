@@ -39,7 +39,7 @@ function Word({ word, lineH, style, delay, last }: { word: string; lineH: number
   }))
   return (
     <View style={{ height: lineH, overflow: 'hidden' }} importantForAccessibility="no-hide-descendants">
-      <Animated.Text style={[style, a]}>{word}{last ? '' : ' '}</Animated.Text>
+      <Animated.Text style={[style, { includeFontPadding: false }, a]}>{word}{last ? '' : ' '}</Animated.Text>
     </View>
   )
 }

@@ -23,7 +23,6 @@ import { usePalette } from '@/hooks/usePalette'
 import { PlaylistCard, GRID_W, GRID_GAP, COVER_RADIUS } from '@/components/playlist/PlaylistCard'
 import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
-import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { HomeTopStrip } from '@/components/nowplaying/NowPlayingStrip'
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist'
 import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet'
@@ -318,7 +317,6 @@ export default function PlaylistsTab() {
     <View style={styles.container}>
 
       {/* ── Living ambient background (drifting glows + aurora) ── */}
-      <AmbientBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
 
@@ -451,7 +449,7 @@ export default function PlaylistsTab() {
 const styles = StyleSheet.create({
   container: {
     flex:            1,
-    backgroundColor: Colors.background,
+    backgroundColor: 'transparent',
   },
 
   safe: {

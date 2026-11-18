@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { TabHeader, Card, ListRow, Chip, Stat, Button, EmptyState } from '@/components/ui'
-import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
 import { useSharedValue } from 'react-native-reanimated'
@@ -176,7 +175,6 @@ export default function SwipeTab() {
 
   return (
     <View style={styles.container}>
-      <AmbientBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
         {Header}
@@ -340,7 +338,7 @@ const styles = StyleSheet.create({
   summaryCard: { flexDirection: 'row', gap: Spacing.md, alignSelf: 'stretch', marginHorizontal: Spacing.lg },
   wide:        { alignSelf: 'stretch', marginHorizontal: Spacing.lg },
 
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   safe: { flex: 1, zIndex: 1 },
 
 

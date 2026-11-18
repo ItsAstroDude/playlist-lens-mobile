@@ -9,6 +9,7 @@ import { haptic } from '@/constants/animation'
 import { getNavbarStyle } from '@/utils/settings'
 import { NowPlayingBar } from '@/components/nowplaying/NowPlayingBar'
 import { LiquidTabBar } from '@/components/motion/LiquidTabBar'
+import { LiquidBackground } from '@/components/motion/LiquidBackground'
 
 // Minimal structural type for the navigator props we actually use (avoids a
 // dependency on @react-navigation/bottom-tabs' types, which don't resolve here).
@@ -78,7 +79,8 @@ export default function TabLayout() {
           : <LiquidTabBar {...props} minimal={navStyle === 'minimal'} />}
       screenOptions={{
         headerShown: false,
-        sceneStyle:  { backgroundColor: Colors.background },
+        // One shared aurora (below) behind every tab — scenes are see-through.
+        sceneStyle:  { backgroundColor: 'transparent' },
         animation:   'fade',
       }}
     >
@@ -92,6 +94,7 @@ export default function TabLayout() {
   // The live now-playing bar floats above whichever navbar variant is active.
   const content = (
     <View style={styles.flex}>
+      <LiquidBackground />
       {tabs}
       <NowPlayingBar navStyle={navStyle} />
     </View>

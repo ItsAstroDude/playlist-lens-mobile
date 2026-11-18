@@ -14,7 +14,6 @@ import { comparePeriods, periodTitle, bucketLabels, periodRange, type SummaryKin
 import { playsSince, countSince, windowStartT } from '@/utils/playDb'
 import { trackingEnrolled } from '@/utils/tracking'
 import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow } from '@/components/ui'
-import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
@@ -359,7 +358,6 @@ export default function WrappedTab() {
 
   return (
     <View style={styles.container}>
-      <AmbientBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
         <TabHeader title={mode === 'all' ? 'all time' : `your ${PERIOD_WORD[mode]}`} subtitle={subtitle}>
@@ -442,7 +440,7 @@ const styles = StyleSheet.create({
   bubbles:     { height: 226, position: 'relative' },
   bubbleNum:   { fontFamily: FontFamily.syneBold, fontSize: 24, color: Colors.text, letterSpacing: -0.8 },
   bubbleLabel: { ...Type.caption, fontSize: 11, color: Colors.textSecondary, textAlign: 'center' },
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   safe: { flex: 1, zIndex: 1 },
 
 

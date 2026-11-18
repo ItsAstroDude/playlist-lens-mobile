@@ -34,7 +34,12 @@ export function LiquidBackground() {
   const { width: W, height: H } = useWindowDimensions()
   const light = activeThemeMode() === 'light'
   const t = useSharedValue(Date.now() % 10_000_000)
-  useFrameCallback(() => { t.value = Date.now() % 10_000_000 }, focused && !reduced)
+  // The drift is a fraction of a pixel per frame, so 20 updates a second looks the same
+  // as 60 at a third of the work.
+  useFrameCallback(() => {
+    const now = Date.now() % 10_000_000
+    if (Math.abs(now - t.value) >= 50) t.value = now
+  }, focused && !reduced)
 
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.background }]} pointerEvents="none">
