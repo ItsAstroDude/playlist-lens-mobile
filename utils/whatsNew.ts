@@ -19,6 +19,28 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.5',
+    name:    'Milestones',
+    date:    '2026-11-19',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Streaks in All time: how many days in a row you’ve had music, your longest streak ever, and your longest run with one artist.',
+          'Milestones: your 10,000th play, your 100th artist, your 1,000th hour, with the date and the song that got you there, plus how close the next one is.',
+          'New to you: the artists and songs you heard for the first time this week, month or year. Tap one to see every play.',
+          'On this day: what you played on today’s date in earlier years. Play them again, or add them to your queue, in one tap.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'All time and Recaps no longer freeze the app while they add up years of history. They open on your last numbers and update in place.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.4',
     name:    'Every day',
     date:    '2026-11-19',

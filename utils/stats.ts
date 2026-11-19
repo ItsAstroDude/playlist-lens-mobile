@@ -12,7 +12,8 @@
  * Music only: plays without a track name (podcasts, unknown rows) are left out,
  * like everywhere else in the app.
  */
-import { db, importMaxT } from '@/utils/playDb'
+import { db } from '@/utils/playDb'
+import { all, first, exec, runSync, cachedAsync, type Job } from '@/utils/sqlJob'
 import { periodKeys, weekKey, seasonLabel, monthLabel, weekLabel, type PeriodKind } from '@/utils/periods'
 import type { RecapBundle, RecapPeriod, WrappedStats } from '@/utils/wrapped'
 import type { PeriodComparison, PeriodSummary, SummaryKind } from '@/utils/listening'
@@ -80,28 +81,35 @@ export function periodRange(kind: Exclude<StatsKind, 'all'>, now: Date, offsetSe
 }
 
 /** First and last play we hold (UTC seconds), or null when the database is empty. */
-export function playSpan(): { first: number; last: number } | null {
-  const r = db().getFirstSync<{ a: number | null; b: number | null }>(`SELECT MIN(t) AS a, MAX(t) AS b FROM plays WHERE ${MUSIC}`, [])
+function* playSpanJob(): Job<{ first: number; last: number } | null> {
+  const r: { a: number | null; b: number | null } | null = yield first(`SELECT MIN(t) AS a, MAX(t) AS b FROM plays WHERE ${MUSIC}`)
   return r?.a == null || r.b == null ? null : { first: r.a, last: r.b }
+}
+export function playSpan(): { first: number; last: number } | null { return runSync(playSpanJob()) }
+
+/** Local day number → its calendar year and month (0-based), as on the phone's clock. */
+function ymOfDay(day: number): { y: number; m: number } {
+  const d = new Date(day * DAY * 1000)
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() }
 }
 
 // ─── the summary ──────────────────────────────────────────────────────────────
+type StatsOpts = { now?: Date; offsetSec?: number; back?: number; cutoff?: number; topN?: number }
+
 /**
  * Everything about one period. `cutoff` (UTC seconds) stops counting early — pass
  * the same elapsed point to compare "this week so far" with last week.
+ * No per-play date formatting: hours, weekdays and days are integer arithmetic on
+ * local seconds; months and years come from the per-day totals.
  */
-export function periodStats(
-  kind: StatsKind,
-  opts: { now?: Date; offsetSec?: number; back?: number; cutoff?: number; topN?: number } = {},
-): PeriodStats {
+export function* periodStatsJob(kind: StatsKind, opts: StatsOpts = {}): Job<PeriodStats> {
   const now = opts.now ?? new Date()
   const off = opts.offsetSec ?? localOffsetSec(now)
   const topN = opts.topN ?? 10
-  const d = db()
 
   let start: number, end: number
   if (kind === 'all') {
-    const span = playSpan()
+    const span: { first: number; last: number } | null = yield* playSpanJob()
     start = span?.first ?? Math.floor(now.getTime() / 1000)
     end = (span?.last ?? start) + 1
   } else {
@@ -110,74 +118,73 @@ export function periodStats(
   const until = Math.min(end, opts.cutoff ?? end)
   const W = `${MUSIC} AND t >= ? AND t < ?`
   const P = [start, until]
+  const LT = `(t + ${off})`
 
-  const tot = d.getFirstSync<{ ms: number | null; n: number; a: number; tr: number; al: number; days: number }>(
+  const tot: { ms: number | null; n: number; a: number; tr: number; al: number } | null = yield first(
     `SELECT SUM(ms) AS ms, COUNT(*) AS n,
             COUNT(DISTINCT artist) AS a,
             COUNT(DISTINCT track || char(0) || IFNULL(artist, '')) AS tr,
-            COUNT(DISTINCT CASE WHEN album IS NOT NULL THEN album || char(0) || IFNULL(artist, '') END) AS al,
-            COUNT(DISTINCT CAST((t + ?) / ${DAY} AS INTEGER)) AS days
-     FROM plays WHERE ${W}`,
-    [off, ...P],
-  )
+            COUNT(DISTINCT CASE WHEN album IS NOT NULL THEN album || char(0) || IFNULL(artist, '') END) AS al
+     FROM plays WHERE ${W}`, P)
 
-  // Buckets
+  // Per local day: active days, every bucket kind and the weekday split.
+  const byDay: { d: number; ms: number }[] = yield all(
+    `SELECT CAST(${LT} / ${DAY} AS INTEGER) AS d, SUM(ms) AS ms FROM plays WHERE ${W} GROUP BY d`, P)
+
+  const weekdays = new Array(7).fill(0)
+  for (const r of byDay) weekdays[(((r.d + 3) % 7) + 7) % 7] += r.ms    // day 0 (1970-01-01) was a Thursday → Mon = 0
+
   let buckets: number[], bucketLabels: string[]
   if (kind === 'week' || kind === 'month') {
     const n = Math.round((end - start) / DAY)
+    const d0 = Math.floor((start + off) / DAY)
     buckets = new Array(n).fill(0)
-    for (const r of d.getAllSync<{ b: number; ms: number }>(
-      `SELECT CAST((t - ?) / ${DAY} AS INTEGER) AS b, SUM(ms) AS ms FROM plays WHERE ${W} GROUP BY b`, [start, ...P],
-    )) if (r.b >= 0 && r.b < n) buckets[r.b] = r.ms
+    for (const r of byDay) { const i = r.d - d0; if (i >= 0 && i < n) buckets[i] += r.ms }
     bucketLabels = kind === 'week' ? WEEKDAYS : buckets.map((_, i) => String(i + 1))
   } else if (kind === 'year') {
     buckets = new Array(12).fill(0)
-    for (const r of d.getAllSync<{ b: number; ms: number }>(
-      `SELECT CAST(strftime('%m', t + ?, 'unixepoch') AS INTEGER) - 1 AS b, SUM(ms) AS ms FROM plays WHERE ${W} GROUP BY b`, [off, ...P],
-    )) buckets[r.b] = r.ms
+    for (const r of byDay) buckets[ymOfDay(r.d).m] += r.ms
     bucketLabels = MONTHS
   } else {
     const y0 = new Date((start + off) * 1000).getUTCFullYear()
     const y1 = new Date((end - 1 + off) * 1000).getUTCFullYear()
     buckets = new Array(y1 - y0 + 1).fill(0)
-    for (const r of d.getAllSync<{ y: number; ms: number }>(
-      `SELECT CAST(strftime('%Y', t + ?, 'unixepoch') AS INTEGER) AS y, SUM(ms) AS ms FROM plays WHERE ${W} GROUP BY y`, [off, ...P],
-    )) if (r.y >= y0 && r.y <= y1) buckets[r.y - y0] = r.ms
+    for (const r of byDay) { const y = ymOfDay(r.d).y; if (y >= y0 && y <= y1) buckets[y - y0] += r.ms }
     bucketLabels = buckets.map((_, i) => String(y0 + i))
   }
 
   const clock = new Array(24).fill(0)
-  for (const r of d.getAllSync<{ h: number; ms: number }>(
-    `SELECT CAST(strftime('%H', t + ?, 'unixepoch') AS INTEGER) AS h, SUM(ms) AS ms FROM plays WHERE ${W} GROUP BY h`, [off, ...P],
-  )) clock[r.h] = r.ms
+  const byHour: { h: number; ms: number }[] = yield all(
+    `SELECT CAST((${LT} % ${DAY}) / 3600 AS INTEGER) AS h, SUM(ms) AS ms FROM plays WHERE ${W} GROUP BY h`, P)
+  for (const r of byHour) if (r.h >= 0 && r.h < 24) clock[r.h] = r.ms
 
-  const weekdays = new Array(7).fill(0)
-  for (const r of d.getAllSync<{ w: number; ms: number }>(
-    `SELECT CAST(strftime('%w', t + ?, 'unixepoch') AS INTEGER) AS w, SUM(ms) AS ms FROM plays WHERE ${W} GROUP BY w`, [off, ...P],
-  )) weekdays[(r.w + 6) % 7] = r.ms                       // Sun = 0 → Mon-first
-
-  const topArtists = d.getAllSync<Ranked>(
+  const topArtists: Ranked[] = yield all(
     `SELECT artist AS name, SUM(ms) AS ms, COUNT(*) AS plays FROM plays
      WHERE ${W} AND artist IS NOT NULL GROUP BY artist
-     ORDER BY ms DESC, plays DESC, name LIMIT ?`, [...P, topN],
-  )
-  const topTracks = d.getAllSync<{ name: string; sub: string | null; ms: number; plays: number; uri: string | null }>(
+     ORDER BY ms DESC, plays DESC, name LIMIT ?`, [...P, topN])
+  const tracks: { name: string; sub: string | null; ms: number; plays: number; uri: string | null }[] = yield all(
     `SELECT track AS name, artist AS sub, SUM(ms) AS ms, COUNT(*) AS plays, MAX(NULLIF(uri, '')) AS uri FROM plays
      WHERE ${W} GROUP BY track, artist
-     ORDER BY plays DESC, ms DESC, name LIMIT ?`, [...P, topN],
-  ).map(r => ({ name: r.name, sub: r.sub ?? undefined, ms: r.ms, plays: r.plays, uri: r.uri ?? undefined }))
-  const topAlbums = d.getAllSync<{ name: string; sub: string | null; ms: number; plays: number }>(
+     ORDER BY plays DESC, ms DESC, name LIMIT ?`, [...P, topN])
+  const albums: { name: string; sub: string | null; ms: number; plays: number }[] = yield all(
     `SELECT album AS name, artist AS sub, SUM(ms) AS ms, COUNT(*) AS plays FROM plays
      WHERE ${W} AND album IS NOT NULL GROUP BY album, artist
-     ORDER BY ms DESC, plays DESC, name LIMIT ?`, [...P, topN],
-  ).map(r => ({ name: r.name, sub: r.sub ?? undefined, ms: r.ms, plays: r.plays }))
+     ORDER BY ms DESC, plays DESC, name LIMIT ?`, [...P, topN])
 
   return {
     kind, start, end,
     ms: tot?.ms ?? 0, plays: tot?.n ?? 0,
-    artists: tot?.a ?? 0, tracks: tot?.tr ?? 0, albums: tot?.al ?? 0, activeDays: tot?.days ?? 0,
-    buckets, bucketLabels, clock, weekdays, topArtists, topTracks, topAlbums,
+    artists: tot?.a ?? 0, tracks: tot?.tr ?? 0, albums: tot?.al ?? 0, activeDays: byDay.length,
+    buckets, bucketLabels, clock, weekdays,
+    topArtists,
+    topTracks: tracks.map(r => ({ name: r.name, sub: r.sub ?? undefined, ms: r.ms, plays: r.plays, uri: r.uri ?? undefined })),
+    topAlbums: albums.map(r => ({ name: r.name, sub: r.sub ?? undefined, ms: r.ms, plays: r.plays })),
   }
+}
+
+/** periodStats, synchronously — fine for a week / month / year (an index range). */
+export function periodStats(kind: StatsKind, opts: StatsOpts = {}): PeriodStats {
+  return runSync(periodStatsJob(kind, opts))
 }
 
 /** % change, or null when there's nothing to compare against. */
@@ -310,7 +317,7 @@ export const RECENT_RECAPS = 14
 const SEASON_SQL = `(CASE WHEN m <= 2 THEN y - 1 ELSE y END) || '-' ||
   (CASE WHEN m = 12 OR m <= 2 THEN 'Winter' WHEN m <= 5 THEN 'Spring' WHEN m <= 8 THEN 'Summer' ELSE 'Autumn' END)`
 
-/** SQL for the period key of each play (`w` = Monday-aligned week number, mapped to an ISO key in JS). */
+/** SQL for the period key of each row of the recap table (y, m, w precomputed). */
 const KEY_SQL: Record<PeriodKind, string> = {
   year:   `CAST(y AS TEXT)`,
   month:  `printf('%04d-%02d', y, m)`,
@@ -332,38 +339,28 @@ function labelOf(kind: PeriodKind, key: string): string {
   return kind === 'year' ? key : kind === 'season' ? seasonLabel(key) : kind === 'month' ? monthLabel(key) : weekLabel(key)
 }
 
-function recapList(kind: PeriodKind, sinceT: number, off: number, cap?: number): RecapPeriod[] {
-  const d = db()
-  // Local calendar fields once per play; everything below groups on k.
-  const p = `p AS (
-    SELECT ${KEY_SQL[kind]} AS k, ms, artist, track, album, uri FROM (
-      SELECT ms, artist, track, album, uri,
-        CAST(strftime('%Y', t + ${off}, 'unixepoch') AS INTEGER) AS y,
-        CAST(strftime('%m', t + ${off}, 'unixepoch') AS INTEGER) AS m,
-        CAST((CAST((t + ${off}) / ${DAY} AS INTEGER) + 3) / 7 AS INTEGER) AS w
-      FROM plays WHERE ${MUSIC} AND t >= ?
-    )
-  )`
-  const totals = d.getAllSync<{ k: string; ms: number; n: number }>(`WITH ${p} SELECT k, SUM(ms) AS ms, COUNT(*) AS n FROM p GROUP BY k`, [sinceT])
+function* recapListJob(T: string, kind: PeriodKind, sinceT: number, cap?: number): Job<RecapPeriod[]> {
+  const p = `p AS (SELECT ${KEY_SQL[kind]} AS k, ms, artist, track, album, uri FROM ${T} WHERE t >= ${Math.floor(sinceT)})`
+  const totals: { k: string; ms: number; n: number }[] = yield all(`WITH ${p} SELECT k, SUM(ms) AS ms, COUNT(*) AS n FROM p GROUP BY k`)
   if (!totals.length) return []
-  const artists = d.getAllSync<{ k: string; name: string; ms: number; plays: number }>(
+  const artists: { k: string; name: string; ms: number; plays: number }[] = yield all(
     `WITH ${p} SELECT k, name, ms, plays FROM (
        SELECT k, artist AS name, SUM(ms) AS ms, COUNT(*) AS plays,
               ROW_NUMBER() OVER (PARTITION BY k ORDER BY SUM(ms) DESC, artist) AS rn
        FROM p WHERE artist IS NOT NULL GROUP BY k, artist
-     ) WHERE rn <= 10 ORDER BY k, rn`, [sinceT])
-  const tracks = d.getAllSync<{ k: string; name: string; artist: string | null; plays: number; ms: number; uri: string | null }>(
+     ) WHERE rn <= 10 ORDER BY k, rn`)
+  const tracks: { k: string; name: string; artist: string | null; plays: number; ms: number; uri: string | null }[] = yield all(
     `WITH ${p} SELECT k, name, artist, plays, ms, uri FROM (
        SELECT k, track AS name, artist, COUNT(*) AS plays, SUM(ms) AS ms, MAX(NULLIF(uri, '')) AS uri,
               ROW_NUMBER() OVER (PARTITION BY k ORDER BY COUNT(*) DESC, SUM(ms) DESC, track) AS rn
        FROM p GROUP BY k, track, artist
-     ) WHERE rn <= 10 ORDER BY k, rn`, [sinceT])
-  const albums = d.getAllSync<{ k: string; name: string; ms: number }>(
+     ) WHERE rn <= 10 ORDER BY k, rn`)
+  const albums: { k: string; name: string; ms: number }[] = yield all(
     `WITH ${p} SELECT k, name, ms FROM (
        SELECT k, album AS name, SUM(ms) AS ms,
               ROW_NUMBER() OVER (PARTITION BY k ORDER BY SUM(ms) DESC, album) AS rn
        FROM p WHERE album IS NOT NULL AND artist IS NOT NULL GROUP BY k, album, artist
-     ) WHERE rn <= 6 ORDER BY k, rn`, [sinceT])
+     ) WHERE rn <= 6 ORDER BY k, rn`)
 
   // Week numbers → ISO keys ("2026-W47"): the Monday of week w is local day 7w − 3.
   const keyOf = (k: string) => (kind === 'week' ? weekKey(new Date((Number(k) * 7 - 3) * DAY * 1000)) : k)
@@ -380,25 +377,43 @@ function recapList(kind: PeriodKind, sinceT: number, off: number, cap?: number):
   return cap ? list.slice(0, cap) : list
 }
 
+let tempSeq = 0
+
 /**
  * The Recaps bundle from the play database. `stored` is the bundle a pre-2.0 import
  * saved: without an import in the database it's still the only full history, so its
  * older periods are kept (the current year/season, and the rolling weeks and months,
  * come from the database — the same rule as 1.x's mergeRecaps).
+ *
+ * Each play's local year / month / week is worked out once, into a temp table that
+ * every recap query then reads.
  */
-export function recapsFromDb(stored: RecapBundle | null, now: Date = new Date(), offsetSec = localOffsetSec(now)): RecapBundle | null {
-  const weekSince  = periodRange('week',  now, offsetSec, RECENT_RECAPS - 1).start
-  const monthSince = periodRange('month', now, offsetSec, RECENT_RECAPS - 1).start
-  const live: RecapBundle = {
-    version: 2,
-    generatedAt: now.toISOString(),
-    years:   recapList('year',   0, offsetSec),
-    seasons: recapList('season', 0, offsetSec),
-    months:  recapList('month',  monthSince, offsetSec, RECENT_RECAPS),
-    weeks:   recapList('week',   weekSince,  offsetSec, RECENT_RECAPS),
+export function* recapsJob(stored: RecapBundle | null, now: Date = new Date(), offsetSec = localOffsetSec(now)): Job<RecapBundle | null> {
+  const T = `temp.recap_plays_${++tempSeq}`
+  const LT = `t + ${Math.round(offsetSec)}`
+  yield exec(`CREATE TABLE ${T} AS
+    SELECT ym / 100 AS y, ym % 100 AS m, w, t, ms, artist, track, album, uri FROM (
+      SELECT CAST(strftime('%Y%m', ${LT}, 'unixepoch') AS INTEGER) AS ym,
+             CAST((CAST((${LT}) / ${DAY} AS INTEGER) + 3) / 7 AS INTEGER) AS w,
+             t, ms, artist, track, album, uri
+      FROM plays WHERE ${MUSIC}
+    )`)
+  let live: RecapBundle
+  try {
+    live = {
+      version: 2,
+      generatedAt: now.toISOString(),
+      years:   yield* recapListJob(T, 'year', 0),
+      seasons: yield* recapListJob(T, 'season', 0),
+      months:  yield* recapListJob(T, 'month', periodRange('month', now, offsetSec, RECENT_RECAPS - 1).start, RECENT_RECAPS),
+      weeks:   yield* recapListJob(T, 'week',  periodRange('week',  now, offsetSec, RECENT_RECAPS - 1).start, RECENT_RECAPS),
+    }
+  } finally {
+    yield exec(`DROP TABLE IF EXISTS ${T}`)
   }
   const empty = !live.years.length
-  if (importMaxT() !== null || !stored) return empty ? null : live
+  const hasImport: { v: string } | null = yield first(`SELECT v FROM meta WHERE k = 'import_max_t'`)
+  if (hasImport || !stored) return empty ? null : live
   if (empty) return stored
 
   const cur = periodKeys(new Date(now.getTime() + offsetSec * 1000))   // UTC fields = local clock
@@ -416,22 +431,44 @@ export function recapsFromDb(stored: RecapBundle | null, now: Date = new Date(),
   }
 }
 
+export function recapsFromDb(stored: RecapBundle | null, now: Date = new Date(), offsetSec = localOffsetSec(now)): RecapBundle | null {
+  return runSync(recapsJob(stored, now, offsetSec))
+}
+
+/** Recaps off the UI thread, cached until a play changes (or the day / timezone does). */
+export function recapsAsync(stored: RecapBundle | null, now: Date = new Date()): Promise<RecapBundle | null> {
+  const off = localOffsetSec(now)
+  const today = Math.floor(now.getTime() / 1000 / DAY + off / DAY)
+  return cachedAsync('recaps', `${off}:${today}:${stored?.generatedAt ?? ''}`, () => recapsJob(stored, now, off))
+}
+
 // ─── all time ─────────────────────────────────────────────────────────────────
 const REAL_LISTEN_MS = 30_000   // a "full play", as in Wrapped
 
 /** Each year's listening and its top artist, oldest first. */
-export function yearsWithTopArtist(offsetSec = localOffsetSec()): { year: number; ms: number; streams: number; topArtist: string }[] {
-  const d = db()
-  const Y = `CAST(strftime('%Y', t + ${offsetSec}, 'unixepoch') AS INTEGER)`
-  const years = d.getAllSync<{ year: number; ms: number; streams: number }>(
-    `SELECT ${Y} AS year, SUM(ms) AS ms, COUNT(*) AS streams FROM plays WHERE ${MUSIC} GROUP BY year ORDER BY year`, [])
-  const tops = new Map(d.getAllSync<{ year: number; name: string }>(
-    `SELECT year, name FROM (
-       SELECT ${Y} AS year, artist AS name, ROW_NUMBER() OVER (PARTITION BY ${Y} ORDER BY SUM(ms) DESC, artist) AS rn
-       FROM plays WHERE ${MUSIC} AND artist IS NOT NULL GROUP BY year, artist
-     ) WHERE rn = 1`, []).map(r => [r.year, r.name]))
-  return years.map(y => ({ ...y, topArtist: tops.get(y.year) ?? '' }))
+function* yearsWithTopArtistJob(offsetSec: number): Job<{ year: number; ms: number; streams: number; topArtist: string }[]> {
+  // Group by day first (integer arithmetic), name the years in JS.
+  const DAYX = `CAST((t + ${Math.round(offsetSec)}) / ${DAY} AS INTEGER)`
+  const days: { d: number; ms: number; n: number }[] = yield all(
+    `SELECT ${DAYX} AS d, SUM(ms) AS ms, COUNT(*) AS n FROM plays WHERE ${MUSIC} GROUP BY d`)
+  const years = new Map<number, { year: number; ms: number; streams: number; topArtist: string }>()
+  for (const r of days) {
+    const y = ymOfDay(r.d).y
+    const e = years.get(y) ?? { year: y, ms: 0, streams: 0, topArtist: '' }
+    e.ms += r.ms; e.streams += r.n; years.set(y, e)
+  }
+  // Top artist per year: one pass per year over its index range.
+  for (const e of years.values()) {
+    const from = Date.UTC(e.year, 0, 1) / 1000 - offsetSec
+    const to = Date.UTC(e.year + 1, 0, 1) / 1000 - offsetSec
+    const top: { name: string } | null = yield first(
+      `SELECT artist AS name FROM plays WHERE ${MUSIC} AND artist IS NOT NULL AND t >= ? AND t < ?
+       GROUP BY artist ORDER BY SUM(ms) DESC, artist LIMIT 1`, [from, to])
+    e.topArtist = top?.name ?? ''
+  }
+  return [...years.values()].sort((a, b) => a.year - b.year)
 }
+export function yearsWithTopArtist(offsetSec = localOffsetSec()) { return runSync(yearsWithTopArtistJob(offsetSec)) }
 
 /**
  * Lifetime stats for Wrapped's "All time", in the WrappedStats shape the screen draws.
@@ -440,12 +477,13 @@ export function yearsWithTopArtist(offsetSec = localOffsetSec()): { year: number
  * the source until it's re-imported. Skips and podcasts aren't in the database, so
  * they still come from the stored import when there is one.
  */
-export function allTimeStats(stored: WrappedStats | null, now: Date = new Date(), offsetSec = localOffsetSec(now)): WrappedStats | null {
-  if (stored && importMaxT() === null) return stored
-  const s = periodStats('all', { now, offsetSec, topN: 10 })
+export function* allTimeJob(stored: WrappedStats | null, now: Date = new Date(), offsetSec = localOffsetSec(now)): Job<WrappedStats | null> {
+  const hasImport: { v: string } | null = yield first(`SELECT v FROM meta WHERE k = 'import_max_t'`)
+  if (stored && !hasImport) return stored
+  const s: PeriodStats = yield* periodStatsJob('all', { now, offsetSec, topN: 10 })
   if (!s.plays) return stored
-  const d = db()
-  const real = d.getFirstSync<{ n: number }>(`SELECT COUNT(*) AS n FROM plays WHERE ${MUSIC} AND ms >= ?`, [REAL_LISTEN_MS])?.n ?? 0
+  const real: { n: number } | null = yield first(`SELECT COUNT(*) AS n FROM plays WHERE ${MUSIC} AND ms >= ?`, [REAL_LISTEN_MS])
+  const byYear = yield* yearsWithTopArtistJob(offsetSec)
   // Keep the import's skip RATE (skips aren't stored per play) across the larger total.
   const skipRate = stored && stored.totalStreams ? stored.skipCount / stored.totalStreams : 0
   const iso = (t: number) => new Date(t * 1000).toISOString()
@@ -454,7 +492,7 @@ export function allTimeStats(stored: WrappedStats | null, now: Date = new Date()
     generatedAt: now.toISOString(),
     totalMs: s.ms,
     totalStreams: s.plays,
-    realListens: real,
+    realListens: real?.n ?? 0,
     podcastStreams: stored?.podcastStreams ?? 0,
     skipCount: Math.round(skipRate * s.plays),
     uniqueArtists: s.artists,
@@ -464,10 +502,20 @@ export function allTimeStats(stored: WrappedStats | null, now: Date = new Date()
     topArtists: s.topArtists.map(a => ({ name: a.name, ms: a.ms, plays: a.plays })),
     topTracks: s.topTracks.map(t => ({ name: t.name, artist: t.sub ?? '', plays: t.plays, ms: t.ms, uri: t.uri })),
     topAlbums: s.topAlbums.map(a => ({ name: a.name, ms: a.ms, plays: a.plays })),
-    byYear: yearsWithTopArtist(offsetSec),
+    byYear,
     clock: s.clock,                                         // local hours
     weekday: [s.weekdays[6], ...s.weekdays.slice(0, 6)],    // WrappedStats is Sunday-first
   }
+}
+
+export function allTimeStats(stored: WrappedStats | null, now: Date = new Date(), offsetSec = localOffsetSec(now)): WrappedStats | null {
+  return runSync(allTimeJob(stored, now, offsetSec))
+}
+
+/** All time off the UI thread, cached until a play changes. */
+export function allTimeAsync(stored: WrappedStats | null, now: Date = new Date()): Promise<WrappedStats | null> {
+  const off = localOffsetSec(now)
+  return cachedAsync('allTime', `${off}:${stored?.generatedAt ?? ''}`, () => allTimeJob(stored, now, off))
 }
 
 // ─── calendar ─────────────────────────────────────────────────────────────────

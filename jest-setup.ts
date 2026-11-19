@@ -84,6 +84,10 @@ jest.mock('expo-sqlite', () => {
           }
         },
         closeSync: () => d.close(),
+        // Async twins (the app runs heavy stats with these, off the UI thread).
+        execAsync:     async (sql: string) => { d.exec(sql) },
+        getFirstAsync: async (sql: string, params: any[] = []) => plain(d.prepare(sql).get(...params)),
+        getAllAsync:   async (sql: string, params: any[] = []) => d.prepare(sql).all(...params).map(plain),
       }
     }),
   }

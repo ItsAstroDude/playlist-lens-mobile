@@ -244,9 +244,14 @@ The 12 motions picked from the Motion Reel (claude.ai/artifact/5bdHJcHSDSsQb26Si
 - [x] History screen: search every play; scroll by day; filter by artist / track / album — 2.0.3
 - [x] Calendar heatmap (a year of listening at a glance, tap a day → that day in History) — 2.0.4
       (Wrapped › Year and › All time with a year picker; longest streak per year)
-- [ ] Streaks (days in a row, an artist's run), milestones (10,000th play, 100th artist),
-      first-ever listens ("new this week")
-- [ ] "On this day" throwbacks, one tap to queue them
+- [x] Streaks (days in a row, an artist's run), milestones (10,000th play, 100th artist),
+      first-ever listens ("new this week") — 2.0.5 (`utils/highlights.ts`; Wrapped › All time
+      and the period views)
+- [x] "On this day" throwbacks, one tap to queue them — 2.0.5 (Wrapped › Week)
+- Heavy stats (All time, Recaps, streaks, milestones) run off the UI thread via
+  `utils/sqlJob.ts` (one generator, sync or async runner) and open on the last saved
+  answer. Measured at 150k plays in Node: recaps ~1.1 s, milestones ~0.7 s, All time
+  ~0.5 s — fine off-thread, but worth precomputing per closed period if it grows
 - [ ] Listening clock + by-day for every period; artwork on every top list
 
 ## Phase 4 — Headline 3: Story mode Wrapped (OTA)

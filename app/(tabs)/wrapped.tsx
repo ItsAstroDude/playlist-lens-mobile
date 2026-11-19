@@ -12,7 +12,10 @@ import { useWrapped } from '@/hooks/useWrapped'
 import { fmtHours, fmtMinutesShort, type WrappedStats, type StreamRow } from '@/utils/wrapped'
 import { periodTitle, bucketLabels, type SummaryKind, type PeriodComparison } from '@/utils/listening'
 import { countSince, windowStartT } from '@/utils/playDb'
-import { periodComparison, currentBucket, allTimeStats, yearsWithPlays } from '@/utils/stats'
+import { periodComparison, currentBucket, allTimeAsync, yearsWithPlays } from '@/utils/stats'
+import { useCachedStat } from '@/utils/sqlJob'
+import { newToYouAsync, onThisDay, streaksAsync, milestonesAsync, type NewToYou, type OnThisDayYear, type Streaks, type Milestone, type NextMilestone } from '@/utils/highlights'
+import { NewToYouCard, OnThisDayCard, StreaksCard, MilestonesCard } from '@/components/stats/Highlights'
 import { CalendarHeatmap } from '@/components/stats/CalendarHeatmap'
 import { trackingEnrolled } from '@/utils/tracking'
 import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow } from '@/components/ui'
@@ -36,6 +39,10 @@ type Block =
   | { t: 'list'; key: string; title: string; kind: ArtKind; color: string; rows: Row[] }
   | { t: 'clock'; clock: number[] }
   | { t: 'heat'; years: number[] }
+  | { t: 'newToYou'; kind: SummaryKind; n: NewToYou }
+  | { t: 'otd'; years: OnThisDayYear[] }
+  | { t: 'streaks'; s: Streaks }
+  | { t: 'miles'; m: { reached: Milestone[]; next: NextMilestone[] } }
   | { t: 'years'; rows: { year: number; ms: number; topArtist: string; frac: number }[] }
   | { t: 'foot'; real: number; skipPct: number | null; podcast: number }
   | { t: 'manage' }
@@ -74,7 +81,7 @@ const Clock = React.memo(function Clock({ clock }: { clock: number[] }) {
 })
 
 // ─── Build blocks from stats ──────────────────────────────────────────────────
-function buildBlocks(stats: WrappedStats, imported: boolean, years: number[]): Block[] {
+function buildBlocks(stats: WrappedStats, imported: boolean, years: number[], extra: { streaks?: Streaks; miles?: { reached: Milestone[]; next: NextMilestone[] } }): Block[] {
   const since = stats.firstTs ? new Date(stats.firstTs).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '—'
   const maxA = stats.topArtists[0]?.ms ?? 1
   const maxT = stats.topTracks[0]?.plays ?? 1
@@ -99,6 +106,8 @@ function buildBlocks(stats: WrappedStats, imported: boolean, years: number[]): B
     { t: 'hero', ms: stats.totalMs, since },
     { t: 'pills', streams: stats.totalStreams, artists: stats.uniqueArtists, tracks: stats.uniqueTracks },
   ]
+  if (extra.streaks?.longest) blocks.push({ t: 'streaks', s: extra.streaks })
+  if (extra.miles && (extra.miles.reached.length || extra.miles.next.length)) blocks.push({ t: 'miles', m: extra.miles })
   blocks.push({ t: 'recaps' })
   if (artistRows.length) blocks.push({ t: 'list', key: 'artists', title: 'TOP ARTISTS · BY TIME', kind: 'artist', color: Colors.greenPrimary, rows: artistRows })
   if (trackRows.length)  blocks.push({ t: 'list', key: 'tracks',  title: 'TOP TRACKS · BY PLAYS', kind: 'track', color: Colors.pink, rows: trackRows })
@@ -122,7 +131,7 @@ const MODES: { id: Mode; label: string }[] = [
 const PERIOD_WORD: Record<SummaryKind, string> = { week: 'week', month: 'month', year: 'year' }
 const fmtPeriod = (kind: SummaryKind, ms: number) => (kind === 'year' ? fmtHours(ms) : fmtMinutesShort(ms))
 
-function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date): Block[] {
+function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date, extra: { fresh?: NewToYou; otd?: OnThisDayYear[] }): Block[] {
   const s = c.current
   const kind = s.kind
   const blocks: Block[] = [{ t: 'pHero', kind, title: periodTitle(s), ms: s.ms, delta: c.deltaMs }]
@@ -136,6 +145,7 @@ function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date): Bl
   blocks.push({ t: 'pTiles', plays: s.plays, playsDelta: c.deltaPlays, artists: s.artists, tracks: s.tracks })
   blocks.push({ t: 'pBars', kind, buckets: s.buckets, labels: bucketLabels(s), current: today })
   if (kind === 'year') blocks.push({ t: 'heat', years: [new Date(s.start).getFullYear()] })
+  if (extra.otd?.length) blocks.push({ t: 'otd', years: extra.otd })
 
   const maxA = s.topArtists[0]?.ms || 1
   const maxT = s.topTracks[0]?.plays || 1
@@ -150,6 +160,8 @@ function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date): Bl
   if (s.topAlbums.length) blocks.push({ t: 'list', key: 'p-albums', title: 'TOP ALBUMS', kind: 'album', color: Colors.lavender,
     rows: s.topAlbums.map((a, i) => ({ name: a.name, sub: a.sub, value: fmtPeriod(kind, a.ms), frac: a.ms / maxL,
       sel: { kind: 'album', name: a.name, rank: i + 1, ms: a.ms, accent: Colors.lavender } })) })
+  // Only when the history starts well before this period — otherwise everything is "new".
+  if (extra.fresh?.trusted && extra.fresh.artists > 0) blocks.push({ t: 'newToYou', kind, n: extra.fresh })
   blocks.push({ t: 'recaps' })
   if (!tracked) blocks.push({ t: 'pCta' })
   return blocks
@@ -204,11 +216,24 @@ export default function WrappedTab() {
   const chooseMode = useCallback((m: Mode) => { pickedMode.current = true; setMode(m) }, [])
   const now = useMemo(() => new Date(), [version, mode])
   // All time from the stats engine (SQL, local time, includes plays tracked since the
-  // import); falls back to the stored import summary for pre-2.0 imports.
-  // Only while All time is open: it scans the whole history.
-  const stats = useMemo(() => (mode === 'all' ? allTimeStats(storedStats, now) : storedStats), [mode, storedStats, now])
+  // import); falls back to the stored import summary for pre-2.0 imports. It scans the
+  // whole history, so it runs off the UI thread, only while All time is open, and
+  // opens on the last saved answer while the fresh one is worked out.
+  const allOpen = mode === 'all'
+  const allTime  = useCachedStat('allTime', () => allTimeAsync(storedStats, now), [storedStats, now], { enabled: allOpen })
+  const streakSt = useCachedStat('streaks', () => streaksAsync(now), [now], { enabled: allOpen })
+  const milesSt  = useCachedStat('milestones', () => milestonesAsync(), [now], { enabled: allOpen })
+  const stats = allOpen ? (allTime.value ?? storedStats) : storedStats
+  const allLoading = allOpen && !stats && allTime.loading
   // Straight from the stats engine (SQL, local time): this period so far vs the last.
   const comparison = useMemo(() => (mode === 'all' ? null : periodComparison(mode, now)), [mode, now])
+  // New to you (this period) and On this day (week view only — it's about today).
+  const fresh = useCachedStat(
+    `new.${mode}`,
+    () => newToYouAsync(mode, Math.floor((comparison?.current.start ?? 0) / 1000), Math.floor((comparison?.current.end ?? 0) / 1000)),
+    [mode, now], { enabled: !!comparison, peek: false },
+  )
+  const otd = useMemo(() => (mode === 'week' ? onThisDay(now) : []), [mode, now])
   const gutter = useNowPlayingGutter()
   const scrollY = useSharedValue(0)
 
@@ -355,6 +380,14 @@ export default function WrappedTab() {
               onPress={() => { haptic.light(); router.push('/settings') }} last />
           </Card>
         )
+      case 'newToYou':
+        return <View style={styles.block}><NewToYouCard kind={item.kind} n={item.n} /></View>
+      case 'otd':
+        return <View style={styles.block}><OnThisDayCard years={item.years} /></View>
+      case 'streaks':
+        return <View style={styles.block}><StreaksCard s={item.s} /></View>
+      case 'miles':
+        return <View style={styles.block}><MilestonesCard reached={item.m.reached} next={item.m.next} /></View>
       case 'heat':
         return <View style={styles.block}><CalendarHeatmap years={item.years} /></View>
       case 'importCta':
@@ -377,8 +410,14 @@ export default function WrappedTab() {
 
   const parsing = status === 'parsing'
   const blocks = useMemo(
-    () => (comparison ? buildPeriodBlocks(comparison, tracked, now) : stats ? buildBlocks(stats, !!storedStats, yearsWithPlays()) : []),
-    [comparison, tracked, now, stats, storedStats],
+    () => (comparison
+      ? buildPeriodBlocks(comparison, tracked, now, { fresh: fresh.value, otd })
+      : stats
+        // Engine stats (version 2) know their years; a pre-2.0 summary doesn't cover the database.
+        ? buildBlocks(stats, !!storedStats, stats.version >= 2 ? stats.byYear.map(y => y.year).reverse() : yearsWithPlays(),
+            { streaks: streakSt.value, miles: milesSt.value })
+        : []),
+    [comparison, tracked, now, stats, storedStats, fresh.value, otd, streakSt.value, milesSt.value],
   )
   // Content on screen: a period view, lifetime stats, or the settled empty state.
   useLoadTime('wrapped', t0, !parsing && (blocks.length > 0 || stats === null))
@@ -403,6 +442,11 @@ export default function WrappedTab() {
               <RollingNumber value={`${progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%`} style={styles.fillPct} />
             </LiquidFill>
             <Text style={styles.parsingText}>Crunching your history{progress.total ? `  ${progress.done}/${progress.total} files` : ''}…</Text>
+          </View>
+        ) : allLoading ? (
+          <View style={styles.parsing}>
+            <ActivityIndicator color={Colors.greenPrimary} />
+            <Text style={styles.parsingText}>Adding up all your listening…</Text>
           </View>
         ) : (mode !== 'all' || stats) ? (
           <View style={{ flex: 1 }}>

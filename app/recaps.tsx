@@ -1,13 +1,14 @@
 import React, { useMemo, useState, useCallback } from 'react'
 import { useLoadTime, useRenderStart } from '@/utils/perf'
-import { View, Text, StyleSheet, ScrollView, Share } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, Share, ActivityIndicator } from 'react-native'
 import { router } from 'expo-router'
 import { Colors, FontFamily, FontSize, Spacing, Type } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { fmtHours, type RecapPeriod } from '@/utils/wrapped'
 import { loadRecaps } from '@/hooks/useWrapped'
 import { autoPullScopeMissing } from '@/utils/recents'
-import { recapsFromDb } from '@/utils/stats'
+import { recapsAsync, type recapsFromDb } from '@/utils/stats'
+import { useCachedStat } from '@/utils/sqlJob'
 import { keptSeasons, setSeasonKept, hiddenYears, setYearHidden } from '@/utils/recapPrefs'
 import type { PeriodKind } from '@/utils/periods'
 import {
@@ -31,9 +32,12 @@ function listFor(recaps: ReturnType<typeof recapsFromDb>, kind: PeriodKind): Rec
 
 export default function RecapsScreen() {
   const t0 = useRenderStart()
-  // Built from the play database in SQL, local time (the stats engine).
-  const recaps = useMemo(() => recapsFromDb(loadRecaps()), [])
-  useLoadTime('recaps', t0, true)  // everything above is synchronous on first render
+  // Built from the play database in SQL, local time (the stats engine), off the UI
+  // thread. Opens on the last saved recaps while fresh ones are worked out.
+  const stored = useMemo(() => loadRecaps(), [])
+  const { value, loading } = useCachedStat('recaps', () => recapsAsync(stored), [stored])
+  const recaps = value ?? null
+  useLoadTime('recaps', t0, value !== undefined || !loading)
   const needsReconnect = useMemo(() => autoPullScopeMissing(), [])
   const [kind, setKind] = useState<PeriodKind>('year')
   const [hidden, setHidden] = useState<Set<string>>(() => hiddenYears())
@@ -71,7 +75,12 @@ export default function RecapsScreen() {
     <Screen>
       <ScreenHeader title="recaps" subtitle="Your listening by week, month, season and year" />
 
-      {!recaps ? (
+      {value === undefined && loading ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color={Colors.greenPrimary} />
+          <Text style={Type.caption}>Building your recaps…</Text>
+        </View>
+      ) : !recaps ? (
         <EmptyState
           icon="time-outline"
           title="No recaps yet"
@@ -188,6 +197,7 @@ function RankCard({ title, children }: { title: string; children: React.ReactNod
 }
 
 const styles = StyleSheet.create({
+  loading:       { alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing['3xl'] },
   chips:         { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
   periodsScroll: { marginTop: -Spacing.sm, marginHorizontal: -Spacing.lg },
   periods:       { gap: Spacing.sm, paddingHorizontal: Spacing.lg },
