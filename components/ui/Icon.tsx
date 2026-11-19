@@ -53,6 +53,10 @@ export const GLYPH_ICON: Record<string, IconName> = {
   '⤳': 'play-skip-forward',
   '◷': 'time',
   '★': 'star',
+  '↻': 'repeat',
+  '✚': 'person-add',
+  '✺': 'flame',
+  '▲': 'trending-up',
 }
 
 /** Render a leading glyph: an Ionicon when we know it, else the raw character. */

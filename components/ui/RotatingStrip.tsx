@@ -10,6 +10,7 @@ import { haptic } from '@/constants/animation'
 import { loadCachedWrapped } from '@/hooks/useWrapped'
 import { wrappedTeasers } from '@/utils/wrapped'
 import { reduceMotionEnabled, getCustomQuote } from '@/utils/settings'
+import { weekFacts, weekLines } from '@/utils/liveLines'
 import { GlyphOrIcon } from '@/components/ui/Icon'
 
 /**
@@ -21,6 +22,18 @@ import { GlyphOrIcon } from '@/components/ui/Icon'
  * Each line is "<glyph>  <text>"; the glyph is tinted with a cycling accent.
  */
 const QUOTES = [
+  // 2.0
+  '♪  Shuffle is just trust with extra steps.',
+  '☾  Headphones on, world off.',
+  '⤳  One more song. Famous last words.',
+  '♥  Some songs are a place you go back to.',
+  '☾  3 a.m. playlists hit different.',
+  '✦  Your week as a story: Wrapped › Play your week.',
+  '◎  Pull your lenses down. Watch the aperture.',
+  '◐  The colours follow your music. Play something.',
+  '◍  Hold a lens to pin, share or compare it.',
+  '★  Your queue, your rules.',
+  // 1.x
   '✦  Every playlist tells a story.',
   '♪  Where words fail, music speaks.',
   '◎  Tap your taste profile for the big picture.',
@@ -42,9 +55,10 @@ function splitGlyph(line: string): [string, string] {
   return m ? [m[1], m[2]] : ['✦', line]
 }
 
-/** Interleave teasers + quotes so a personal stat shows up early. */
+/** Interleave personal lines + quotes so something about YOU shows up early: this
+ *  week's live facts first, then lifetime teasers from the import. */
 function buildPool(): string[] {
-  const teasers = wrappedTeasers(loadCachedWrapped())
+  const teasers = [...weekLines(weekFacts() ?? { ms: 0, deltaMs: null, topArtist: null, topTrack: null, newArtists: 0, streak: 0 }), ...wrappedTeasers(loadCachedWrapped())]
   const out: string[] = []
   // The user's custom banner (Settings → Appearance) leads the rotation.
   const custom = getCustomQuote()

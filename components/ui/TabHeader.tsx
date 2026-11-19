@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { View, Text, StyleSheet, Pressable } from 'react-native'
 import { router } from 'expo-router'
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming } from 'react-native-reanimated'
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming, withSequence } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Type } from '@/constants/theme'
 import { Spring } from '@/constants/animation'
 import { reduceMotionEnabled } from '@/utils/settings'
 import { IconButton } from '@/components/ui/Controls'
+import { haptic } from '@/constants/animation'
+import { SparkTiny, SparkLine, useSparkMode, greetingLine, tapLine, LINE_MS } from '@/components/spark'
 
 /**
  * Design system — the header every TAB screen shares (Lenses, Queue, Wrapped, Swipe):
@@ -39,12 +41,47 @@ export function TabHeader({ title, subtitle, actions, titleRight, children, sett
   }, [])
   const enter = useAnimatedStyle(() => ({ opacity: o.value, transform: [{ translateY: y.value }] }))
 
+  // ── Spark lives in the wordmark's dot. He greets (≥ 12 h away) and answers taps. ──
+  const mode = useSparkMode()
+  const [said, setSaid] = useState<{ line: string; n: number } | null>(null)
+  const [rock, setRock] = useState(false)
+  const hop = useSharedValue(0)
+  const hopStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -hop.value * 5 }, { scale: 1 + hop.value * 0.25 }] }))
+  useEffect(() => {
+    if (mode !== 'on') return
+    const t = setTimeout(() => { const g = greetingLine(); if (g) setSaid({ line: g, n: Date.now() }) }, 900)
+    return () => clearTimeout(t)
+  }, [])
+  useEffect(() => { if (mode === 'off') setSaid(null) }, [mode])
+  useEffect(() => {
+    if (!rock) return
+    const t = setTimeout(() => setRock(false), LINE_MS + 300)
+    return () => clearTimeout(t)
+  }, [rock])
+  const onSpark = () => {
+    haptic.light()
+    if (!still) hop.value = withSequence(withTiming(1, { duration: 110 }), withSpring(0, { damping: 6, stiffness: 240 }))
+    const r = tapLine()
+    if (r.rock) setRock(true)
+    setSaid({ line: r.line, n: Date.now() })
+  }
+
   return (
     <Animated.View style={[styles.wrap, enter]}>
       <View style={styles.brandRow}>
-        <Text style={styles.logo} accessibilityRole="header" accessibilityLabel="playlist.lens">
-          playlist<Text style={styles.dot}>.</Text>lens
-        </Text>
+        {mode === 'off' ? (
+          <Text style={styles.logo} accessibilityRole="header" accessibilityLabel="playlist.lens">
+            playlist<Text style={styles.dot}>.</Text>lens
+          </Text>
+        ) : (
+          <View style={styles.logoRow} accessibilityRole="header" accessibilityLabel="playlist.lens">
+            <Text style={styles.logo}>playlist</Text>
+            <Pressable onPress={onSpark} hitSlop={14} accessibilityRole="button" accessibilityLabel="Spark" accessibilityHint="Say hi to Spark">
+              <Animated.View style={[styles.sparkDot, hopStyle]}><SparkTiny size={13} rock={rock} /></Animated.View>
+            </Pressable>
+            <Text style={styles.logo}>lens</Text>
+          </View>
+        )}
         <View style={styles.actions}>
           {actions}
           {settings && (
@@ -52,8 +89,12 @@ export function TabHeader({ title, subtitle, actions, titleRight, children, sett
           )}
         </View>
       </View>
+      {/* 2.0 Liquid: a greeting over a big sentence-case title */}
+      {said && mode !== 'off'
+        ? <View style={styles.sayRow}><SparkLine key={said.n} line={said.line} mood={rock ? 'unloaded' : 'talking'} onDone={() => setSaid(null)} /></View>
+        : <Text style={styles.greet}>{greeting()}</Text>}
       <View style={styles.titleRow}>
-        <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>{title}</Text>
+        <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>{title.charAt(0).toUpperCase() + title.slice(1)}</Text>
         {titleRight ? <View style={styles.actions}>{titleRight}</View> : null}
       </View>
       {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
@@ -62,13 +103,22 @@ export function TabHeader({ title, subtitle, actions, titleRight, children, sett
   )
 }
 
+function greeting(): string {
+  const h = new Date().getHours()
+  return h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+}
+
 const styles = StyleSheet.create({
   wrap:     { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.lg, gap: 4 },
   brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 36 },
-  logo:     { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -1 },
+  logo:     { fontFamily: FontFamily.syneBold, fontSize: FontSize.md, color: Colors.textSecondary, letterSpacing: -0.5 },
+  greet:    { ...Type.caption, fontSize: 13, color: Colors.textSecondary, marginTop: Spacing.sm },
   dot:      { color: Colors.greenPrimary },
+  logoRow:  { flexDirection: 'row', alignItems: 'center' },
+  sparkDot: { marginHorizontal: 1.5, marginTop: 4 },
+  sayRow:   { marginTop: Spacing.sm - 4, minHeight: 18 },
   actions:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md, marginTop: Spacing.sm },
-  title:    { ...Type.title, flexShrink: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
+  title:    { ...Type.title, fontSize: 30, lineHeight: 36, letterSpacing: -1.2, flexShrink: 1 },
   sub:      { ...Type.caption, fontSize: 11 },
 })

@@ -11,10 +11,9 @@ import { Spring, haptic } from '@/constants/animation'
 import { useWrapped } from '@/hooks/useWrapped'
 import { fmtHours, fmtMinutesShort, type WrappedStats, type StreamRow } from '@/utils/wrapped'
 import { comparePeriods, periodTitle, bucketLabels, periodRange, type SummaryKind, type PeriodComparison } from '@/utils/listening'
-import { loadBuffer } from '@/utils/recents'
+import { playsSince, countSince, windowStartT } from '@/utils/playDb'
 import { trackingEnrolled } from '@/utils/tracking'
 import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow } from '@/components/ui'
-import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
@@ -23,6 +22,8 @@ import { confirmDialog } from '@/utils/dialog'
 import type { ArtKind } from '@/hooks/useArtwork'
 import { Icon } from '@/components/ui/Icon'
 import { useLoadTime, useRenderStart } from '@/utils/perf'
+import { RollingNumber, RackFocus, LiquidFill } from '@/components/motion'
+import { Bubble } from '@/components/motion/Bubble'
 
 const PRIVACY_URL = 'https://www.spotify.com/account/privacy/'
 
@@ -41,6 +42,7 @@ type Block =
   | { t: 'pBars'; kind: SummaryKind; buckets: number[]; labels: string[]; current: number }
   | { t: 'pEmpty'; kind: SummaryKind; tracked: boolean }
   | { t: 'pCta' }
+  | { t: 'pStory'; kind: SummaryKind }
 
 interface Row { name: string; sub?: string; value: string; frac: number; sel: WrappedSelection; add?: QueueItem }
 
@@ -123,6 +125,7 @@ function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date): Bl
     return blocks
   }
   const today = kind === 'year' ? now.getUTCMonth() : Math.floor((now.getTime() - periodRange(kind, now).start) / 86_400_000)
+  blocks.push({ t: 'pStory', kind })
   blocks.push({ t: 'pTiles', plays: s.plays, playsDelta: c.deltaPlays, artists: s.artists, tracks: s.tracks })
   blocks.push({ t: 'pBars', kind, buckets: s.buckets, labels: bucketLabels(s), current: today })
 
@@ -174,9 +177,13 @@ export default function WrappedTab() {
 
   // Play buffer (tracked + device + import tail) — re-read whenever the tab is
   // focused, since background sync keeps adding to it.
-  const [rows, setRows]       = useState<StreamRow[]>(() => loadBuffer())
+  // Plays are read per mode, only the two periods it compares (this one + the one
+  // before), straight from the play database — not two years of rows on every switch.
+  // `version` bumps on focus, since background sync keeps adding plays.
+  const [version, setVersion] = useState(0)
   const [tracked, setTracked] = useState(trackingEnrolled())
-  useFocusEffect(useCallback(() => { setRows(loadBuffer()); setTracked(trackingEnrolled()) }, []))
+  useFocusEffect(useCallback(() => { setVersion(v => v + 1); setTracked(trackingEnrolled()) }, []))
+  const hasRecent = useMemo(() => countSince(windowStartT()) > 0, [version])
   const [mode, setMode] = useState<Mode>('week')
   // No recent plays at all but a lifetime import → open on All time instead of an
   // empty week (stats load a tick after mount, so decide once they arrive).
@@ -184,11 +191,15 @@ export default function WrappedTab() {
   React.useEffect(() => {
     if (pickedMode.current || !stats) return
     pickedMode.current = true
-    if (rows.length === 0) setMode('all')
-  }, [stats, rows.length])
+    if (!hasRecent) setMode('all')
+  }, [stats, hasRecent])
   const chooseMode = useCallback((m: Mode) => { pickedMode.current = true; setMode(m) }, [])
-  const now = useMemo(() => new Date(), [rows, mode])
-  const comparison = useMemo(() => (mode === 'all' ? null : comparePeriods(rows, mode, now)), [rows, mode, now])
+  const now = useMemo(() => new Date(), [version, mode])
+  const comparison = useMemo(() => {
+    if (mode === 'all') return null
+    const since = Math.floor(periodRange(mode, now, 1).start / 1000)
+    return comparePeriods(playsSince(since), mode, now)
+  }, [mode, now])
   const gutter = useNowPlayingGutter()
   const scrollY = useSharedValue(0)
 
@@ -224,14 +235,25 @@ export default function WrappedTab() {
         )
       case 'recaps':
         return (
-          <TouchableOpacity style={styles.recapsBtn} onPress={() => { haptic.light(); router.push('/recaps') }} activeOpacity={0.85}>
-            <View style={styles.cardSpecular} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.recapsTitle}>Recaps</Text>
-              <Text style={styles.recapsSub}>Weekly · monthly · seasonal · yearly</Text>
-            </View>
-            <Icon name="arrow-forward" style={styles.recapsArrow} />
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity style={styles.recapsBtn} onPress={() => { haptic.light(); router.push('/recaps') }} activeOpacity={0.85}>
+              <View style={styles.cardSpecular} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.recapsTitle}>Recaps</Text>
+                <Text style={styles.recapsSub}>Weekly · monthly · seasonal · yearly</Text>
+              </View>
+              <Icon name="arrow-forward" style={styles.recapsArrow} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.recapsBtn} onPress={() => { haptic.light(); router.push('/history') }} activeOpacity={0.85}
+              accessibilityRole="button" accessibilityLabel="History" accessibilityHint="Every play, searchable, by day">
+              <View style={styles.cardSpecular} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.recapsTitle}>History</Text>
+                <Text style={styles.recapsSub}>Every play · search · by day</Text>
+              </View>
+              <Icon name="arrow-forward" style={styles.recapsArrow} />
+            </TouchableOpacity>
+          </>
         )
       case 'list':
         return (
@@ -239,7 +261,9 @@ export default function WrappedTab() {
             <View style={styles.cardSpecular} />
             <Text style={styles.sectionLabel}>{item.title}</Text>
             {item.rows.map((r, i) => (
-              <RankRow key={r.name + i} rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)} trailing={r.add ? <AddToQueueButton item={r.add} /> : undefined} />
+              <RackFocus key={r.name + i} index={Math.min(i, 8)} step={70}>
+                <RankRow rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)} trailing={r.add ? <AddToQueueButton item={r.add} /> : undefined} />
+              </RackFocus>
             ))}
           </View>
         )
@@ -265,7 +289,7 @@ export default function WrappedTab() {
         return (
           <Card tone="accent" padded style={styles.block}>
             <Text style={styles.sectionLabel}>{item.title}</Text>
-            <Text style={styles.pHeroValue} accessibilityLabel={`${fmtPeriod(item.kind, item.ms)} listened`}>{fmtPeriod(item.kind, item.ms)}</Text>
+            <RollingNumber value={fmtPeriod(item.kind, item.ms)} style={styles.pHeroValue} containerStyle={{ marginTop: Spacing.xs }} />
             <Text style={Type.caption}>
               {item.delta === null
                 ? `listened this ${PERIOD_WORD[item.kind]}`
@@ -273,13 +297,30 @@ export default function WrappedTab() {
             </Text>
           </Card>
         )
-      case 'pTiles':
+      case 'pStory':
         return (
-          <Card padded style={[styles.block, styles.tiles]}>
-            <Stat value={item.plays.toLocaleString()} label="plays" delta={item.playsDelta} style={{ flex: 1 }} />
-            <Stat value={item.artists.toLocaleString()} label="artists" style={{ flex: 1 }} />
-            <Stat value={item.tracks.toLocaleString()} label="tracks" style={{ flex: 1 }} />
+          <Card tone="accent" style={styles.block}>
+            <ListRow icon="play" label={`Play your ${PERIOD_WORD[item.kind]}`} hint="As a story: top artist, on repeat, your biggest day"
+              onPress={() => { haptic.medium(); router.push(`/story?kind=${item.kind}`) }} last />
           </Card>
+        )
+      case 'pTiles':
+        // 2.0 Liquid: the headline numbers float as glass bubbles
+        return (
+          <View style={[styles.block, styles.bubbles]} accessible accessibilityLabel={`${item.plays} plays, ${item.artists} artists, ${item.tracks} tracks`}>
+            <Bubble size={148} color={alpha(Colors.greenPrimary, 0.32)} style={{ left: 4, top: 14 }} phase={0}>
+              <RollingNumber value={item.plays.toLocaleString()} style={styles.bubbleNum} />
+              <Text style={styles.bubbleLabel}>plays{item.playsDelta !== null ? ` · ${item.playsDelta >= 0 ? '+' : ''}${item.playsDelta}%` : ''}</Text>
+            </Bubble>
+            <Bubble size={116} color={alpha(Colors.lavender, 0.3)} style={{ right: 6, top: 0 }} delay={140} phase={1}>
+              <RollingNumber value={item.artists.toLocaleString()} style={styles.bubbleNum} />
+              <Text style={styles.bubbleLabel}>artists</Text>
+            </Bubble>
+            <Bubble size={104} color={alpha(Colors.pink, 0.3)} style={{ right: 70, top: 112 }} delay={280} phase={2}>
+              <RollingNumber value={item.tracks.toLocaleString()} style={styles.bubbleNum} />
+              <Text style={styles.bubbleLabel}>tracks</Text>
+            </Bubble>
+          </View>
         )
       case 'pBars':
         return <Bars buckets={item.buckets} labels={item.labels} current={item.current} kind={item.kind} />
@@ -328,10 +369,9 @@ export default function WrappedTab() {
 
   return (
     <View style={styles.container}>
-      <AmbientBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <TabHeader title="wrapped" subtitle={subtitle}>
+        <TabHeader title={mode === 'all' ? 'all time' : `your ${PERIOD_WORD[mode]}`} subtitle={subtitle}>
           <View style={styles.modes}>
             {MODES.map(m => <Chip key={m.id} label={m.label} selected={mode === m.id} onPress={() => chooseMode(m.id)} />)}
           </View>
@@ -339,8 +379,11 @@ export default function WrappedTab() {
 
         {parsing ? (
           <View style={styles.parsing}>
-            <ActivityIndicator size="large" color={Colors.greenPrimary} />
-            <Text style={styles.parsingText}>Crunching your history{progress.total ? `  ${progress.done}/${progress.total}` : ''}…</Text>
+            {/* 2.0: the import fills like a glass — motion #7 */}
+            <LiquidFill progress={progress.total ? progress.done / progress.total : 0.04} size={190} color={Colors.greenPrimary} label="Importing your history">
+              <RollingNumber value={`${progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%`} style={styles.fillPct} />
+            </LiquidFill>
+            <Text style={styles.parsingText}>Crunching your history{progress.total ? `  ${progress.done}/${progress.total} files` : ''}…</Text>
           </View>
         ) : (mode !== 'all' || stats) ? (
           <View style={{ flex: 1 }}>
@@ -405,7 +448,10 @@ function EmptyState({ onImport }: { onImport: () => void }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  bubbles:     { height: 226, position: 'relative' },
+  bubbleNum:   { fontFamily: FontFamily.syneBold, fontSize: 24, color: Colors.text, letterSpacing: -0.8 },
+  bubbleLabel: { ...Type.caption, fontSize: 11, color: Colors.textSecondary, textAlign: 'center' },
+  container: { flex: 1, backgroundColor: 'transparent' },
   safe: { flex: 1, zIndex: 1 },
 
 
@@ -413,7 +459,8 @@ const styles = StyleSheet.create({
   modes: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, flexWrap: 'wrap' },
   block: { marginBottom: Spacing.md },
   tiles: { flexDirection: 'row', gap: Spacing.md },
-  pHeroValue: { fontFamily: FontFamily.syneBold, fontSize: FontSize['4xl'], color: Colors.greenPrimary, letterSpacing: -2, marginTop: Spacing.xs },
+  pHeroValue: { fontFamily: FontFamily.syneBold, fontSize: FontSize['4xl'], color: Colors.greenPrimary, letterSpacing: -2 },
+  fillPct: { fontFamily: FontFamily.syneBold, fontSize: 34, color: '#ffffff', letterSpacing: -1 },
   bucketLabels: { flexDirection: 'row', gap: 2, marginTop: 4 },
   bucketLabel: { flex: 1, textAlign: 'center' },
 

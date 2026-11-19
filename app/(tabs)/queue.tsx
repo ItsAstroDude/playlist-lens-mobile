@@ -8,7 +8,6 @@ import { router, useFocusEffect } from 'expo-router'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withDelay } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
-import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
 import { PlaylistSongPicker } from '@/components/queue/PlaylistSongPicker'
 import { useQueueCart } from '@/hooks/useQueueCart'
@@ -57,7 +56,6 @@ export default function QueueTab() {
 
   return (
     <View style={styles.container}>
-      <AmbientBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
         <TabHeader title="queue" subtitle="Hand-pick tracks or rediscover old favorites, then play them on Spotify" />
@@ -149,7 +147,7 @@ const styles = StyleSheet.create({
   shelfActions: { flexDirection: 'row', gap: Spacing.sm, marginVertical: Spacing.md },
   more:         { textAlign: 'center', marginTop: Spacing.sm },
 
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   safe: { flex: 1, zIndex: 1 },
 
 

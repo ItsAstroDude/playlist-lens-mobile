@@ -28,14 +28,24 @@ import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import { fmtDuration } from '@/utils/analyze'
 import { ensureReadable } from '@/utils/color'
 import { Sheet } from '@/components/ui/Sheet'
+import { useCollapsingCover } from '@/components/motion/CollapsingCover'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { RadarChart } from '@/components/ui/RadarChart'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { withMemorialMark } from '@/utils/tribute'
 import type { SpotifyPlaylist, PlaylistAnalysis, PlaylistPalette } from '@/types'
 
-const { width: SW } = Dimensions.get('window')
+const { width: SW, height: SH } = Dimensions.get('window')
 const HERO_H = 260
+const SHEET_MAX = 0.9
+const COVER = 132
+
+/** Where the sheet's hero cover sits once open (window coordinates) — the target for
+ *  the Lenses "card opens into the lens" flight. Sheet top + its grab area + margin. */
+export function detailCoverRect() {
+  const grab = Spacing.sm + 4 + Spacing.md + Spacing.sm
+  return { x: (SW - COVER) / 2, y: SH * (1 - SHEET_MAX) + grab + Spacing.xl, w: COVER, h: COVER }
+}
 
 // ─── Sheet ────────────────────────────────────────────────────────────────────
 interface DetailSheetProps {
@@ -43,13 +53,15 @@ interface DetailSheetProps {
   palette:  PlaylistPalette | null
   onClose:  () => void
   onGone?:  (id: string) => void
+  /** Hide the hero cover while a cover is flying in from the tapped card. */
+  coverHidden?: boolean
 }
 
 /**
  * The playlist lens: hero + full analysis. A full-height, edge-to-edge design-system
  * Sheet (`bleed`) — swipe the handle, tap the backdrop or press back to close.
  */
-export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetProps) {
+export function DetailSheet({ playlist, palette, onClose, onGone, coverHidden = false }: DetailSheetProps) {
   const insets = useSafeAreaInsets()
   const gutter = useNowPlayingGutter()
   const isOpen = playlist !== null
@@ -81,17 +93,21 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
   // Lift dark cover colours to a readable tone (same clamp Compare uses), so the
   // vibe pill / genre chips / bars aren't invisible on near-black covers.
   const accent = ensureReadable(shownPalette?.primary ?? Colors.greenPrimary)
+  const cc = useCollapsingCover(HERO_H)
 
   return (
     <>
-      <Sheet open={isOpen} onClose={onClose} bleed maxHeight={0.9} zIndex={10}>
-        <ScrollView
+      <Sheet open={isOpen} onClose={onClose} bleed maxHeight={SHEET_MAX} zIndex={10}>
+        <View style={{ flex: 1 }}>
+        <Animated.ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + 96 + gutter }}
           bounces
+          onScroll={cc.onScroll}
+          scrollEventThrottle={16}
         >
-          {/* ── Hero Section ── */}
-          {shown && <HeroSection playlist={shown} palette={shownPalette} />}
+          {/* ── Hero Section (collapses as you scroll) ── */}
+          {shown && <HeroSection playlist={shown} palette={shownPalette} cc={cc} coverHidden={coverHidden} />}
 
           {/* ── Analysis states ── */}
           {status === 'loading' && <AnalysisSkeleton accent={accent} />}
@@ -113,7 +129,12 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
           {status === 'success' && data && (
             <AnalysisContent data={data} accent={accent} trackTotal={shown?.tracks.total} onSelectArtist={setSel} />
           )}
-        </ScrollView>
+        </Animated.ScrollView>
+        {/* compact title bar, fades in once the hero has scrolled away */}
+        <Animated.View style={[styles.miniBar, cc.bar]} pointerEvents="none" importantForAccessibility="no-hide-descendants">
+          <Text style={styles.miniBarText} numberOfLines={1}>{shown?.name}</Text>
+        </Animated.View>
+        </View>
       </Sheet>
 
       <WrappedItemSheet selection={sel} onClose={() => setSel(null)} />
@@ -122,20 +143,31 @@ export function DetailSheet({ playlist, palette, onClose, onGone }: DetailSheetP
 }
 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
-function HeroSection({ playlist, palette }: { playlist: SpotifyPlaylist; palette: PlaylistPalette | null }) {
+function HeroSection({ playlist, palette, cc, coverHidden }: { playlist: SpotifyPlaylist; palette: PlaylistPalette | null; cc: ReturnType<typeof useCollapsingCover>; coverHidden: boolean }) {
   const coverUrl = playlist.images?.[0]?.url
+  // While a cover is flying in from the tapped card, the hero's own cover and its big
+  // backdrop wait; the backdrop then fades in under the landed cover.
+  const reveal = useSharedValue(coverHidden ? 0 : 1)
+  useEffect(() => { reveal.value = withTiming(coverHidden ? 0 : 1, { duration: coverHidden ? 0 : 380 }) }, [coverHidden])
+  const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value }))
 
   return (
     <View style={styles.hero}>
-      {/* Blurred cover background */}
-      {coverUrl && (
-        <Image
-          source={{ uri: coverUrl }}
-          style={StyleSheet.absoluteFillObject}
-          contentFit="cover"
-        />
-      )}
-      <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFillObject} />
+      {/* Blurred cover background — scrolls at half speed, stretches on overscroll.
+          (Its own wrapper fades it in: cc.backdrop sets the transform.) */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, revealStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFillObject, cc.backdrop]}>
+          {coverUrl && (
+            <Image
+              source={{ uri: coverUrl }}
+              style={StyleSheet.absoluteFillObject}
+              contentFit="cover"
+              blurRadius={40}
+            />
+          )}
+          <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFillObject} />
+        </Animated.View>
+      </Animated.View>
       <LinearGradient
         colors={['rgba(19,19,21,0.15)', 'rgba(19,19,21,1.0)']}
         locations={[0, 0.85]}
@@ -144,7 +176,10 @@ function HeroSection({ playlist, palette }: { playlist: SpotifyPlaylist; palette
       />
 
       {/* Crisp cover art centered */}
-      <View style={styles.heroCoverWrap}>
+      {/* Hidden by an OUTER wrapper: cc.cover animates opacity on the inner view and
+          would override a plain opacity there. */}
+      <View style={{ alignSelf: 'center', opacity: coverHidden ? 0 : 1 }}>
+      <Animated.View style={[styles.heroCoverWrap, cc.cover]}>
         {coverUrl ? (
           <Image
             source={{ uri: coverUrl }}
@@ -159,13 +194,14 @@ function HeroSection({ playlist, palette }: { playlist: SpotifyPlaylist; palette
         )}
         {/* Specular highlight on cover */}
         <View style={styles.coverSpecular} />
+      </Animated.View>
       </View>
 
       {/* Playlist info at bottom of hero */}
-      <View style={styles.heroInfo}>
+      <Animated.View style={[styles.heroInfo, cc.title]}>
         <Text style={styles.heroName} numberOfLines={2}>{playlist.name}</Text>
         <Text style={styles.heroOwner}>{playlist.owner.display_name}</Text>
-      </View>
+      </Animated.View>
     </View>
   )
 }
@@ -428,6 +464,15 @@ function AnalysisSkeleton({ accent }: { accent: string }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  // Compact bar over the top of the sheet once the hero has scrolled away
+  miniBar: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 48,
+    justifyContent: 'center', paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.sheet,
+    borderBottomWidth: 1, borderBottomColor: Colors.glassBorder,
+  },
+  miniBarText: { fontFamily: FontFamily.syneBold, fontSize: FontSize.md, color: Colors.text, letterSpacing: -0.3 },
+
   // ── Hero ──
   hero: {
     height:   HERO_H,

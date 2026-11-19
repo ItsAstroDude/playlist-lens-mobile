@@ -1,13 +1,6 @@
-import React, { useEffect, useMemo } from 'react'
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  Dimensions,
-} from 'react-native'
+import React, { useEffect, useMemo, useRef } from 'react'
+import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native'
 import { Image } from 'expo-image'
-import { LinearGradient } from 'expo-linear-gradient'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -15,7 +8,7 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated'
-import { Colors, FontSize, Spacing, Radius, Type, OnDark } from '@/constants/theme'
+import { Colors, Spacing, Type, alpha } from '@/constants/theme'
 import { Spring, STAGGER_DELAY_MS, haptic } from '@/constants/animation'
 import { getCache, CacheKeys } from '@/utils/cache'
 import { vibeColor } from '@/utils/color'
@@ -23,12 +16,15 @@ import { reduceMotionEnabled } from '@/utils/settings'
 import type { SpotifyPlaylist, PlaylistPalette, PlaylistAnalysis } from '@/types'
 
 const { width: SCREEN_W } = Dimensions.get('window')
-const CARD_H   = 188
 const SIDE_PAD = Spacing.lg
-// Grid layout: two square cards per row. Cells are SCREEN_W/2 wide, so each card
-// hugs its outer edge (via alignSelf per column) to keep margins symmetric.
+// 2.0 Liquid: playlists are frosted-glass tiles with the cover inset and the words
+// underneath (grid) or beside it (list) — no text printed over the artwork.
 export const GRID_GAP = Spacing.md
 export const GRID_W   = (SCREEN_W - SIDE_PAD * 2 - GRID_GAP) / 2
+const TILE_PAD  = 8
+const ROW_COVER = 92
+/** Corner radius of the inset cover (the open transition starts from it). */
+export const COVER_RADIUS = 20
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
@@ -36,9 +32,10 @@ interface PlaylistCardProps {
   playlist:      SpotifyPlaylist
   palette:       PlaylistPalette | null
   index:         number
-  onPress:       (playlist: SpotifyPlaylist) => void
+  /** `rect` = the cover's frame in window coordinates (for the open transition). */
+  onPress:       (playlist: SpotifyPlaylist, rect?: { x: number; y: number; w: number; h: number }) => void
   onLongPress?:  (playlist: SpotifyPlaylist) => void
-  /** 'full' (default) = full-width 188dp card · 'grid' = square 2-column card */
+  /** 'full' (default) = glass row, cover left · 'grid' = glass tile, cover on top */
   layout?:       'full' | 'grid'
 }
 
@@ -46,49 +43,33 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, l
   const grid = layout === 'grid'
   const coverUrl = playlist.images?.[0]?.url
 
-  // ── Check cache for a previously computed vibe label ──
   const cachedVibe = useMemo(() => {
     const cached = getCache<PlaylistAnalysis>(CacheKeys.playlistAnalysis(playlist.id))
     return cached?.vibe ?? null
   }, [playlist.id])
 
-  // ── Staggered entrance (skipped under Reduce motion: cards are just there) ──
-  const still      = reduceMotionEnabled()
-  const translateY = useSharedValue(still ? 0 : 32)
-  const opacity    = useSharedValue(still ? 1 : 0)
-
+  // ── Entrance: rise + scale in, staggered (skipped under Reduce motion) ──
+  const still = reduceMotionEnabled()
+  const enter = useSharedValue(still ? 1 : 0)
   useEffect(() => {
     if (still) return
-    const delay = Math.min(index * STAGGER_DELAY_MS, 400)
-    translateY.value = withDelay(delay, withSpring(0, Spring.entrance))
-    opacity.value    = withDelay(delay, withTiming(1, { duration: 380 }))
+    enter.value = withDelay(Math.min(index * STAGGER_DELAY_MS, 400), withSpring(1, Spring.entrance))
   }, [])
-
   const entranceStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity:   opacity.value,
+    opacity:   Math.min(1, enter.value * 1.4),
+    transform: [{ translateY: (1 - enter.value) * 28 }, { scale: 0.96 + 0.04 * enter.value }],
   }))
 
-  // ── Press scale ──
-  const scale      = useSharedValue(1)
-  const shadowAnim = useSharedValue(0.25)
+  // ── Press: the tile sinks a little and springs back ──
+  const scale = useSharedValue(1)
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
 
-  const pressStyle = useAnimatedStyle(() => ({
-    transform:     [{ scale: scale.value }],
-    shadowOpacity: shadowAnim.value,
-  }))
-
-  const handlePressIn  = () => {
-    scale.value      = withSpring(0.95, Spring.snappy)
-    shadowAnim.value = withSpring(0.55, Spring.snappy)
-  }
-  const handlePressOut = () => {
-    scale.value      = withSpring(1, Spring.snappy)
-    shadowAnim.value = withSpring(0.25, Spring.snappy)
-  }
+  const probe = useRef<View>(null)
   const handlePress = () => {
     haptic.medium()
-    onPress(playlist)
+    const node = probe.current
+    if (!node) { onPress(playlist); return }
+    node.measureInWindow((x, y, w, h) => onPress(playlist, w > 0 ? { x, y, w, h } : undefined))
   }
   const handleLongPress = () => {
     if (!onLongPress) return
@@ -96,153 +77,82 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, l
     onLongPress(playlist)
   }
 
-  // ── Dynamic palette ──
-  const glowColor   = palette?.primary ?? Colors.greenPrimary
-  const borderColor = palette ? `${palette.primary}40` : Colors.glassBorder
-
-  // In grid mode the FlashList cell is half the screen; pin left-column cards to
-  // the cell's right edge and right-column cards to the left so outer margins
-  // stay SIDE_PAD and the inner gap stays GRID_GAP.
+  // The tile's edge picks up the cover's own colour.
+  const edge = palette ? alpha(palette.primary, 0.35) : Colors.glassBorder
   const gridPos = grid
     ? (index % 2 === 0
         ? { alignSelf: 'flex-end'   as const, marginRight: GRID_GAP / 2 }
         : { alignSelf: 'flex-start' as const, marginLeft:  GRID_GAP / 2 })
     : null
 
+  const cover = (
+    <View style={grid ? styles.coverGrid : styles.coverRow}>
+      {coverUrl
+        ? <Image source={{ uri: coverUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={300} recyclingKey={playlist.id} />
+        : <View style={[StyleSheet.absoluteFill, styles.coverFallback]} />}
+      {/* invisible probe: the cover's frame, where the open transition starts */}
+      <View ref={probe} collapsable={false} pointerEvents="none" style={StyleSheet.absoluteFill} />
+    </View>
+  )
+  const meta = (
+    <View style={grid ? styles.metaGrid : styles.metaRow}>
+      <Text style={grid ? styles.nameGrid : styles.name} numberOfLines={grid ? 1 : 2}>{playlist.name}</Text>
+      <Text style={styles.sub} numberOfLines={1}>
+        {playlist.tracks.total} tracks{grid ? '' : ` · ${playlist.owner.display_name}`}
+      </Text>
+      {cachedVibe && (
+        <View style={[styles.vibe, { borderColor: alpha(vibeColor(cachedVibe), 0.45), backgroundColor: alpha(vibeColor(cachedVibe), 0.12) }]}>
+          <View style={[styles.vibeDot, { backgroundColor: vibeColor(cachedVibe) }]} />
+          <Text style={[styles.vibeText, { color: vibeColor(cachedVibe) }]} numberOfLines={1}>{cachedVibe}</Text>
+        </View>
+      )}
+    </View>
+  )
+
   return (
     <Animated.View style={[grid ? styles.wrapperGrid : styles.wrapper, gridPos, entranceStyle]}>
       <AnimatedPressable
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+        onPressIn={() => { scale.value = withSpring(0.96, Spring.snappy) }}
+        onPressOut={() => { scale.value = withSpring(1, Spring.snappy) }}
         onPress={handlePress}
         onLongPress={handleLongPress}
         delayLongPress={300}
-        style={[pressStyle, styles.card, { borderColor, shadowColor: glowColor }]}
+        style={[pressStyle, styles.tile, grid ? styles.tileGrid : styles.tileRow, { borderColor: edge }]}
         accessibilityRole="button"
         accessibilityLabel={`${playlist.name}, ${playlist.tracks.total} tracks${cachedVibe ? `, ${cachedVibe}` : ''}`}
         accessibilityHint={onLongPress ? 'Opens the lens. Long-press for more actions.' : 'Opens the lens.'}
       >
-        {/* Cover art fills the card */}
-        {coverUrl ? (
-          <Image
-            source={{ uri: coverUrl }}
-            style={StyleSheet.absoluteFillObject}
-            contentFit="cover"
-            transition={300}
-            recyclingKey={playlist.id}
-          />
-        ) : (
-          <View style={[StyleSheet.absoluteFillObject, styles.coverFallback]} />
-        )}
-
-        {/* Dark gradient: transparent top → near-black bottom */}
-        <LinearGradient
-          colors={['rgba(19,19,21,0.05)', 'rgba(19,19,21,0.92)']}
-          locations={[0.3, 1.0]}
-          style={StyleSheet.absoluteFillObject}
-          pointerEvents="none"
-        />
-
-        {/* Glass specular top border */}
-        <View style={styles.specular} pointerEvents="none" />
-
-        {/* Vibe badge — only if cached. Colour reflects the vibe, not the cover,
-            and rides on a dark scrim so it stays legible over bright artwork. */}
-        {cachedVibe && (
-          <View style={[styles.vibeBadge, { borderColor: `${vibeColor(cachedVibe)}55` }]}>
-            <Text style={[styles.vibeText, { color: vibeColor(cachedVibe) }]}>
-              {cachedVibe}
-            </Text>
-          </View>
-        )}
-
-        {/* Bottom info — grid cards drop the owner to fit the narrow width */}
-        <View style={styles.bottomInfo}>
-          <Text style={grid ? styles.nameGrid : styles.name} numberOfLines={1}>
-            {playlist.name}
-          </Text>
-          <View style={styles.metaRow}>
-            <Text style={styles.metaText}>{playlist.tracks.total} tracks</Text>
-            {!grid && (
-              <>
-                <Text style={styles.metaDot}>·</Text>
-                <Text style={styles.metaText}>{playlist.owner.display_name}</Text>
-              </>
-            )}
-          </View>
-        </View>
+        {cover}
+        {meta}
       </AnimatedPressable>
     </Animated.View>
   )
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    width:        SCREEN_W - SIDE_PAD * 2,
-    height:       CARD_H,
-    marginBottom: Spacing.md,
-    alignSelf:    'center',
-  },
-  wrapperGrid: {
-    width:        GRID_W,
-    height:       GRID_W,   // square — cover art is square
-    marginBottom: Spacing.md,
-  },
+  wrapper:     { width: SCREEN_W - SIDE_PAD * 2, marginBottom: Spacing.md, alignSelf: 'center' },
+  wrapperGrid: { width: GRID_W, marginBottom: Spacing.md },
 
-  card: {
-    flex:         1,
-    borderRadius: Radius.xl,
-    borderWidth:  1,
-    overflow:     'hidden',
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 24,
+  tile: {
+    backgroundColor: Colors.glass,
+    borderWidth:     1,
+    borderRadius:    COVER_RADIUS + TILE_PAD,
+    padding:         TILE_PAD,
   },
+  tileRow:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  tileGrid: { gap: Spacing.sm },
 
-  coverFallback: {
-    backgroundColor: Colors.card,
-  },
+  coverRow:      { width: ROW_COVER, height: ROW_COVER, borderRadius: COVER_RADIUS, overflow: 'hidden' },
+  coverGrid:     { width: '100%', aspectRatio: 1, borderRadius: COVER_RADIUS, overflow: 'hidden' },
+  coverFallback: { backgroundColor: Colors.card },
 
-  // 1px specular highlight across the very top of the card
-  specular: {
-    position:        'absolute',
-    top:             0,
-    left:            0,
-    right:           0,
-    height:          1,
-    backgroundColor: Colors.glassHighlight,
-  },
+  metaRow:  { flex: 1, minWidth: 0, gap: 3, paddingRight: Spacing.sm },
+  metaGrid: { gap: 2, paddingHorizontal: 4, paddingBottom: 4 },
+  name:     { ...Type.heading, fontSize: 17, lineHeight: 21 },
+  nameGrid: { ...Type.heading, fontSize: 15, lineHeight: 19, letterSpacing: -0.3 },
+  sub:      { ...Type.caption, fontSize: 11 },
 
-  // Vibe badge — glass pill at top-left
-  vibeBadge: {
-    position:          'absolute',
-    top:               Spacing.md,
-    left:              Spacing.md,
-    backgroundColor:   'rgba(0,0,0,0.62)',
-    borderWidth:       1,
-    borderColor:       'rgba(255,255,255,0.18)',
-    borderRadius:      Radius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical:   3,
-  },
-  vibeText: { ...Type.caption, letterSpacing: 0.5 },
-
-  // Bottom info overlay
-  bottomInfo: {
-    position: 'absolute',
-    bottom:   0,
-    left:     0,
-    right:    0,
-    padding:  Spacing.md,
-    gap:      3,
-  },
-  // The card is always a dark cover gradient, so text uses OnDark, not the theme.
-  name:     { ...Type.heading, color: OnDark.text, lineHeight: FontSize.lg * 1.2 },
-  nameGrid: { ...Type.heading, fontSize: FontSize.base, letterSpacing: -0.3, color: OnDark.text, lineHeight: FontSize.base * 1.2 },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           Spacing.xs,
-  },
-  metaText: { ...Type.caption, color: OnDark.textMuted },
-  metaDot:  { ...Type.caption, color: OnDark.textDim },
+  vibe:     { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, maxWidth: '100%' },
+  vibeDot:  { width: 6, height: 6, borderRadius: 3 },
+  vibeText: { ...Type.caption, fontSize: 10, letterSpacing: 0.3 },
 })

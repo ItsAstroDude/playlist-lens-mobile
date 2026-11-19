@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import Animated, {
   useSharedValue,
@@ -13,65 +13,58 @@ import Animated, {
 import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { Spring } from '@/constants/animation'
 import { Button } from './Button'
+import { wakeCopy } from '@/utils/serverStatus'
 
 // ─── Cold Start Overlay ───────────────────────────────────────────────────────
+// In-list version of the wake-up indicator (Lenses header). Every other screen
+// gets the floating ServerWakeBanner; both read the same app-wide state.
 
 interface ColdStartOverlayProps {
-  visible: boolean
+  /** Seconds spent waking the server so far (useServerWaking). */
+  elapsed: number
 }
 
-export function ColdStartOverlay({ visible }: ColdStartOverlayProps) {
+export function ColdStartOverlay({ elapsed }: ColdStartOverlayProps) {
   const opacity    = useSharedValue(0)
   const translateY = useSharedValue(8)
 
-  // Elapsed timer so the user can see something is progressing
-  const [elapsed, setElapsed] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
   useEffect(() => {
-    if (visible) {
-      setElapsed(0)
-      timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [visible])
-
-  useEffect(() => {
-    if (visible) {
-      opacity.value    = withSpring(1, Spring.entrance)
-      translateY.value = withSpring(0, Spring.entrance)
-    } else {
-      opacity.value    = withSpring(0, Spring.snappy)
-      translateY.value = withSpring(8, Spring.snappy)
-    }
-  }, [visible])
+    opacity.value    = withSpring(1, Spring.entrance)
+    translateY.value = withSpring(0, Spring.entrance)
+  }, [])
 
   const animStyle = useAnimatedStyle(() => ({
     opacity:   opacity.value,
     transform: [{ translateY: translateY.value }],
   }))
 
-  const subCopy =
-    elapsed < 8  ? 'Render cold starts take ~15–30s' :
-    elapsed < 20 ? 'Still waking up, hang tight…'    :
-                   'Almost there…'
-
   return (
-    <Animated.View style={[styles.container, animStyle]} pointerEvents="none">
+    <Animated.View
+      style={[styles.container, animStyle]}
+      pointerEvents="none"
+      accessible
+      accessibilityLiveRegion="polite"
+      accessibilityLabel={`Waking up the server, ${elapsed} seconds. ${wakeCopy(elapsed)}`}
+    >
       <View style={styles.pill}>
-        <View style={styles.dotWrap}>
-          <PulseRings />
-          <View style={styles.dot} />
-        </View>
+        <WakeDot />
         <Text style={styles.text}>
           Waking up the server
           <Text style={styles.elapsed}>{'  '}{elapsed}s</Text>
         </Text>
       </View>
-      <Text style={styles.sub}>{subCopy}</Text>
+      <Text style={styles.sub}>{wakeCopy(elapsed)}</Text>
     </Animated.View>
+  )
+}
+
+/** The pulsing green dot shared by the overlay and the banner. */
+export function WakeDot() {
+  return (
+    <View style={styles.dotWrap}>
+      <PulseRings />
+      <View style={styles.dot} />
+    </View>
   )
 }
 

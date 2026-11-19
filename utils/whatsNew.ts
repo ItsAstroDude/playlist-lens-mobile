@@ -19,13 +19,71 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
-    version: '1.10',
-    name:    'Under the Hood',
+    version: '2.0.3',
+    name:    'History',
+    date:    '2026-11-19',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'History: every play you’ve ever had, newest first and grouped by day, with each day’s total. Open it from Wrapped, under Recaps.',
+          'Search it all (songs, artists, albums), even across years of imported history.',
+          'Tap a play to see every play of that song, everything by that artist, or everything from that album.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.2',
+    name:    'Wake-up call',
+    date:    '2026-11-19',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'When the server is asleep, every screen now says so: “Waking up the server”, with a seconds counter and how long it usually takes (30–60s). Before, only the Lenses list told you.',
+          'The app starts waking the server as soon as you open it, so it’s often ready by the time you tap something.',
+        ],
+      },
+      {
+        label: 'Fixed',
+        items: [
+          'The colour glow behind the Now Playing sheet no longer jumps back every second. The same fix keeps other glows and waves smooth when a screen updates.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.1',
+    name:    'Spark',
     date:    '2026-11-18',
     sections: [
       {
         label: 'New',
         items: [
+          'Meet Spark. He lives in the dot of the wordmark, says hi when you’ve been away a while, and talks when you tap him, sometimes about your week. A little smarter than a rock.',
+          'He naps on empty screens. Too chatty? Settings › Experience › Spark: On, Quiet (only when tapped) or Off.',
+          'See all his moods in Settings › About › Motion lab.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0',
+    name:    'Liquid',
+    date:    '2026-11-18',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'A whole new look: the app floats in the colours of the song you’re playing, on frosted glass, with a new reading typeface (Manrope) under the Syne headlines.',
+          'Playlists are glass tiles now, and Wrapped’s numbers float as bubbles.',
+          'A new liquid tab bar: the highlight stretches between tabs like a drop of water.',
+          'Story mode: open Wrapped and tap “Play your week” to watch your week as full-screen slides.',
+          'Playlists open with their cover flying into place, and the cover collapses smoothly as you scroll.',
+          'Numbers roll into place, lists come into focus, adding to the queue throws confetti, and the Now Playing sheet glows in the colours of the cover.',
+          'Swipe has real physics now: throw cards, and the next one springs up.',
+          'Pull to refresh your lenses and the app’s aperture spins. Try every animation in Settings › About › Motion lab.',
           'A home-screen widget: this week’s listening time, how it compares with last week, your top artist and your last play. Long-press your home screen › Widgets › playlist.lens.',
           'Pick your app icon in Settings › Appearance: the Aperture in all six accent colours.',
           'Crash reports go to your own server, so problems get fixed. See them in Settings › About › Errors.',

@@ -1,80 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import React, { useCallback, useMemo, useRef } from 'react'
 import { Tabs } from 'expo-router'
-import { BlurView } from 'expo-blur'
-import { Pressable, StyleSheet, View, Text } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence, runOnJS,
-} from 'react-native-reanimated'
-import { Colors, FontFamily, Floating, alpha, CHROME_FONT_MAX } from '@/constants/theme'
+import { runOnJS } from 'react-native-reanimated'
+import { Colors } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
-import { tabBarHidden } from '@/utils/tabBar'
 import { getNavbarStyle } from '@/utils/settings'
 import { NowPlayingBar } from '@/components/nowplaying/NowPlayingBar'
-import { Icon, type IconName } from '@/components/ui/Icon'
-
-const BAR_H    = 60
-const ACTIVE   = Colors.greenPrimary
-const INACTIVE = Floating.inactive          // readable, still clearly "inactive" — follows the theme
-
-// ─── Tab icons — Ionicons (MIT), filled when active, outline when not ──────────
-const TAB_ICONS: Record<string, [IconName, IconName]> = {
-  index:   ['aperture', 'aperture-outline'],   // lenses
-  queue:   ['list',     'list-outline'],
-  wrapped: ['disc',     'disc-outline'],       // vinyl
-  swipe:   ['layers',   'layers-outline'],     // stacked cards
-}
-function Glyph({ name, color, focused }: { name: string; color: string; focused: boolean }) {
-  const pair = TAB_ICONS[name]
-  if (!pair) return <View style={g.box} />
-  return <View style={g.box}><Icon name={focused ? pair[0] : pair[1]} size={22} color={color} /></View>
-}
-
-// ─── One tab item — bouncy pop + hop + grounded active pill ─────────────────────
-const BOUNCE = { mass: 0.5, damping: 8,  stiffness: 230 }
-const SOFT   = { mass: 0.6, damping: 13, stiffness: 220 }
-
-function TabItem({ label, routeName, focused, onPress, minimal }: {
-  label: string; routeName: string; focused: boolean; onPress: () => void; minimal?: boolean
-}) {
-  const scale = useSharedValue(1)
-  const hop   = useSharedValue(0)
-  const pill  = useSharedValue(focused ? 1 : 0)
-
-  useEffect(() => {
-    if (focused) {
-      scale.value = withSequence(withTiming(0.86, { duration: 90 }), withSpring(1.12, BOUNCE))
-      hop.value   = withSequence(withSpring(-3, BOUNCE), withSpring(0, BOUNCE))
-    } else {
-      scale.value = withSpring(1, SOFT)
-      hop.value   = withTiming(0, { duration: 120 })
-    }
-    pill.value = withTiming(focused ? 1 : 0, { duration: 200 })
-  }, [focused])
-
-  const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }, { translateY: hop.value }] }))
-  const pillStyle = useAnimatedStyle(() => ({ opacity: pill.value, transform: [{ scale: 0.82 + pill.value * 0.18 }] }))
-
-  const color = focused ? ACTIVE : INACTIVE
-
-  return (
-    <Pressable
-      style={styles.item}
-      onPress={onPress}
-      hitSlop={6}
-      accessibilityRole="tab"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: focused }}
-    >
-      <View style={styles.iconSlot}>
-        <Animated.View style={[styles.activePill, pillStyle]} />
-        <Animated.View style={iconStyle}><Glyph name={routeName} color={color} focused={focused} /></Animated.View>
-      </View>
-      {!minimal && <Text style={[styles.label, { color }]} numberOfLines={1} maxFontSizeMultiplier={CHROME_FONT_MAX}>{label}</Text>}
-    </Pressable>
-  )
-}
+import { LiquidTabBar } from '@/components/motion/LiquidTabBar'
+import { LiquidBackground } from '@/components/motion/LiquidBackground'
 
 // Minimal structural type for the navigator props we actually use (avoids a
 // dependency on @react-navigation/bottom-tabs' types, which don't resolve here).
@@ -85,48 +20,6 @@ interface TabBarProps {
     emit: (e: { type: 'tabPress'; target: string; canPreventDefault: boolean }) => { defaultPrevented: boolean }
     navigate: (name: string) => void
   }
-}
-
-// ─── The floating bar — auto-hides via the shared `tabBarHidden` value ──────────
-// `minimal` = the icons-only variant: a narrower, shorter centered pill.
-function FloatingTabBar({ state, descriptors, navigation, minimal }: TabBarProps & { minimal?: boolean }) {
-  const insets = useSafeAreaInsets()
-  // Any tab switch reveals the bar (in case it was auto-hidden by scroll).
-  useEffect(() => { tabBarHidden.value = withTiming(0, { duration: 200 }) }, [state.index])
-
-  const barStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: tabBarHidden.value * (BAR_H + insets.bottom + 40) }],
-    opacity:   1 - tabBarHidden.value * 0.25,
-  }))
-
-  return (
-    <Animated.View
-      pointerEvents="box-none"
-      style={[
-        styles.barWrap,
-        minimal && styles.barWrapMinimal,
-        { bottom: Math.max(insets.bottom, 8) + 10 },
-        barStyle,
-      ]}
-    >
-      <View style={[styles.bar, minimal && styles.barMinimal]}>
-        <BlurView intensity={30} tint={Floating.blur} style={StyleSheet.absoluteFill} />
-        <View style={styles.barInner} accessibilityRole="tabbar">
-          {state.routes.map((route, i) => {
-            const focused = state.index === i
-            const { options } = descriptors[route.key]
-            const label = (options.title ?? route.name) as string
-            const onPress = () => {
-              haptic.light()
-              const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true })
-              if (!focused && !event.defaultPrevented) navigation.navigate(route.name)
-            }
-            return <TabItem key={route.key} label={label} routeName={route.name} focused={focused} onPress={onPress} minimal={minimal} />
-          })}
-        </View>
-      </View>
-    </Animated.View>
-  )
 }
 
 // ─── Gestures-only mode — swipe ANYWHERE to switch tabs ─────────────────────────
@@ -183,10 +76,11 @@ export default function TabLayout() {
       tabBar={(props: any) =>
         navStyle === 'gestures'
           ? <GestureDots {...props} navRef={navRef} />
-          : <FloatingTabBar {...props} minimal={navStyle === 'minimal'} />}
+          : <LiquidTabBar {...props} minimal={navStyle === 'minimal'} />}
       screenOptions={{
         headerShown: false,
-        sceneStyle:  { backgroundColor: Colors.background },
+        // One shared aurora (below) behind every tab — scenes are see-through.
+        sceneStyle:  { backgroundColor: 'transparent' },
         animation:   'fade',
       }}
     >
@@ -200,6 +94,7 @@ export default function TabLayout() {
   // The live now-playing bar floats above whichever navbar variant is active.
   const content = (
     <View style={styles.flex}>
+      <LiquidBackground />
       {tabs}
       <NowPlayingBar navStyle={navStyle} />
     </View>
@@ -211,89 +106,11 @@ export default function TabLayout() {
     : content
 }
 
-// ─── Bar + item layout ──────────────────────────────────────────────────────────
+// ─── Layout + gestures-only dots ────────────────────────────────────────────────
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  barWrap: {
-    position: 'absolute', left: 18, right: 18, height: BAR_H,
-  },
-  bar: {
-    flex: 1,
-    borderRadius: BAR_H / 2,
-    borderWidth: 1,
-    borderColor: Colors.glassBorder,
-    backgroundColor: Floating.bg, // uniform semi-opaque base under the blur (white pill in light mode)
-    overflow: 'hidden',
-    // float
-    elevation: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: Floating.shadowOpacity,
-    shadowRadius: 18,
-  },
-  // Equal distribution — every item gets the same flex slot.
-  barInner: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  item: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    paddingVertical: 6,
-  },
-  iconSlot: {
-    width: 40, height: 26, alignItems: 'center', justifyContent: 'center',
-  },
-  activePill: {
-    position: 'absolute',
-    width: 40, height: 26, borderRadius: 13,
-    backgroundColor: alpha(Colors.greenPrimary, 0.14),
-  },
-  label: {
-    fontFamily:    FontFamily.monoMedium, // weight 500
-    fontSize:      9.5,
-    letterSpacing: 0.4,                    // ~0.04em
-  },
-
-  // ── Minimal variant — narrower, shorter, icons only ──
-  barWrapMinimal: {
-    left: 80, right: 80, height: 50,
-  },
-  barMinimal: {
-    borderRadius: 25,
-  },
-
-  // ── Gestures-only variant — bottom hot-zone + dots ──
-  gestureZone: {
-    position:   'absolute',
-    left:       0,
-    right:      0,
-    bottom:     0,
-    paddingTop: 14,
-    alignItems: 'center',
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           7,
-  },
-  dot: {
-    width:           6,
-    height:          6,
-    borderRadius:    3,
-    backgroundColor: 'rgba(255,255,255,0.28)',
-  },
-  dotActive: {
-    width:           18,
-    backgroundColor: Colors.greenPrimary,
-  },
-})
-
-// ─── Icon geometry (shared box; per-icon shapes) ───────────────────────────────
-const g = StyleSheet.create({
-  box: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  gestureZone: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 14, alignItems: 'center' },
+  dotsRow:     { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  dot:         { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.28)' },
+  dotActive:   { width: 18, backgroundColor: Colors.greenPrimary },
 })

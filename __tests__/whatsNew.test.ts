@@ -63,7 +63,8 @@ describe('unseen patches', () => {
 
   it('works when the seen version was merged away (compares by version)', () => {
     storage.set('patch_seen_version', '1.8.6')   // folded into 1.9
-    const v = unseenPatches().map((p: { version: string }) => p.version)
+    // No cap: the popup shows at most 5, but this is about which versions count as newer.
+    const v = unseenPatches(Infinity).map((p: { version: string }) => p.version)
     expect(v).toContain('1.9')
     expect(v).not.toContain('1.8.4')
   })
