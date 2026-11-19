@@ -2,11 +2,12 @@ import React, { useEffect } from 'react'
 import { View } from 'react-native'
 import Svg, { Circle, Defs, LinearGradient, Stop, Path, Rect } from 'react-native-svg'
 import Animated, {
-  useSharedValue, useAnimatedProps, useFrameCallback, withRepeat, withTiming, withSpring, Easing, cancelAnimation,
+  useSharedValue, useAnimatedProps, withRepeat, withTiming, withSpring, Easing, cancelAnimation,
   type SharedValue,
 } from 'react-native-reanimated'
 import { apertureGeometry } from './math'
 import { useMotionReduced } from './reduced'
+import { useMotionClock } from './clock'
 
 const APath = Animated.createAnimatedComponent(Path)
 const ARect = Animated.createAnimatedComponent(Rect)
@@ -31,8 +32,7 @@ export function Aperture({ size = 96, close, loading = false, colors = ['#9BF7B2
   const R = size / 2 - 1, c = size / 2
   const rot = useSharedValue(0)
   const pulse = useSharedValue(1)        // 1 = fully open (when not pulled)
-  const t = useSharedValue(0)
-  useFrameCallback(f => { t.value = f.timeSinceFirstFrame }, !reduced)
+  const t = useMotionClock(!reduced)
 
   useEffect(() => {
     if (reduced) return

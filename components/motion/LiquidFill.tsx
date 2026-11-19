@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo } from 'react'
 import { View, StyleSheet } from 'react-native'
 import { Canvas, Path, Group, Circle, Skia } from '@shopify/react-native-skia'
-import { useSharedValue, useDerivedValue, useFrameCallback, withSpring, withSequence, withTiming } from 'react-native-reanimated'
+import { useSharedValue, useDerivedValue, withSpring, withSequence, withTiming } from 'react-native-reanimated'
 import { waveY } from './math'
 import { useMotionReduced } from './reduced'
+import { useMotionClock } from './clock'
 
 /**
  * Motion #7 — Liquid fill. A round gauge that fills like a glass: two waves slosh at
@@ -23,8 +24,7 @@ export function LiquidFill({ progress, size = 180, color = '#53e076', track = 'r
   const reduced = useMotionReduced()
   const level = useSharedValue(0)
   const amp = useSharedValue(1)
-  const t = useSharedValue(0)
-  useFrameCallback(f => { t.value = f.timeSinceFirstFrame }, !reduced)
+  const t = useMotionClock(!reduced)
 
   useEffect(() => {
     const p = Math.max(0, Math.min(1, progress))

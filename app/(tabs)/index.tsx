@@ -23,6 +23,7 @@ import { usePalette } from '@/hooks/usePalette'
 import { PlaylistCard, GRID_W, GRID_GAP, COVER_RADIUS } from '@/components/playlist/PlaylistCard'
 import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
+import { useServerWaking } from '@/hooks/useServerWaking'
 import { HomeTopStrip } from '@/components/nowplaying/NowPlayingStrip'
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist'
 import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet'
@@ -46,7 +47,7 @@ export default function PlaylistsTab() {
   const { palettes, extract }          = usePalette()
 
   const [refreshing, setRefreshing]     = useState(false)
-  const [coldStart, setColdStart]       = useState(false)
+  const wakeSecs = useServerWaking()   // app-wide server wake-up (utils/serverStatus)
   const [selectedPlaylist, setSelected] = useState<SpotifyPlaylist | null>(null)
   const gutter = useNowPlayingGutter()
 
@@ -118,14 +119,13 @@ export default function PlaylistsTab() {
 
   // ── Initial fetch ──
   useEffect(() => {
-    fetch({ onColdStart: () => setColdStart(true) }).finally(() => setColdStart(false))
+    fetch()
   }, [])
 
   // ── Pull to refresh ──
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    const fresh = await fetch({ onColdStart: () => setColdStart(true), force: true })
-    setColdStart(false)
+    const fresh = await fetch({ force: true })
     setRefreshing(false)
     if (fresh) haptic.light()
     // Keep showing the saved list on failure — but say so rather than failing silently.
@@ -253,10 +253,10 @@ export default function PlaylistsTab() {
 
   // Memoized as an ELEMENT (not an inline component) so FlashList doesn't see a
   // new header type every render — that was remounting RotatingStrip and making
-  // the quotes jump/skip on refresh. Only re-derives when cold-start flips.
+  // the quotes jump/skip on refresh. Only re-derives during a server wake-up.
   const listHeader = useMemo(() => (
     <>
-      {coldStart ? <ColdStartOverlay visible /> : <HomeTopStrip />}
+      {wakeSecs !== null ? <ColdStartOverlay elapsed={wakeSecs} /> : <HomeTopStrip />}
       <TouchableOpacity
         style={styles.tastePill}
         onPress={openTaste}
@@ -274,7 +274,7 @@ export default function PlaylistsTab() {
         <Icon name="arrow-forward" style={styles.tastePillArrow} />
       </TouchableOpacity>
     </>
-  ), [coldStart, openTaste])
+  ), [wakeSecs, openTaste])
 
   const ListEmpty = () => {
     if (searching && orderedData.length > 0) {
@@ -294,7 +294,7 @@ export default function PlaylistsTab() {
       return (
         <RetryBanner
           message={error || 'Failed to load playlists.'}
-          onRetry={() => fetch({ onColdStart: () => setColdStart(true) })}
+          onRetry={() => fetch()}
         />
       )
     }

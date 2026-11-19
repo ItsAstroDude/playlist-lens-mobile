@@ -19,6 +19,26 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.2',
+    name:    'Wake-up call',
+    date:    '2026-11-19',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'When the server is asleep, every screen now says so: “Waking up the server”, with a seconds counter and how long it usually takes (30–60s). Before, only the Lenses list told you.',
+          'The app starts waking the server as soon as you open it, so it’s often ready by the time you tap something.',
+        ],
+      },
+      {
+        label: 'Fixed',
+        items: [
+          'The colour glow behind the Now Playing sheet no longer jumps back every second. The same fix keeps other glows and waves smooth when a screen updates.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.1',
     name:    'Spark',
     date:    '2026-11-18',

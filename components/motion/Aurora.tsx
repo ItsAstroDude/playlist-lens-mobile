@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import { Canvas, Circle, Group, Rect, Blur } from '@shopify/react-native-skia'
 import {
-  useSharedValue, useDerivedValue, useFrameCallback, withTiming, interpolateColor, Easing,
+  useSharedValue, useDerivedValue, withTiming, interpolateColor, Easing,
 } from 'react-native-reanimated'
 import { useMotionReduced } from './reduced'
+import { useMotionClock } from './clock'
 
 /**
  * Motion #1 — Album-art aurora. Four soft blobs in the playing cover's colours drift
@@ -21,8 +22,7 @@ export function Aurora({ colors, base = '#0d0b14', dim = 0.38, style }: {
 }) {
   const reduced = useMotionReduced()
   const [box, setBox] = useState({ w: 0, h: 0 })
-  const t = useSharedValue(0)
-  useFrameCallback(f => { t.value = f.timeSinceFirstFrame }, !reduced)
+  const t = useMotionClock(!reduced)
 
   const from = useSharedValue<string[]>(colors)
   const to = useSharedValue<string[]>(colors)

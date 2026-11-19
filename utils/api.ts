@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store'
 import Constants from 'expo-constants'
 import { SecureKeys } from './cache'
 import { emitSessionExpired } from './authEvents'
+import { trackRequest, isAppResponse, likelyAsleep } from './serverStatus'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 // In dev, derive host IP from Expo's dev server so physical devices work.
@@ -28,7 +29,7 @@ const RETRY_DELAY_MS = 1000
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FetchOptions extends RequestInit {
-  onColdStart?: () => void    // called if request takes > 3s (Railway wake-up)
+  onColdStart?: () => void    // called if request takes > 3s (Render wake-up)
   onRetry?:     (attempt: number) => void
   retries?:     number
 }
@@ -83,6 +84,8 @@ export async function apiFetch<T>(
   if (onColdStart) {
     coldStartTimer = setTimeout(onColdStart, COLD_START_THRESHOLD_MS)
   }
+  // App-wide "waking up the server" indicator (utils/serverStatus).
+  const wake = trackRequest()
 
   const attemptFetch = async (attempt: number, refreshed = false): Promise<T> => {
     try {
@@ -94,6 +97,7 @@ export async function apiFetch<T>(
       }
 
       const response = await fetch(url, { ...fetchOptions, headers })
+      if (isAppResponse(response.status)) wake.heard()
 
       // Handle 429 — rate limited, wait and retry
       if (response.status === 429) {
@@ -143,7 +147,34 @@ export async function apiFetch<T>(
     }
   }
 
-  return attemptFetch(0)
+  try {
+    return await attemptFetch(0)
+  } finally {
+    wake.done()
+  }
+}
+
+// ─── Warm-up ──────────────────────────────────────────────────────────────────
+// Render's free tier sleeps after 15 min idle. Ping it on launch / foreground so
+// it boots while the user is still looking at cached data (and so the wake-up
+// banner shows up before they tap something). No-op if we heard from it recently.
+const WARM_UP_TIMEOUT_MS = 120_000
+
+export async function warmUp(): Promise<void> {
+  if (!likelyAsleep()) return
+  const wake = trackRequest()
+  const ctrl = new AbortController()
+  const timeout = setTimeout(() => ctrl.abort(), WARM_UP_TIMEOUT_MS)
+  try {
+    // Any answer from the app counts — even a 404 from a backend without /api/health.
+    const res = await fetch(`${BACKEND_URL}/api/health`, { signal: ctrl.signal })
+    if (isAppResponse(res.status)) wake.heard()
+  } catch {
+    /* offline — the next real request will try again */
+  } finally {
+    clearTimeout(timeout)
+    wake.done()
+  }
 }
 
 // ─── Convenience methods ──────────────────────────────────────────────────────

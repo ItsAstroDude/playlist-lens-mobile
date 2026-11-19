@@ -34,6 +34,8 @@ import { Tutorial } from '@/components/onboarding/Tutorial'
 import { WhatsNew } from '@/components/onboarding/WhatsNew'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { DialogHost } from '@/components/ui/DialogHost'
+import { ServerWakeBanner } from '@/components/ui/ServerWakeBanner'
+import { warmUp } from '@/utils/api'
 import { QueueCartTray } from '@/components/queue/QueueCartTray'
 import { StartQueueSheet } from '@/components/queue/StartQueueSheet'
 import type { QueueItem } from '@/utils/queueCart'
@@ -122,6 +124,15 @@ export default function RootLayout() {
     Outfit_500Medium,
     Outfit_700Bold,
   })
+
+  // Wake the free-tier backend early (launch + every return to the app after it may
+  // have slept) so it boots while cached data is on screen — and the wake-up banner
+  // says so before the user taps anything, including on the login screen.
+  useEffect(() => {
+    warmUp()
+    const sub = AppState.addEventListener('change', s => { if (s === 'active') warmUp() })
+    return () => sub.remove()
+  }, [])
 
   useEffect(() => {
     async function checkAuth() {
@@ -244,6 +255,7 @@ export default function RootLayout() {
         onCancel={() => setShowUpdate(false)}
       />
       {/* showDialog() / showToast() from anywhere — kept last so it sits on top */}
+      <ServerWakeBanner />
       <DialogHost />
     </GestureHandlerRootView>
   )
