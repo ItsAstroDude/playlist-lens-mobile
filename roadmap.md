@@ -201,8 +201,9 @@ settled before 2 and 3 are built, so they're born in it rather than restyled aft
 - [x] App icon picker (the Aperture in all six accent colours)
 - [x] `eas.json` autoIncrement; jest-expo → 54; app version 2.0.0 (+ expo-system-ui)
 - [x] Crash + error reporting → own backend (`/api/errors`, Neon) + Settings › About › Errors
-- [~] Backend: run on gunicorn (Procfile done — deploys when merged; check Render's start command); decide on cold starts (paid Render instance vs accept them —
-      the hourly tracker already wakes it)
+- [~] Backend: run on gunicorn (Procfile done — deploys when merged; check Render's start command)
+- [x] Cold starts: accepted (free tier). 2.0.2 warms the server on launch/foreground
+      (`/api/health`) and shows "Waking up the server · Ns" on every screen while it boots
 - Already in the build, so no native work needed later: react-native-view-shot + expo-sharing
   (share cards), expo-notifications (weekly recap)
 
@@ -229,8 +230,9 @@ The 12 motions picked from the Motion Reel (claude.ai/artifact/5bdHJcHSDSsQb26Si
 | 12 | Swipe with physics | Swipe tab | Gesture Handler + Reanimated |
 
 - [x] Skia (`@shopify/react-native-skia`) added to the 2.0 native build
-- [ ] Motion primitives in `components/motion/` (one per row above), each honouring Reduce motion
-- [ ] Liquid visual language: tokens (glass, aurora, type), tab bar, screens rebuilt on it
+- [x] Motion primitives in `components/motion/` (one per row above), each honouring Reduce motion — 2.0
+      (endless ones run on `useMotionClock`, never `timeSinceFirstFrame` — see `clock.ts`)
+- [x] Liquid visual language: tokens (glass, aurora, type), tab bar, screens rebuilt on it — 2.0
 - [ ] New onboarding: what the app does, tracking opt-in, optional import
 - [ ] Widget restyled in the new look
 
