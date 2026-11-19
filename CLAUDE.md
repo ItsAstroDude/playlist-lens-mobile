@@ -14,3 +14,9 @@ npx eas-cli@latest update --branch preview --platform android --message "..." --
 Only build a new APK when a change touches native code (a new native dependency, a config
 plugin, app.json native fields, `modules/`), and say so before building. "Push" means
 publish an OTA update.
+
+## Motion is final (from Andrei)
+
+playlist.lens's animations are **perfectly tuned as they are**: playful and bouncy on
+purpose. Don't retune, damp or "calm" its springs, and don't port Soundwave's calmer
+motion settings here. (Soundwave is deliberately calmer; the two apps differ.)
