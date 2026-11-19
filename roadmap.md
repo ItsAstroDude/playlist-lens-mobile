@@ -237,8 +237,10 @@ The 12 motions picked from the Motion Reel (claude.ai/artifact/5bdHJcHSDSsQb26Si
 - [ ] Widget restyled in the new look
 
 ## Phase 3 — Headline 2: Lifetime history explorer (OTA)
-- [ ] One stats engine on the play database: Week / Month / Year / All time and Recaps
-- [ ] History screen: search every play; scroll by day; filter by artist / track / album
+- [~] One stats engine on the play database: Week / Month / Year / All time and Recaps
+      (`utils/stats.ts`: SQL-only, local time, tested — 2.0.3. Screens still use the old
+      UTC summaries; move Wrapped + Recaps onto it next)
+- [x] History screen: search every play; scroll by day; filter by artist / track / album — 2.0.3
 - [ ] Calendar heatmap (a year of listening at a glance, tap a day)
 - [ ] Streaks (days in a row, an artist's run), milestones (10,000th play, 100th artist),
       first-ever listens ("new this week")

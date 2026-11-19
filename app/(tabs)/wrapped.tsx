@@ -235,14 +235,25 @@ export default function WrappedTab() {
         )
       case 'recaps':
         return (
-          <TouchableOpacity style={styles.recapsBtn} onPress={() => { haptic.light(); router.push('/recaps') }} activeOpacity={0.85}>
-            <View style={styles.cardSpecular} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.recapsTitle}>Recaps</Text>
-              <Text style={styles.recapsSub}>Weekly · monthly · seasonal · yearly</Text>
-            </View>
-            <Icon name="arrow-forward" style={styles.recapsArrow} />
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity style={styles.recapsBtn} onPress={() => { haptic.light(); router.push('/recaps') }} activeOpacity={0.85}>
+              <View style={styles.cardSpecular} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.recapsTitle}>Recaps</Text>
+                <Text style={styles.recapsSub}>Weekly · monthly · seasonal · yearly</Text>
+              </View>
+              <Icon name="arrow-forward" style={styles.recapsArrow} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.recapsBtn} onPress={() => { haptic.light(); router.push('/history') }} activeOpacity={0.85}
+              accessibilityRole="button" accessibilityLabel="History" accessibilityHint="Every play, searchable, by day">
+              <View style={styles.cardSpecular} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.recapsTitle}>History</Text>
+                <Text style={styles.recapsSub}>Every play · search · by day</Text>
+              </View>
+              <Icon name="arrow-forward" style={styles.recapsArrow} />
+            </TouchableOpacity>
+          </>
         )
       case 'list':
         return (

@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.3',
+    name:    'History',
+    date:    '2026-11-19',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'History: every play you’ve ever had, newest first and grouped by day, with each day’s total. Open it from Wrapped, under Recaps.',
+          'Search it all (songs, artists, albums), even across years of imported history.',
+          'Tap a play to see every play of that song, everything by that artist, or everything from that album.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.2',
     name:    'Wake-up call',
     date:    '2026-11-19',
