@@ -5,12 +5,17 @@
  *
  * Local time: periods, days, the listening clock and weekdays follow the phone's
  * clock. Pass `offsetSec` (seconds east of UTC — `localOffsetSec()`); `t` in the
- * database is UTC seconds and every query works on `t + offsetSec`.
+ * database is UTC seconds and every query works on `t + offsetSec`. One offset per
+ * query: plays from the other side of a DST change land an hour off, which only
+ * matters for plays within an hour of midnight.
  *
  * Music only: plays without a track name (podcasts, unknown rows) are left out,
  * like everywhere else in the app.
  */
-import { db } from '@/utils/playDb'
+import { db, importMaxT } from '@/utils/playDb'
+import { periodKeys, weekKey, seasonLabel, monthLabel, weekLabel, type PeriodKind } from '@/utils/periods'
+import type { RecapBundle, RecapPeriod, WrappedStats } from '@/utils/wrapped'
+import type { PeriodComparison, PeriodSummary, SummaryKind } from '@/utils/listening'
 
 export type StatsKind = 'week' | 'month' | 'year' | 'all'
 
@@ -260,4 +265,202 @@ export function dayTotals(f: HistoryFilter, fromDay: number, toDay: number, offs
     [offsetSec, ...w.args, fromDay * DAY - offsetSec, (toDay + 1) * DAY - offsetSec],
   )) out.set(r.d, { plays: r.n, ms: r.ms })
   return out
+}
+
+// ─── adapters for the 1.x screens ─────────────────────────────────────────────
+// Wrapped's period views, Story mode and the home strip were built on
+// utils/listening's PeriodComparison (ms epochs, UTC). These give them the same shape
+// from the engine, in local time.
+
+function toSummary(s: PeriodStats): PeriodSummary {
+  return {
+    kind: s.kind as SummaryKind,
+    start: s.start * 1000, end: s.end * 1000,
+    ms: s.ms, plays: s.plays, artists: s.artists, tracks: s.tracks,
+    buckets: s.buckets,
+    topArtists: s.topArtists, topTracks: s.topTracks, topAlbums: s.topAlbums.slice(0, 3),
+  }
+}
+
+/** `comparePeriod` in the PeriodComparison shape (top 5, albums top 3, like before). */
+export function periodComparison(kind: SummaryKind, now: Date = new Date(), offsetSec = localOffsetSec(now)): PeriodComparison {
+  const c = comparePeriod(kind, { now, offsetSec, topN: 5 })
+  return { current: toSummary(c.current), previous: toSummary(c.previous), deltaMs: c.deltaMs, deltaPlays: c.deltaPlays }
+}
+
+/** Index of the bucket `now` falls in (today's bar / this month's bar). */
+export function currentBucket(kind: SummaryKind, now: Date = new Date(), offsetSec = localOffsetSec(now)): number {
+  if (kind === 'year') return new Date(now.getTime() + offsetSec * 1000).getUTCMonth()
+  const { start } = periodRange(kind, now, offsetSec)
+  return Math.floor((Math.floor(now.getTime() / 1000) - start) / DAY)
+}
+
+// ─── recaps ───────────────────────────────────────────────────────────────────
+// Recaps (week / month / season / year) straight from the play database, local time,
+// same keys and shape as the 1.x bundle so saved seasons and hidden years still match.
+
+/** Weeks and months are rolling: only the most recent this many (as before). */
+export const RECENT_RECAPS = 14
+
+const SEASON_SQL = `(CASE WHEN m <= 2 THEN y - 1 ELSE y END) || '-' ||
+  (CASE WHEN m = 12 OR m <= 2 THEN 'Winter' WHEN m <= 5 THEN 'Spring' WHEN m <= 8 THEN 'Summer' ELSE 'Autumn' END)`
+
+/** SQL for the period key of each play (`w` = Monday-aligned week number, mapped to an ISO key in JS). */
+const KEY_SQL: Record<PeriodKind, string> = {
+  year:   `CAST(y AS TEXT)`,
+  month:  `printf('%04d-%02d', y, m)`,
+  season: SEASON_SQL,
+  week:   `CAST(w AS TEXT)`,
+}
+
+function sortVal(kind: PeriodKind, key: string): number {
+  if (kind === 'year') return Number(key)
+  if (kind === 'season') {
+    const [y, n] = key.split('-')
+    return Number(y) * 10 + ({ Spring: 0, Summer: 1, Autumn: 2, Winter: 3 } as Record<string, number>)[n]
+  }
+  if (kind === 'month') { const [y, m] = key.split('-'); return Number(y) * 100 + Number(m) }
+  const [y, w] = key.split('-W'); return Number(y) * 100 + Number(w)
+}
+
+function labelOf(kind: PeriodKind, key: string): string {
+  return kind === 'year' ? key : kind === 'season' ? seasonLabel(key) : kind === 'month' ? monthLabel(key) : weekLabel(key)
+}
+
+function recapList(kind: PeriodKind, sinceT: number, off: number, cap?: number): RecapPeriod[] {
+  const d = db()
+  // Local calendar fields once per play; everything below groups on k.
+  const p = `p AS (
+    SELECT ${KEY_SQL[kind]} AS k, ms, artist, track, album, uri FROM (
+      SELECT ms, artist, track, album, uri,
+        CAST(strftime('%Y', t + ${off}, 'unixepoch') AS INTEGER) AS y,
+        CAST(strftime('%m', t + ${off}, 'unixepoch') AS INTEGER) AS m,
+        CAST((CAST((t + ${off}) / ${DAY} AS INTEGER) + 3) / 7 AS INTEGER) AS w
+      FROM plays WHERE ${MUSIC} AND t >= ?
+    )
+  )`
+  const totals = d.getAllSync<{ k: string; ms: number; n: number }>(`WITH ${p} SELECT k, SUM(ms) AS ms, COUNT(*) AS n FROM p GROUP BY k`, [sinceT])
+  if (!totals.length) return []
+  const artists = d.getAllSync<{ k: string; name: string; ms: number; plays: number }>(
+    `WITH ${p} SELECT k, name, ms, plays FROM (
+       SELECT k, artist AS name, SUM(ms) AS ms, COUNT(*) AS plays,
+              ROW_NUMBER() OVER (PARTITION BY k ORDER BY SUM(ms) DESC, artist) AS rn
+       FROM p WHERE artist IS NOT NULL GROUP BY k, artist
+     ) WHERE rn <= 10 ORDER BY k, rn`, [sinceT])
+  const tracks = d.getAllSync<{ k: string; name: string; artist: string | null; plays: number; ms: number; uri: string | null }>(
+    `WITH ${p} SELECT k, name, artist, plays, ms, uri FROM (
+       SELECT k, track AS name, artist, COUNT(*) AS plays, SUM(ms) AS ms, MAX(NULLIF(uri, '')) AS uri,
+              ROW_NUMBER() OVER (PARTITION BY k ORDER BY COUNT(*) DESC, SUM(ms) DESC, track) AS rn
+       FROM p GROUP BY k, track, artist
+     ) WHERE rn <= 10 ORDER BY k, rn`, [sinceT])
+  const albums = d.getAllSync<{ k: string; name: string; ms: number }>(
+    `WITH ${p} SELECT k, name, ms FROM (
+       SELECT k, album AS name, SUM(ms) AS ms,
+              ROW_NUMBER() OVER (PARTITION BY k ORDER BY SUM(ms) DESC, album) AS rn
+       FROM p WHERE album IS NOT NULL AND artist IS NOT NULL GROUP BY k, album, artist
+     ) WHERE rn <= 6 ORDER BY k, rn`, [sinceT])
+
+  // Week numbers → ISO keys ("2026-W47"): the Monday of week w is local day 7w − 3.
+  const keyOf = (k: string) => (kind === 'week' ? weekKey(new Date((Number(k) * 7 - 3) * DAY * 1000)) : k)
+  const by = new Map<string, RecapPeriod>()
+  for (const r of totals) {
+    const key = keyOf(r.k)
+    by.set(r.k, { kind, key, label: labelOf(kind, key), ms: r.ms, streams: r.n, topArtists: [], topTracks: [], topAlbums: [] })
+  }
+  for (const r of artists) by.get(r.k)?.topArtists.push({ name: r.name, ms: r.ms, plays: r.plays })
+  for (const r of tracks) by.get(r.k)?.topTracks.push({ name: r.name, artist: r.artist ?? '', plays: r.plays, ms: r.ms, uri: r.uri ?? undefined })
+  for (const r of albums) by.get(r.k)?.topAlbums.push({ name: r.name, ms: r.ms, plays: 0 })
+
+  const list = [...by.values()].sort((a, b) => sortVal(kind, b.key) - sortVal(kind, a.key))   // newest first
+  return cap ? list.slice(0, cap) : list
+}
+
+/**
+ * The Recaps bundle from the play database. `stored` is the bundle a pre-2.0 import
+ * saved: without an import in the database it's still the only full history, so its
+ * older periods are kept (the current year/season, and the rolling weeks and months,
+ * come from the database — the same rule as 1.x's mergeRecaps).
+ */
+export function recapsFromDb(stored: RecapBundle | null, now: Date = new Date(), offsetSec = localOffsetSec(now)): RecapBundle | null {
+  const weekSince  = periodRange('week',  now, offsetSec, RECENT_RECAPS - 1).start
+  const monthSince = periodRange('month', now, offsetSec, RECENT_RECAPS - 1).start
+  const live: RecapBundle = {
+    version: 2,
+    generatedAt: now.toISOString(),
+    years:   recapList('year',   0, offsetSec),
+    seasons: recapList('season', 0, offsetSec),
+    months:  recapList('month',  monthSince, offsetSec, RECENT_RECAPS),
+    weeks:   recapList('week',   weekSince,  offsetSec, RECENT_RECAPS),
+  }
+  const empty = !live.years.length
+  if (importMaxT() !== null || !stored) return empty ? null : live
+  if (empty) return stored
+
+  const cur = periodKeys(new Date(now.getTime() + offsetSec * 1000))   // UTC fields = local clock
+  const swap = (old: RecapPeriod[], fresh: RecapPeriod[], key: string) => {
+    const c = fresh.find(x => x.key === key)
+    return c ? [c, ...old.filter(x => x.key !== key)] : old
+  }
+  return {
+    version: 2,
+    generatedAt: live.generatedAt,
+    years:   swap(stored.years,   live.years,   cur.year),
+    seasons: swap(stored.seasons, live.seasons, cur.season),
+    months:  live.months.length ? live.months : stored.months,
+    weeks:   live.weeks.length  ? live.weeks  : stored.weeks,
+  }
+}
+
+// ─── all time ─────────────────────────────────────────────────────────────────
+const REAL_LISTEN_MS = 30_000   // a "full play", as in Wrapped
+
+/** Each year's listening and its top artist, oldest first. */
+export function yearsWithTopArtist(offsetSec = localOffsetSec()): { year: number; ms: number; streams: number; topArtist: string }[] {
+  const d = db()
+  const Y = `CAST(strftime('%Y', t + ${offsetSec}, 'unixepoch') AS INTEGER)`
+  const years = d.getAllSync<{ year: number; ms: number; streams: number }>(
+    `SELECT ${Y} AS year, SUM(ms) AS ms, COUNT(*) AS streams FROM plays WHERE ${MUSIC} GROUP BY year ORDER BY year`, [])
+  const tops = new Map(d.getAllSync<{ year: number; name: string }>(
+    `SELECT year, name FROM (
+       SELECT ${Y} AS year, artist AS name, ROW_NUMBER() OVER (PARTITION BY ${Y} ORDER BY SUM(ms) DESC, artist) AS rn
+       FROM plays WHERE ${MUSIC} AND artist IS NOT NULL GROUP BY year, artist
+     ) WHERE rn = 1`, []).map(r => [r.year, r.name]))
+  return years.map(y => ({ ...y, topArtist: tops.get(y.year) ?? '' }))
+}
+
+/**
+ * Lifetime stats for Wrapped's "All time", in the WrappedStats shape the screen draws.
+ * From the database whenever it holds the whole history (an import, or no import at
+ * all — tracking only). A pre-2.0 import that only exists as the stored summary stays
+ * the source until it's re-imported. Skips and podcasts aren't in the database, so
+ * they still come from the stored import when there is one.
+ */
+export function allTimeStats(stored: WrappedStats | null, now: Date = new Date(), offsetSec = localOffsetSec(now)): WrappedStats | null {
+  if (stored && importMaxT() === null) return stored
+  const s = periodStats('all', { now, offsetSec, topN: 10 })
+  if (!s.plays) return stored
+  const d = db()
+  const real = d.getFirstSync<{ n: number }>(`SELECT COUNT(*) AS n FROM plays WHERE ${MUSIC} AND ms >= ?`, [REAL_LISTEN_MS])?.n ?? 0
+  // Keep the import's skip RATE (skips aren't stored per play) across the larger total.
+  const skipRate = stored && stored.totalStreams ? stored.skipCount / stored.totalStreams : 0
+  const iso = (t: number) => new Date(t * 1000).toISOString()
+  return {
+    version: 2,
+    generatedAt: now.toISOString(),
+    totalMs: s.ms,
+    totalStreams: s.plays,
+    realListens: real,
+    podcastStreams: stored?.podcastStreams ?? 0,
+    skipCount: Math.round(skipRate * s.plays),
+    uniqueArtists: s.artists,
+    uniqueTracks: s.tracks,
+    firstTs: iso(s.start),
+    lastTs: iso(s.end - 1),
+    topArtists: s.topArtists.map(a => ({ name: a.name, ms: a.ms, plays: a.plays })),
+    topTracks: s.topTracks.map(t => ({ name: t.name, artist: t.sub ?? '', plays: t.plays, ms: t.ms, uri: t.uri })),
+    topAlbums: s.topAlbums.map(a => ({ name: a.name, ms: a.ms, plays: a.plays })),
+    byYear: yearsWithTopArtist(offsetSec),
+    clock: s.clock,                                         // local hours
+    weekday: [s.weekdays[6], ...s.weekdays.slice(0, 6)],    // WrappedStats is Sunday-first
+  }
 }

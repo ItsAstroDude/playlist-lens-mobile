@@ -10,8 +10,8 @@ import { haptic } from '@/constants/animation'
 import { Icon } from '@/components/ui/Icon'
 import { Aurora, RollingNumber, useMotionReduced } from '@/components/motion'
 import { KineticText } from '@/components/motion/KineticText'
-import { playsSince } from '@/utils/playDb'
-import { comparePeriods, periodRange, type SummaryKind } from '@/utils/listening'
+import type { SummaryKind } from '@/utils/listening'
+import { periodComparison } from '@/utils/stats'
 import { buildStory } from '@/utils/story'
 
 const SLIDE_MS = 5200
@@ -29,7 +29,7 @@ export default function StoryScreen() {
   const kind: SummaryKind = params.kind === 'month' || params.kind === 'year' ? params.kind : 'week'
   const slides = useMemo(() => {
     const now = new Date()
-    return buildStory(comparePeriods(playsSince(Math.floor(periodRange(kind, now, 1).start / 1000)), kind, now))
+    return buildStory(periodComparison(kind, now))   // stats engine, local time
   }, [kind])
 
   const [i, setI] = useState(0)

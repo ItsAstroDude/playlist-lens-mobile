@@ -138,3 +138,88 @@ describe('history', () => {
     expect(m.get(day)?.plays).toBe(5)
   })
 })
+
+describe('recaps from the database', () => {
+  const { recapsFromDb } = require('@/utils/stats')
+  const { beginImport, addImportChunk, finishImport } = require('@/utils/playDb')
+
+  it('keys and labels match the 1.x bundle, newest first, with top lists', () => {
+    insertPlays([
+      row('2026-11-16T10:00:00Z', 'Ghost', 'DECO', 200_000),
+      row('2026-11-17T10:00:00Z', 'Ghost', 'DECO', 200_000),
+      row('2026-11-17T11:00:00Z', 'Aurora', 'HOYO', 100_000, 'B'),
+      row('2026-01-09T10:00:00Z', 'Iarta', 'Smiley', 300_000, 'C'),
+      row('2025-12-20T10:00:00Z', 'Snow', 'Smiley', 300_000, 'C'),
+    ], 'recent')
+    const r = recapsFromDb(null, NOW, UTC)
+    expect(r.years.map((y: any) => y.key)).toEqual(['2026', '2025'])
+    expect(r.years[0]).toMatchObject({ label: '2026', streams: 4, ms: 800_000 })
+    expect(r.years[0].topArtists[0]).toMatchObject({ name: 'DECO', ms: 400_000 })
+    expect(r.years[0].topTracks[0]).toMatchObject({ name: 'Ghost', artist: 'DECO', plays: 2 })
+    // Dec 2025 + Jan 2026 are one winter, labelled by the year it began
+    const winter = r.seasons.find((s: any) => s.key === '2025-Winter')
+    expect(winter).toMatchObject({ label: 'Winter 2025', streams: 2 })
+    expect(r.seasons[0].key).toBe('2026-Autumn')
+    expect(r.months[0]).toMatchObject({ key: '2026-11', label: 'November 2026', streams: 3 })
+    expect(r.weeks[0]).toMatchObject({ key: '2026-W47', label: 'Week 47 · 2026', streams: 3 })
+  })
+
+  it('weeks follow the local clock', () => {
+    // Sunday 23:30 UTC = Monday 01:30 in Bucharest → next ISO week there
+    insertPlays([row('2026-11-15T23:30:00Z', 'Late', 'A')], 'recent')
+    expect(recapsFromDb(null, NOW, UTC).weeks[0].key).toBe('2026-W46')
+    expect(recapsFromDb(null, NOW, BUCHAREST).weeks[0].key).toBe('2026-W47')
+  })
+
+  it('keeps a pre-2.0 stored bundle for history the database does not have', () => {
+    const old = { key: '2019', label: '2019', kind: 'year', ms: 1, streams: 1, topArtists: [], topTracks: [], topAlbums: [] }
+    const stored = { version: 1, generatedAt: '', years: [old], seasons: [], months: [], weeks: [] }
+    insertPlays([row('2026-11-16T10:00:00Z', 'Ghost', 'DECO')], 'recent')
+    expect(recapsFromDb(stored, NOW, UTC).years.map((y: any) => y.key)).toEqual(['2026', '2019'])
+    // …but once the database holds an import, it is the whole history
+    beginImport(); addImportChunk([row('2018-05-01T10:00:00Z', 'Old', 'Z')]); finishImport()
+    expect(recapsFromDb(stored, NOW, UTC).years.map((y: any) => y.key)).toEqual(['2026', '2018'])
+  })
+
+  it('nothing anywhere → null', () => {
+    expect(recapsFromDb(null, NOW, UTC)).toBeNull()
+  })
+})
+
+describe('all time', () => {
+  const { allTimeStats, yearsWithTopArtist } = require('@/utils/stats')
+  const { beginImport, addImportChunk, finishImport } = require('@/utils/playDb')
+  const stored = { version: 1, generatedAt: '', totalMs: 9, totalStreams: 100, realListens: 1, podcastStreams: 7, skipCount: 25,
+    uniqueArtists: 1, uniqueTracks: 1, firstTs: null, lastTs: null, topArtists: [], topTracks: [], topAlbums: [], byYear: [], clock: [], weekday: [] }
+
+  it('tracking only (no import): all time comes from the database', () => {
+    insertPlays([row('2026-11-16T10:00:00Z', 'Ghost', 'DECO', 200_000), row('2025-02-01T10:00:00Z', 'Old', 'Z', 10_000)], 'recent')
+    const s = allTimeStats(null, NOW, UTC)
+    expect(s).toMatchObject({ totalStreams: 2, totalMs: 210_000, realListens: 1, skipCount: 0, uniqueArtists: 2 })
+    expect(s.byYear).toEqual([
+      { year: 2025, ms: 10_000, streams: 1, topArtist: 'Z' },
+      { year: 2026, ms: 200_000, streams: 1, topArtist: 'DECO' },
+    ])
+    expect(s.weekday[1]).toBe(200_000)       // Monday, in the Sunday-first array
+    expect(s.firstTs).toBe('2025-02-01T10:00:00.000Z')
+  })
+
+  it('a pre-2.0 import (only the stored summary) stays the source', () => {
+    insertPlays([row('2026-11-16T10:00:00Z', 'Ghost', 'DECO')], 'recent')
+    expect(allTimeStats(stored, NOW, UTC)).toBe(stored)
+  })
+
+  it('with an import in the database: engine numbers + the import skip rate and podcasts', () => {
+    beginImport(); addImportChunk([row('2024-05-01T10:00:00Z', 'A1', 'X'), row('2024-05-02T10:00:00Z', 'A2', 'X')]); finishImport()
+    insertPlays([row('2026-11-16T10:00:00Z', 'Ghost', 'DECO')], 'tracked')
+    const s = allTimeStats(stored, NOW, UTC)
+    expect(s.totalStreams).toBe(3)            // import + plays tracked since
+    expect(s.skipCount).toBe(1)               // 25% of 3, rounded
+    expect(s.podcastStreams).toBe(7)
+    expect(yearsWithTopArtist(UTC).map((y: any) => y.year)).toEqual([2024, 2026])
+  })
+
+  it('nothing at all → null', () => {
+    expect(allTimeStats(null, NOW, UTC)).toBeNull()
+  })
+})

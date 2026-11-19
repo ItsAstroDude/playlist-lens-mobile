@@ -6,7 +6,8 @@ import { Colors, FontFamily, FontSize, Spacing, Type } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { fmtHours, type RecapPeriod } from '@/utils/wrapped'
 import { loadRecaps } from '@/hooks/useWrapped'
-import { loadBuffer, mergeRecaps, autoPullScopeMissing } from '@/utils/recents'
+import { autoPullScopeMissing } from '@/utils/recents'
+import { recapsFromDb } from '@/utils/stats'
 import { keptSeasons, setSeasonKept, hiddenYears, setYearHidden } from '@/utils/recapPrefs'
 import type { PeriodKind } from '@/utils/periods'
 import {
@@ -20,7 +21,7 @@ const KINDS: { id: PeriodKind; label: string }[] = [
   { id: 'week',   label: 'Week' },
 ]
 
-function listFor(recaps: ReturnType<typeof mergeRecaps>, kind: PeriodKind): RecapPeriod[] {
+function listFor(recaps: ReturnType<typeof recapsFromDb>, kind: PeriodKind): RecapPeriod[] {
   if (!recaps) return []
   return kind === 'year' ? recaps.years
     : kind === 'season' ? recaps.seasons
@@ -30,7 +31,8 @@ function listFor(recaps: ReturnType<typeof mergeRecaps>, kind: PeriodKind): Reca
 
 export default function RecapsScreen() {
   const t0 = useRenderStart()
-  const recaps = useMemo(() => mergeRecaps(loadRecaps(), loadBuffer()), [])
+  // Built from the play database in SQL, local time (the stats engine).
+  const recaps = useMemo(() => recapsFromDb(loadRecaps()), [])
   useLoadTime('recaps', t0, true)  // everything above is synchronous on first render
   const needsReconnect = useMemo(() => autoPullScopeMissing(), [])
   const [kind, setKind] = useState<PeriodKind>('year')

@@ -10,8 +10,9 @@ import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/co
 import { Spring, haptic } from '@/constants/animation'
 import { useWrapped } from '@/hooks/useWrapped'
 import { fmtHours, fmtMinutesShort, type WrappedStats, type StreamRow } from '@/utils/wrapped'
-import { comparePeriods, periodTitle, bucketLabels, periodRange, type SummaryKind, type PeriodComparison } from '@/utils/listening'
-import { playsSince, countSince, windowStartT } from '@/utils/playDb'
+import { periodTitle, bucketLabels, type SummaryKind, type PeriodComparison } from '@/utils/listening'
+import { countSince, windowStartT } from '@/utils/playDb'
+import { periodComparison, currentBucket, allTimeStats } from '@/utils/stats'
 import { trackingEnrolled } from '@/utils/tracking'
 import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow } from '@/components/ui'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
@@ -34,8 +35,9 @@ type Block =
   | { t: 'list'; key: string; title: string; kind: ArtKind; color: string; rows: Row[] }
   | { t: 'clock'; clock: number[] }
   | { t: 'years'; rows: { year: number; ms: number; topArtist: string; frac: number }[] }
-  | { t: 'foot'; real: number; skipPct: number; podcast: number }
+  | { t: 'foot'; real: number; skipPct: number | null; podcast: number }
   | { t: 'manage' }
+  | { t: 'importCta' }
   // ── Period views (v1.8): this week / month / year from the play buffer ──
   | { t: 'pHero'; kind: SummaryKind; title: string; ms: number; delta: number | null }
   | { t: 'pTiles'; plays: number; playsDelta: number | null; artists: number; tracks: number }
@@ -70,7 +72,7 @@ const Clock = React.memo(function Clock({ clock }: { clock: number[] }) {
 })
 
 // ─── Build blocks from stats ──────────────────────────────────────────────────
-function buildBlocks(stats: WrappedStats): Block[] {
+function buildBlocks(stats: WrappedStats, imported: boolean): Block[] {
   const since = stats.firstTs ? new Date(stats.firstTs).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '—'
   const maxA = stats.topArtists[0]?.ms ?? 1
   const maxT = stats.topTracks[0]?.plays ?? 1
@@ -101,9 +103,11 @@ function buildBlocks(stats: WrappedStats): Block[] {
   if (albumRows.length)  blocks.push({ t: 'list', key: 'albums',  title: 'TOP ALBUMS · BY TIME', kind: 'album', color: Colors.lavender, rows: albumRows })
   blocks.push({ t: 'clock', clock: stats.clock })
   if (stats.byYear.length) blocks.push({ t: 'years', rows: stats.byYear.map(y => ({ year: y.year, ms: y.ms, topArtist: y.topArtist, frac: y.ms / maxY })) })
-  const skipPct = stats.totalStreams ? Math.round((stats.skipCount / stats.totalStreams) * 100) : 0
+  // Skips are only known from an import (the export records them; tracking can't).
+  const skipPct = imported && stats.totalStreams ? Math.round((stats.skipCount / stats.totalStreams) * 100) : null
   blocks.push({ t: 'foot', real: stats.realListens, skipPct, podcast: stats.podcastStreams })
-  blocks.push({ t: 'manage' })
+  // Re-import / Clear only with an import: Clear wipes every stored play, tracked ones too.
+  blocks.push(imported ? { t: 'manage' } : { t: 'importCta' })
   return blocks
 }
 
@@ -124,7 +128,7 @@ function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date): Bl
     blocks.push({ t: 'recaps' })
     return blocks
   }
-  const today = kind === 'year' ? now.getUTCMonth() : Math.floor((now.getTime() - periodRange(kind, now).start) / 86_400_000)
+  const today = currentBucket(kind, now)
   blocks.push({ t: 'pStory', kind })
   blocks.push({ t: 'pTiles', plays: s.plays, playsDelta: c.deltaPlays, artists: s.artists, tracks: s.tracks })
   blocks.push({ t: 'pBars', kind, buckets: s.buckets, labels: bucketLabels(s), current: today })
@@ -172,7 +176,7 @@ const Bars = React.memo(function Bars({ buckets, labels, current, kind }: { buck
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function WrappedTab() {
   const t0 = useRenderStart()
-  const { stats, status, progress, errorMsg, importHistory, clearHistory } = useWrapped()
+  const { stats: storedStats, status, progress, errorMsg, importHistory, clearHistory } = useWrapped()
   const [sel, setSel] = useState<WrappedSelection | null>(null)
 
   // Play buffer (tracked + device + import tail) — re-read whenever the tab is
@@ -189,17 +193,18 @@ export default function WrappedTab() {
   // empty week (stats load a tick after mount, so decide once they arrive).
   const pickedMode = React.useRef(false)
   React.useEffect(() => {
-    if (pickedMode.current || !stats) return
+    if (pickedMode.current || !storedStats) return
     pickedMode.current = true
     if (!hasRecent) setMode('all')
-  }, [stats, hasRecent])
+  }, [storedStats, hasRecent])
   const chooseMode = useCallback((m: Mode) => { pickedMode.current = true; setMode(m) }, [])
   const now = useMemo(() => new Date(), [version, mode])
-  const comparison = useMemo(() => {
-    if (mode === 'all') return null
-    const since = Math.floor(periodRange(mode, now, 1).start / 1000)
-    return comparePeriods(playsSince(since), mode, now)
-  }, [mode, now])
+  // All time from the stats engine (SQL, local time, includes plays tracked since the
+  // import); falls back to the stored import summary for pre-2.0 imports.
+  // Only while All time is open: it scans the whole history.
+  const stats = useMemo(() => (mode === 'all' ? allTimeStats(storedStats, now) : storedStats), [mode, storedStats, now])
+  // Straight from the stats engine (SQL, local time): this period so far vs the last.
+  const comparison = useMemo(() => (mode === 'all' ? null : periodComparison(mode, now)), [mode, now])
   const gutter = useNowPlayingGutter()
   const scrollY = useSharedValue(0)
 
@@ -282,7 +287,7 @@ export default function WrappedTab() {
       case 'foot':
         return (
           <Text style={styles.foot}>
-            {item.real.toLocaleString()} full plays (≥30s) · {item.skipPct}% skipped{item.podcast > 0 ? ` · ${item.podcast.toLocaleString()} podcast plays` : ''}
+            {item.real.toLocaleString()} full plays (≥30s){item.skipPct !== null ? ` · ${item.skipPct}% skipped` : ''}{item.podcast > 0 ? ` · ${item.podcast.toLocaleString()} podcast plays` : ''}
           </Text>
         )
       case 'pHero':
@@ -346,6 +351,14 @@ export default function WrappedTab() {
               onPress={() => { haptic.light(); router.push('/settings') }} last />
           </Card>
         )
+      case 'importCta':
+        return (
+          <Card style={styles.block}>
+            <ListRow icon="cloud-download-outline" label="Import your Spotify history"
+              hint="Adds everything from before tracking started — years of it"
+              onPress={onImport} last />
+          </Card>
+        )
       case 'manage':
         return (
           <View style={styles.manageRow}>
@@ -358,13 +371,13 @@ export default function WrappedTab() {
 
   const parsing = status === 'parsing'
   const blocks = useMemo(
-    () => (comparison ? buildPeriodBlocks(comparison, tracked, now) : stats ? buildBlocks(stats) : []),
-    [comparison, tracked, now, stats],
+    () => (comparison ? buildPeriodBlocks(comparison, tracked, now) : stats ? buildBlocks(stats, !!storedStats) : []),
+    [comparison, tracked, now, stats, storedStats],
   )
   // Content on screen: a period view, lifetime stats, or the settled empty state.
   useLoadTime('wrapped', t0, !parsing && (blocks.length > 0 || stats === null))
   const subtitle = mode === 'all'
-    ? (stats ? 'Your lifetime listening, from your Spotify export' : 'All-time stats from your Spotify export')
+    ? (storedStats ? 'Your lifetime listening, from your Spotify export' : stats ? 'Everything tracked so far' : 'All-time stats from your Spotify export')
     : `Your ${PERIOD_WORD[mode]} in music${tracked ? '' : ' — from what Spotify remembers'}`
 
   return (
