@@ -223,3 +223,46 @@ describe('all time', () => {
     expect(allTimeStats(null, NOW, UTC)).toBeNull()
   })
 })
+
+describe('calendar', () => {
+  const { yearCalendar, heatLevel, yearsWithPlays } = require('@/utils/stats')
+
+  it('one entry per day of the year, leap years included', () => {
+    expect(yearCalendar(2024, UTC).days).toBe(366)
+    expect(yearCalendar(2026, UTC).days).toBe(365)
+    expect(yearCalendar(2026, UTC).firstDay).toBe(Date.UTC(2026, 0, 1) / 86_400_000)
+  })
+
+  it('totals, active days, longest streak, local days', () => {
+    insertPlays([
+      row('2026-03-01T10:00:00Z', 'a', 'A', 100_000),
+      row('2026-03-02T10:00:00Z', 'b', 'A', 200_000),
+      row('2026-03-03T10:00:00Z', 'c', 'A', 300_000),
+      row('2026-03-03T11:00:00Z', 'd', 'A', 300_000),
+      row('2026-03-10T23:30:00Z', 'e', 'A', 50_000),     // 11 Mar in Bucharest
+      row('2025-12-31T23:30:00Z', 'f', 'A', 50_000),     // 1 Jan 2026 in Bucharest
+    ], 'recent')
+    const c = yearCalendar(2026, UTC)
+    expect(c.activeDays).toBe(4)
+    expect(c.longestStreak).toBe(3)
+    expect(c.ms[59]).toBe(100_000)                       // 1 Mar = day index 59
+    expect(c.plays[61]).toBe(2)
+    const b = yearCalendar(2026, BUCHAREST)
+    expect(b.ms[0]).toBe(50_000)                          // New Year's Eve play lands on 1 Jan locally
+    expect(b.ms[69]).toBe(50_000)                         // 11 Mar
+    expect(yearsWithPlays(UTC)).toEqual([2026, 2025])
+    expect(yearsWithPlays(BUCHAREST)).toEqual([2026])
+  })
+
+  it('heat levels: 0 for silence, then this year’s quartiles', () => {
+    const lv: [number, number, number] = [10, 20, 30]
+    expect([0, 5, 10, 15, 25, 31].map(v => heatLevel(v, lv))).toEqual([0, 1, 1, 2, 3, 4])
+  })
+
+  it('history can be cut to one local day', () => {
+    insertPlays([row('2026-03-10T23:30:00Z', 'late', 'A'), row('2026-03-10T12:00:00Z', 'noon', 'A')], 'recent')
+    const day = localDay(Date.UTC(2026, 2, 11) / 1000, UTC)
+    const from = day * 86_400 - BUCHAREST, to = from + 86_400
+    expect(historyPage({ from, to }, null).map(p => p.track)).toEqual(['late'])
+  })
+})

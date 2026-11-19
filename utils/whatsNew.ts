@@ -19,6 +19,29 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.4',
+    name:    'Every day',
+    date:    '2026-11-19',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'A calendar of your listening: every day of the year as a square, brighter the more you listened. Tap a day to see its total, then “See plays” to open that day in History.',
+          'Find it in Wrapped › Year, and in All time with every year you’ve listened.',
+          'Each year shows its longest streak of days with music.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Wrapped, Recaps and Story mode now follow your own clock: days and weeks start at your midnight, and the listening clock shows your hours.',
+          'All time now includes everything tracked since your import, and works with listening tracking alone, no import needed.',
+          'Recaps are built from every play you have, so they’re always current.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.3',
     name:    'History',
     date:    '2026-11-19',

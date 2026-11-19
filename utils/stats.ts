@@ -204,6 +204,9 @@ export interface HistoryFilter {
   artist?: string
   track?:  string     // with `artist`, one song
   album?:  string
+  /** Time range, UTC seconds [from, to) — e.g. one local day from the heatmap. */
+  from?:   number
+  to?:     number
 }
 
 export interface HistoryPlay { t: number; uri: string; ms: number; track: string; artist: string | null; album: string | null }
@@ -222,6 +225,8 @@ function where(f: HistoryFilter): { sql: string; args: (string | number)[] } {
   if (f.artist) { parts.push('artist = ?'); args.push(f.artist) }
   if (f.track)  { parts.push('track = ?');  args.push(f.track) }
   if (f.album)  { parts.push('album = ?');  args.push(f.album) }
+  if (f.from !== undefined) { parts.push('t >= ?'); args.push(f.from) }
+  if (f.to !== undefined)   { parts.push('t < ?');  args.push(f.to) }
   for (const w of (f.query ?? '').trim().split(/\s+/).filter(Boolean).slice(0, 8)) {
     parts.push(`(track LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')`)
     const l = likeTerm(w)
@@ -463,4 +468,51 @@ export function allTimeStats(stored: WrappedStats | null, now: Date = new Date()
     clock: s.clock,                                         // local hours
     weekday: [s.weekdays[6], ...s.weekdays.slice(0, 6)],    // WrappedStats is Sunday-first
   }
+}
+
+// ─── calendar ─────────────────────────────────────────────────────────────────
+/** Local years that have plays, newest first. */
+export function yearsWithPlays(offsetSec = localOffsetSec()): number[] {
+  return db().getAllSync<{ y: number }>(
+    `SELECT DISTINCT CAST(strftime('%Y', t + ${offsetSec}, 'unixepoch') AS INTEGER) AS y FROM plays WHERE ${MUSIC} ORDER BY y DESC`, [],
+  ).map(r => r.y)
+}
+
+export interface YearCalendar {
+  year:      number
+  /** Local day number of 1 January. */
+  firstDay:  number
+  days:      number               // 365 or 366
+  /** ms per day of the year (index 0 = 1 January). */
+  ms:        number[]
+  plays:     number[]
+  activeDays: number
+  /** Longest run of consecutive days with music in this year. */
+  longestStreak: number
+  /** Thresholds (ms) between heat levels 1|2|3|4, from this year's own quartiles. */
+  levels:    [number, number, number]
+}
+
+export function yearCalendar(year: number, offsetSec = localOffsetSec()): YearCalendar {
+  const firstDay = Date.UTC(year, 0, 1) / 1000 / DAY
+  const days = (Date.UTC(year + 1, 0, 1) / 1000 / DAY) - firstDay
+  const totals = dayTotals({}, firstDay, firstDay + days - 1, offsetSec)
+  const ms = new Array(days).fill(0), plays = new Array(days).fill(0)
+  totals.forEach((v, d) => { const i = d - firstDay; if (i >= 0 && i < days) { ms[i] = v.ms; plays[i] = v.plays } })
+
+  let longest = 0, run = 0, active = 0
+  for (const v of ms) { if (v > 0) { active++; run++; if (run > longest) longest = run } else run = 0 }
+
+  const nz = ms.filter(v => v > 0).sort((a, b) => a - b)
+  const q = (p: number) => nz.length ? nz[Math.min(nz.length - 1, Math.floor(p * nz.length))] : 0
+  return { year, firstDay, days, ms, plays, activeDays: active, longestStreak: longest, levels: [q(0.25), q(0.5), q(0.75)] }
+}
+
+/** Heat level 0 (no music) … 4 (one of this year's biggest days). */
+export function heatLevel(ms: number, levels: [number, number, number]): 0 | 1 | 2 | 3 | 4 {
+  if (ms <= 0) return 0
+  if (ms <= levels[0]) return 1
+  if (ms <= levels[1]) return 2
+  if (ms <= levels[2]) return 3
+  return 4
 }

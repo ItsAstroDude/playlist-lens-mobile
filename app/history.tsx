@@ -17,7 +17,7 @@ import { Screen, ScreenHeader, Chip, EmptyState, Icon, TrackRow, Sheet, ListRow,
  * Search across track / artist / album; tap a play to see all plays of that song,
  * artist or album. Paged straight from the play database (utils/stats).
  *
- * Deep link: /history?artist=…&track=…&album=…&q=…
+ * Deep link: /history?artist=…&track=…&album=…&q=…&day=<local day number>
  */
 
 const PAGE = 80
@@ -42,7 +42,7 @@ function clockLabel(t: number): string {
 }
 
 export default function HistoryScreen() {
-  const params = useLocalSearchParams<{ artist?: string; track?: string; album?: string; q?: string }>()
+  const params = useLocalSearchParams<{ artist?: string; track?: string; album?: string; q?: string; day?: string }>()
   const insets = useSafeAreaInsets()
   const off = useMemo(() => localOffsetSec(), [])
   const today = localDay(Math.floor(Date.now() / 1000), off)
@@ -57,7 +57,12 @@ export default function HistoryScreen() {
   const [pin, setPin] = useState<Pick<HistoryFilter, 'artist' | 'track' | 'album'>>({
     artist: params.artist || undefined, track: params.track || undefined, album: params.album || undefined,
   })
-  const filter: HistoryFilter = useMemo(() => ({ ...pin, query: debounced }), [pin, debounced])
+  // One local day, from the calendar heatmap (cleared with its chip).
+  const [day, setDay] = useState<number | null>(params.day && Number.isFinite(Number(params.day)) ? Number(params.day) : null)
+  const filter: HistoryFilter = useMemo(() => ({
+    ...pin, query: debounced,
+    ...(day !== null ? { from: day * 86_400 - off, to: (day + 1) * 86_400 - off } : {}),
+  }), [pin, debounced, day, off])
 
   const [plays, setPlays] = useState<HistoryPlay[]>([])
   const [days, setDays] = useState<Map<number, { plays: number; ms: number }>>(new Map())
@@ -104,11 +109,11 @@ export default function HistoryScreen() {
   if (picked) shown.current = picked
   const sheetPlay = shown.current
   const applyPin = useCallback((next: typeof pin) => {
-    haptic.light(); setPicked(null); setPin(next); setQuery(''); setDebounced('')
+    haptic.light(); setPicked(null); setPin(next); setDay(null); setQuery(''); setDebounced('')
   }, [])
 
   const pinned = pin.track ? `${pin.track}` : pin.album ? pin.album : pin.artist ?? null
-  const searching = !!debounced.trim() || !!pinned
+  const searching = !!debounced.trim() || !!pinned || day !== null
   const subtitle = totals.plays
     ? `${totals.plays.toLocaleString()} plays · ${fmtHours(totals.ms)}${totals.first ? ` · since ${new Date(totals.first * 1000).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}` : ''}`
     : searching ? 'No plays match' : 'Every play, newest first'
@@ -190,14 +195,19 @@ export default function HistoryScreen() {
             </Pressable>
           ) : null}
         </View>
-        {pinned && (
+        {(pinned || day !== null) && (
           <View style={styles.pins}>
-            <Chip
-              label={pin.track ? `Song: ${pin.track}` : pin.album ? `Album: ${pin.album}` : `Artist: ${pin.artist}`}
-              icon="close"
-              selected
-              onPress={() => applyPin({})}
-            />
+            {day !== null && (
+              <Chip label={`Day: ${dayLabel(day, today)}`} icon="close" selected onPress={() => { haptic.light(); setDay(null) }} />
+            )}
+            {pinned && (
+              <Chip
+                label={pin.track ? `Song: ${pin.track}` : pin.album ? `Album: ${pin.album}` : `Artist: ${pin.artist}`}
+                icon="close"
+                selected
+                onPress={() => applyPin({})}
+              />
+            )}
           </View>
         )}
       </View>

@@ -12,7 +12,8 @@ import { useWrapped } from '@/hooks/useWrapped'
 import { fmtHours, fmtMinutesShort, type WrappedStats, type StreamRow } from '@/utils/wrapped'
 import { periodTitle, bucketLabels, type SummaryKind, type PeriodComparison } from '@/utils/listening'
 import { countSince, windowStartT } from '@/utils/playDb'
-import { periodComparison, currentBucket, allTimeStats } from '@/utils/stats'
+import { periodComparison, currentBucket, allTimeStats, yearsWithPlays } from '@/utils/stats'
+import { CalendarHeatmap } from '@/components/stats/CalendarHeatmap'
 import { trackingEnrolled } from '@/utils/tracking'
 import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow } from '@/components/ui'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
@@ -34,6 +35,7 @@ type Block =
   | { t: 'recaps' }
   | { t: 'list'; key: string; title: string; kind: ArtKind; color: string; rows: Row[] }
   | { t: 'clock'; clock: number[] }
+  | { t: 'heat'; years: number[] }
   | { t: 'years'; rows: { year: number; ms: number; topArtist: string; frac: number }[] }
   | { t: 'foot'; real: number; skipPct: number | null; podcast: number }
   | { t: 'manage' }
@@ -72,7 +74,7 @@ const Clock = React.memo(function Clock({ clock }: { clock: number[] }) {
 })
 
 // ─── Build blocks from stats ──────────────────────────────────────────────────
-function buildBlocks(stats: WrappedStats, imported: boolean): Block[] {
+function buildBlocks(stats: WrappedStats, imported: boolean, years: number[]): Block[] {
   const since = stats.firstTs ? new Date(stats.firstTs).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '—'
   const maxA = stats.topArtists[0]?.ms ?? 1
   const maxT = stats.topTracks[0]?.plays ?? 1
@@ -102,6 +104,7 @@ function buildBlocks(stats: WrappedStats, imported: boolean): Block[] {
   if (trackRows.length)  blocks.push({ t: 'list', key: 'tracks',  title: 'TOP TRACKS · BY PLAYS', kind: 'track', color: Colors.pink, rows: trackRows })
   if (albumRows.length)  blocks.push({ t: 'list', key: 'albums',  title: 'TOP ALBUMS · BY TIME', kind: 'album', color: Colors.lavender, rows: albumRows })
   blocks.push({ t: 'clock', clock: stats.clock })
+  if (years.length) blocks.push({ t: 'heat', years })   // calendar heatmap, a year at a time
   if (stats.byYear.length) blocks.push({ t: 'years', rows: stats.byYear.map(y => ({ year: y.year, ms: y.ms, topArtist: y.topArtist, frac: y.ms / maxY })) })
   // Skips are only known from an import (the export records them; tracking can't).
   const skipPct = imported && stats.totalStreams ? Math.round((stats.skipCount / stats.totalStreams) * 100) : null
@@ -132,6 +135,7 @@ function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date): Bl
   blocks.push({ t: 'pStory', kind })
   blocks.push({ t: 'pTiles', plays: s.plays, playsDelta: c.deltaPlays, artists: s.artists, tracks: s.tracks })
   blocks.push({ t: 'pBars', kind, buckets: s.buckets, labels: bucketLabels(s), current: today })
+  if (kind === 'year') blocks.push({ t: 'heat', years: [new Date(s.start).getFullYear()] })
 
   const maxA = s.topArtists[0]?.ms || 1
   const maxT = s.topTracks[0]?.plays || 1
@@ -351,6 +355,8 @@ export default function WrappedTab() {
               onPress={() => { haptic.light(); router.push('/settings') }} last />
           </Card>
         )
+      case 'heat':
+        return <View style={styles.block}><CalendarHeatmap years={item.years} /></View>
       case 'importCta':
         return (
           <Card style={styles.block}>
@@ -371,7 +377,7 @@ export default function WrappedTab() {
 
   const parsing = status === 'parsing'
   const blocks = useMemo(
-    () => (comparison ? buildPeriodBlocks(comparison, tracked, now) : stats ? buildBlocks(stats, !!storedStats) : []),
+    () => (comparison ? buildPeriodBlocks(comparison, tracked, now) : stats ? buildBlocks(stats, !!storedStats, yearsWithPlays()) : []),
     [comparison, tracked, now, stats, storedStats],
   )
   // Content on screen: a period view, lifetime stats, or the settled empty state.

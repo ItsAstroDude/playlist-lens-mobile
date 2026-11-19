@@ -237,11 +237,13 @@ The 12 motions picked from the Motion Reel (claude.ai/artifact/5bdHJcHSDSsQb26Si
 - [ ] Widget restyled in the new look
 
 ## Phase 3 — Headline 2: Lifetime history explorer (OTA)
-- [~] One stats engine on the play database: Week / Month / Year / All time and Recaps
-      (`utils/stats.ts`: SQL-only, local time, tested — 2.0.3. Screens still use the old
-      UTC summaries; move Wrapped + Recaps onto it next)
+- [x] One stats engine on the play database: Week / Month / Year / All time and Recaps
+      (`utils/stats.ts`: SQL-only, local time, tested — 2.0.3; Wrapped, Recaps, Story and
+      the home strip moved onto it in 2.0.4. `utils/listening.ts`' summarize/comparePeriods
+      are now only used by their own tests — delete them once 2.0.4 has settled)
 - [x] History screen: search every play; scroll by day; filter by artist / track / album — 2.0.3
-- [ ] Calendar heatmap (a year of listening at a glance, tap a day)
+- [x] Calendar heatmap (a year of listening at a glance, tap a day → that day in History) — 2.0.4
+      (Wrapped › Year and › All time with a year picker; longest streak per year)
 - [ ] Streaks (days in a row, an artist's run), milestones (10,000th play, 100th artist),
       first-ever listens ("new this week")
 - [ ] "On this day" throwbacks, one tap to queue them
