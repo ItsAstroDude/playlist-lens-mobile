@@ -147,11 +147,22 @@ function itunesSlot(wait: boolean): Promise<void> {
 // One lookup per item at a time, however many rows ask for it.
 const inflight = new Map<string, Promise<string | null>>()
 
-async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<string | null> {
+// "No picture exists for this" is an answer too: saved for a while, so items iTunes
+// can't match aren't looked up on every launch (holding up the queue for ones it can).
+// Network errors and rate limits are NOT saved — those retry on the next launch.
+const MISS_PREFIX = 'artmiss:'
+const MISS_TTL_MS = 14 * 86_400_000
+function knownMiss(k: string): boolean {
+  const at = storage.getNumber(MISS_PREFIX + k)
+  return at !== undefined && Date.now() - at < MISS_TTL_MS
+}
+
+/** The cover, plus whether that's a real answer (`final`) or a failed lookup. */
+async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<{ url: string | null; final: boolean }> {
   // Artists: prefer a real Spotify portrait; fall back to an iTunes song cover.
   if (kind === 'artist') {
     const portrait = await fetchSpotifyArtistImage(name)
-    if (portrait) return portrait
+    if (portrait) return { url: portrait, final: true }
   }
   const entity = kind === 'album' ? 'album' : 'song'
   const term   = kind === 'artist' ? name : `${name} ${artist ?? ''}`.trim()
@@ -159,12 +170,16 @@ async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<s
   try {
     await itunesSlot(true)
     const res  = await fetch(url)
+    if (!res.ok) return { url: null, final: false }          // rate-limited / server trouble
     const json = await res.json()
-    return pickArtwork(json?.results ?? [], kind, name, artist)
+    return { url: pickArtwork(json?.results ?? [], kind, name, artist), final: true }
   } catch {
-    return null
+    return { url: null, final: false }                       // offline
   }
 }
+
+/** Test hook: forget this session's lookups (as if the app restarted). */
+export function _resetArtworkSession(): void { mem.clear(); ovMem.clear(); inflight.clear(); itunesNext = 0 }
 
 export function useArtwork(kind: ArtKind | null, name?: string, artist?: string): string | null {
   const enabled = artworkEnabled()
@@ -176,6 +191,7 @@ export function useArtwork(kind: ArtKind | null, name?: string, artist?: string)
     if (mem.has(k)) return mem.get(k)!
     const cached = storage.getString(k)
     if (cached !== undefined) { mem.set(k, cached); return cached }
+    if (knownMiss(k)) { mem.set(k, null); return null }
     return null
   })
 
@@ -183,12 +199,14 @@ export function useArtwork(kind: ArtKind | null, name?: string, artist?: string)
     if (!k || !kind || !name) { setUrl(null); return }
     if (ov) { const o = readOverride(ov); if (o != null) { setUrl(o); return } }
     if (mem.has(k)) { setUrl(mem.get(k)!); return }
+    if (knownMiss(k)) { mem.set(k, null); setUrl(null); return }
     let cancelled = false
     let p = inflight.get(k)
     if (!p) {
-      p = fetchArt(kind, name, artist).then(u => {
-        mem.set(k, u)
-        if (u) storage.set(k, u)
+      p = fetchArt(kind, name, artist).then(({ url: u, final }) => {
+        mem.set(k, u)                                        // this session: don't ask again
+        if (u) storage.set(k, u)                             // found: kept for good
+        else if (final) storage.set(MISS_PREFIX + k, Date.now())
         return u
       }).finally(() => inflight.delete(k))
       inflight.set(k, p)

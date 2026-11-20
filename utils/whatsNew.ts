@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.11',
+    name:    'Instant covers',
+    date:    '2026-11-20',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Covers and artist photos you’ve seen before now show straight away, with no fade-in. Only a brand-new one fades in.',
+          'When there’s no picture to find, the app remembers that instead of looking again every time you open it, so the covers it can find arrive sooner.',
+          'Clearing the cache in Settings keeps your covers, including the ones you picked by hand.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.10',
     name:    'Stories',
     date:    '2026-11-20',

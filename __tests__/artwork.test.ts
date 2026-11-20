@@ -52,3 +52,60 @@ describe('pickArtwork', () => {
     expect(url).toBe('http://fb/600x600bb.jpg')
   })
 })
+
+describe('artwork cache (useArtwork)', () => {
+  const { renderHook, waitFor } = require('@testing-library/react-native')
+  const { storage } = require('@/utils/cache')
+
+  const itunes = (results: unknown[], ok = true) =>
+    jest.fn().mockResolvedValue({ ok, status: ok ? 200 : 429, json: () => Promise.resolve({ results }) })
+
+  // "A new launch": forget the hook's in-memory session (saved storage stays).
+  const load = () => { const m = require('@/hooks/useArtwork'); m._resetArtworkSession(); return m }
+
+  beforeEach(() => { storage.clearAll() })
+
+  it('a found cover is saved and used next time without asking again', async () => {
+    global.fetch = itunes([{ artistName: 'Radiohead', trackName: 'Reckoner', artworkUrl100: 'http://x/a/100x100bb.jpg' }]) as any
+    const first = load()
+    const r1 = renderHook(() => first.useArtwork('track', 'Reckoner', 'Radiohead'))
+    await waitFor(() => expect(r1.result.current).toMatch(/^http/))
+    const calls = (global.fetch as jest.Mock).mock.calls.length
+
+    const second = load()                                   // "next launch"
+    const r2 = renderHook(() => second.useArtwork('track', 'Reckoner', 'Radiohead'))
+    expect(r2.result.current).toBe(r1.result.current)       // there on the first render
+    expect((global.fetch as jest.Mock).mock.calls.length).toBe(calls)
+  })
+
+  it('"no picture" is remembered across launches; a rate limit is not', async () => {
+    global.fetch = itunes([], false) as any                  // 429
+    const a = load()
+    renderHook(() => a.useArtwork('track', 'Obscure', 'Nobody'))
+    await waitFor(() => expect((global.fetch as jest.Mock)).toHaveBeenCalled())
+    await new Promise(r => setTimeout(r, 0))
+    expect(storage.getAllKeys().some((k: string) => k.startsWith('artmiss:'))).toBe(false)
+
+    global.fetch = itunes([]) as any                         // a real "no match"
+    const b = load()
+    renderHook(() => b.useArtwork('track', 'Obscure', 'Nobody'))
+    await waitFor(() => expect(storage.getAllKeys().some((k: string) => k.startsWith('artmiss:'))).toBe(true))
+
+    global.fetch = itunes([]) as any
+    const c = load()                                         // next launch: no lookup at all
+    renderHook(() => c.useArtwork('track', 'Obscure', 'Nobody'))
+    await new Promise(r => setTimeout(r, 0))
+    expect(global.fetch as jest.Mock).not.toHaveBeenCalled()
+  })
+
+  it('Clear cache keeps found and hand-picked covers', () => {
+    const { clearCaches } = require('@/utils/cache')
+    storage.set('art:track:x:y', 'http://x'); storage.set('artov:track:x:y', 'http://pick'); storage.set('artmiss:art:track:z:', 1)
+    storage.set('something_else', 'v')
+    clearCaches()
+    expect(storage.getString('art:track:x:y')).toBe('http://x')
+    expect(storage.getString('artov:track:x:y')).toBe('http://pick')
+    expect(storage.getAllKeys()).not.toContain('artmiss:art:track:z:')
+    expect(storage.getAllKeys()).not.toContain('something_else')
+  })
+})
