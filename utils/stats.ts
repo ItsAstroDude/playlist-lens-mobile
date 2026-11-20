@@ -13,7 +13,7 @@
  * like everywhere else in the app.
  */
 import { db } from '@/utils/playDb'
-import { all, first, exec, runSync, cachedAsync, type Job } from '@/utils/sqlJob'
+import { all, first, exec, runSync, runAsync, cachedAsync, type Job } from '@/utils/sqlJob'
 import { periodKeys, weekKey, seasonLabel, monthLabel, weekLabel, type PeriodKind } from '@/utils/periods'
 import type { RecapBundle, RecapPeriod, WrappedStats } from '@/utils/wrapped'
 import type { PeriodComparison, PeriodSummary, SummaryKind } from '@/utils/listening'
@@ -243,40 +243,73 @@ function where(f: HistoryFilter): { sql: string; args: (string | number)[] } {
 }
 
 /** One page of plays, newest first. Pass the last play of a page as `after` for the next. */
-export function historyPage(f: HistoryFilter, after: HistoryCursor | null, limit = 60): HistoryPlay[] {
+function* historyPageJob(f: HistoryFilter, after: HistoryCursor | null, limit = 60): Job<HistoryPlay[]> {
   const w = where(f)
   const page = after ? ' AND (t < ? OR (t = ? AND uri < ?))' : ''
   const args = after ? [...w.args, after.t, after.t, after.uri] : w.args
-  return db().getAllSync<HistoryPlay>(
+  return yield all(
     `SELECT t, uri, ms, track, artist, album FROM plays WHERE ${w.sql}${page} ORDER BY t DESC, uri DESC LIMIT ?`,
-    [...args, limit],
-  )
+    [...args, limit])
+}
+export function historyPage(f: HistoryFilter, after: HistoryCursor | null, limit = 60): HistoryPlay[] {
+  return runSync(historyPageJob(f, after, limit))
 }
 
+export interface HistoryTotals { plays: number; ms: number; first: number | null; last: number | null }
+
 /** How many plays (and how much time) match the filter. */
-export function historyTotals(f: HistoryFilter): { plays: number; ms: number; first: number | null; last: number | null } {
+function* historyTotalsJob(f: HistoryFilter): Job<HistoryTotals> {
   const w = where(f)
-  const r = db().getFirstSync<{ n: number; ms: number | null; a: number | null; b: number | null }>(
-    `SELECT COUNT(*) AS n, SUM(ms) AS ms, MIN(t) AS a, MAX(t) AS b FROM plays WHERE ${w.sql}`, w.args,
-  )
+  const r: { n: number; ms: number | null; a: number | null; b: number | null } | null = yield first(
+    `SELECT COUNT(*) AS n, SUM(ms) AS ms, MIN(t) AS a, MAX(t) AS b FROM plays WHERE ${w.sql}`, w.args)
   return { plays: r?.n ?? 0, ms: r?.ms ?? 0, first: r?.a ?? null, last: r?.b ?? null }
 }
+export function historyTotals(f: HistoryFilter): HistoryTotals { return runSync(historyTotalsJob(f)) }
 
 /** Local day number (days since 1970-01-01, local) of a UTC-seconds time. */
 export function localDay(t: number, offsetSec: number): number {
   return Math.floor((t + offsetSec) / DAY)
 }
 
+export type DayTotals = Map<number, { plays: number; ms: number }>
+
 /** Per-day totals for local days [fromDay, toDay] under the filter. */
-export function dayTotals(f: HistoryFilter, fromDay: number, toDay: number, offsetSec: number): Map<number, { plays: number; ms: number }> {
+function* dayTotalsJob(f: HistoryFilter, fromDay: number, toDay: number, offsetSec: number): Job<DayTotals> {
   const w = where(f)
-  const out = new Map<number, { plays: number; ms: number }>()
-  for (const r of db().getAllSync<{ d: number; n: number; ms: number }>(
+  const out: DayTotals = new Map()
+  const rows: { d: number; n: number; ms: number }[] = yield all(
     `SELECT CAST((t + ?) / ${DAY} AS INTEGER) AS d, COUNT(*) AS n, SUM(ms) AS ms FROM plays
      WHERE ${w.sql} AND t >= ? AND t < ? GROUP BY d`,
-    [offsetSec, ...w.args, fromDay * DAY - offsetSec, (toDay + 1) * DAY - offsetSec],
-  )) out.set(r.d, { plays: r.n, ms: r.ms })
+    [offsetSec, ...w.args, fromDay * DAY - offsetSec, (toDay + 1) * DAY - offsetSec])
+  for (const r of rows) out.set(r.d, { plays: r.n, ms: r.ms })
   return out
+}
+export function dayTotals(f: HistoryFilter, fromDay: number, toDay: number, offsetSec: number): DayTotals {
+  return runSync(dayTotalsJob(f, fromDay, toDay, offsetSec))
+}
+
+/** A page of plays plus the day totals for the days it covers. */
+function* pageWithDaysJob(f: HistoryFilter, after: HistoryCursor | null, offsetSec: number, limit: number): Job<{ page: HistoryPlay[]; days: DayTotals }> {
+  const page = yield* historyPageJob(f, after, limit)
+  const days: DayTotals = page.length
+    ? yield* dayTotalsJob(f, localDay(page[page.length - 1].t, offsetSec), localDay(page[0].t, offsetSec), offsetSec)
+    : new Map()
+  return { page, days }
+}
+
+/**
+ * History screen, off the UI thread (a search is a scan of every play): the first page,
+ * its day totals and the filter's totals; then `historyMoreAsync` for each next page.
+ */
+export function historyStartAsync(f: HistoryFilter, offsetSec: number, limit: number) {
+  return runAsync((function* () {
+    const first_ = yield* pageWithDaysJob(f, null, offsetSec, limit)
+    const totals = yield* historyTotalsJob(f)
+    return { ...first_, totals }
+  })())
+}
+export function historyMoreAsync(f: HistoryFilter, after: HistoryCursor, offsetSec: number, limit: number) {
+  return runAsync(pageWithDaysJob(f, after, offsetSec, limit))
 }
 
 // ─── adapters for the 1.x screens ─────────────────────────────────────────────
@@ -519,11 +552,13 @@ export function allTimeAsync(stored: WrappedStats | null, now: Date = new Date()
 }
 
 // ─── calendar ─────────────────────────────────────────────────────────────────
-/** Local years that have plays, newest first. */
+/** Local years from the first play to the last, newest first (two index lookups). */
 export function yearsWithPlays(offsetSec = localOffsetSec()): number[] {
-  return db().getAllSync<{ y: number }>(
-    `SELECT DISTINCT CAST(strftime('%Y', t + ${offsetSec}, 'unixepoch') AS INTEGER) AS y FROM plays WHERE ${MUSIC} ORDER BY y DESC`, [],
-  ).map(r => r.y)
+  const span = playSpan()
+  if (!span) return []
+  const y0 = new Date((span.first + offsetSec) * 1000).getUTCFullYear()
+  const y1 = new Date((span.last + offsetSec) * 1000).getUTCFullYear()
+  return Array.from({ length: y1 - y0 + 1 }, (_, i) => y1 - i)
 }
 
 export interface YearCalendar {

@@ -46,11 +46,27 @@ describe('cachedAsync', () => {
     insertPlays([row('2026-11-17T10:00:00Z', 'b', 'B')], 'recent')
     expect(await cachedAsync('count', '', make)).toBe(2)
     expect(runs).toBe(2)
-    // a fresh session still sees the saved answer instantly
+    // a fresh session still sees the saved answer instantly — and, for the same plays,
+    // uses it without recomputing
     _clearJobCache()
     expect(peekCached('count')).toBe(2)
+    expect(await cachedAsync('count', '', make)).toBe(2)
+    expect(runs).toBe(2)
     clearStatCache()
     expect(peekCached('count')).toBeUndefined()
+  })
+
+  it('every kind of write moves the plays version', () => {
+    const { playsVersion, beginImport, addImportChunk, finishImport, clearImport, clearAllPlays } = require('@/utils/playDb')
+    const v0 = playsVersion()
+    insertPlays([row('2026-11-16T10:00:00Z', 'a', 'A')], 'recent')
+    const v1 = playsVersion(); expect(v1).toBeGreaterThan(v0)
+    insertPlays([row('2026-11-16T10:00:00Z', 'a', 'A')], 'recent')        // duplicate: nothing written
+    expect(playsVersion()).toBe(v1)
+    beginImport(); addImportChunk([row('2020-01-01T10:00:00Z', 'b', 'B')]); finishImport()
+    const v2 = playsVersion(); expect(v2).toBeGreaterThan(v1)
+    clearImport(); const v3 = playsVersion(); expect(v3).toBeGreaterThan(v2)
+    clearAllPlays(); expect(playsVersion()).toBeGreaterThan(v3)
   })
 
   it('all time async matches all time sync', async () => {

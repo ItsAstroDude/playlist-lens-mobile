@@ -18,7 +18,7 @@ import { newToYouAsync, onThisDay, streaksAsync, milestonesAsync, type NewToYou,
 import { NewToYouCard, OnThisDayCard, StreaksCard, MilestonesCard } from '@/components/stats/Highlights'
 import { CalendarHeatmap } from '@/components/stats/CalendarHeatmap'
 import { trackingEnrolled } from '@/utils/tracking'
-import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow } from '@/components/ui'
+import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow, IconButton } from '@/components/ui'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
@@ -35,7 +35,6 @@ const PRIVACY_URL = 'https://www.spotify.com/account/privacy/'
 type Block =
   | { t: 'hero'; ms: number; since: string }
   | { t: 'pills'; streams: number; artists: number; tracks: number }
-  | { t: 'recaps' }
   | { t: 'list'; key: string; title: string; kind: ArtKind; color: string; rows: Row[] }
   | { t: 'clock'; clock: number[] }
   | { t: 'heat'; years: number[] }
@@ -108,7 +107,6 @@ function buildBlocks(stats: WrappedStats, imported: boolean, years: number[], ex
   ]
   if (extra.streaks?.longest) blocks.push({ t: 'streaks', s: extra.streaks })
   if (extra.miles && (extra.miles.reached.length || extra.miles.next.length)) blocks.push({ t: 'miles', m: extra.miles })
-  blocks.push({ t: 'recaps' })
   if (artistRows.length) blocks.push({ t: 'list', key: 'artists', title: 'TOP ARTISTS · BY TIME', kind: 'artist', color: Colors.greenPrimary, rows: artistRows })
   if (trackRows.length)  blocks.push({ t: 'list', key: 'tracks',  title: 'TOP TRACKS · BY PLAYS', kind: 'track', color: Colors.pink, rows: trackRows })
   if (albumRows.length)  blocks.push({ t: 'list', key: 'albums',  title: 'TOP ALBUMS · BY TIME', kind: 'album', color: Colors.lavender, rows: albumRows })
@@ -137,7 +135,6 @@ function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date, ext
   const blocks: Block[] = [{ t: 'pHero', kind, title: periodTitle(s), ms: s.ms, delta: c.deltaMs }]
   if (!s.plays) {
     blocks.push({ t: 'pEmpty', kind, tracked })
-    blocks.push({ t: 'recaps' })
     return blocks
   }
   const today = currentBucket(kind, now)
@@ -162,7 +159,6 @@ function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date, ext
       sel: { kind: 'album', name: a.name, rank: i + 1, ms: a.ms, accent: Colors.lavender } })) })
   // Only when the history starts well before this period — otherwise everything is "new".
   if (extra.fresh?.trusted && extra.fresh.artists > 0) blocks.push({ t: 'newToYou', kind, n: extra.fresh })
-  blocks.push({ t: 'recaps' })
   if (!tracked) blocks.push({ t: 'pCta' })
   return blocks
 }
@@ -266,28 +262,6 @@ export default function WrappedTab() {
             <Pill label="artists" value={item.artists.toLocaleString()} />
             <Pill label="tracks"  value={item.tracks.toLocaleString()} />
           </View>
-        )
-      case 'recaps':
-        return (
-          <>
-            <TouchableOpacity style={styles.recapsBtn} onPress={() => { haptic.light(); router.push('/recaps') }} activeOpacity={0.85}>
-              <View style={styles.cardSpecular} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.recapsTitle}>Recaps</Text>
-                <Text style={styles.recapsSub}>Weekly · monthly · seasonal · yearly</Text>
-              </View>
-              <Icon name="arrow-forward" style={styles.recapsArrow} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.recapsBtn} onPress={() => { haptic.light(); router.push('/history') }} activeOpacity={0.85}
-              accessibilityRole="button" accessibilityLabel="History" accessibilityHint="Every play, searchable, by day">
-              <View style={styles.cardSpecular} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.recapsTitle}>History</Text>
-                <Text style={styles.recapsSub}>Every play · search · by day</Text>
-              </View>
-              <Icon name="arrow-forward" style={styles.recapsArrow} />
-            </TouchableOpacity>
-          </>
         )
       case 'list':
         return (
@@ -429,7 +403,16 @@ export default function WrappedTab() {
     <View style={styles.container}>
 
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <TabHeader title={mode === 'all' ? 'all time' : `your ${PERIOD_WORD[mode]}`} subtitle={subtitle}>
+        <TabHeader
+          title={mode === 'all' ? 'all time' : `your ${PERIOD_WORD[mode]}`}
+          subtitle={subtitle}
+          titleRight={
+            <>
+              <IconButton icon="time-outline" label="History: every play, searchable, by day" onPress={() => router.push('/history')} />
+              <IconButton icon="albums-outline" label="Recaps: past weeks, months, seasons and years" onPress={() => router.push('/recaps')} />
+            </>
+          }
+        >
           <View style={styles.modes}>
             {MODES.map(m => <Chip key={m.id} label={m.label} selected={mode === m.id} onPress={() => chooseMode(m.id)} />)}
           </View>
@@ -532,10 +515,6 @@ const styles = StyleSheet.create({
   heroSub: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted },
 
   statRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
-  recapsBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.glass, borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.28), borderRadius: Radius.lg, overflow: 'hidden', padding: Spacing.lg, marginBottom: Spacing.md },
-  recapsTitle: { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, color: Colors.text, letterSpacing: -0.5 },
-  recapsSub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-  recapsArrow: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.greenPrimary },
   statPill: { flex: 1, backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, alignItems: 'center', gap: 2 },
   statValue: { fontFamily: FontFamily.display, fontSize: 16, fontWeight: '700', color: Colors.text, letterSpacing: -0.5, alignSelf: 'stretch', textAlign: 'center' },
   statLabel: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },

@@ -79,6 +79,34 @@ export function CalendarHeatmap({ years }: {
   }, [viewW, year])
   const selDay = sel === null ? null : cal.firstDay + sel
 
+  // The grid only depends on the year's data and the view width — selecting a day
+  // just moves the ring, it doesn't re-render 371 cells.
+  // Only the columns on screen ripple in (their wave starts at the left edge of the view,
+  // same step and diagonal as ever); the rest are drawn in place, ready when you scroll.
+  const grid = useMemo(() => {
+    if (!viewW) return null                      // measure first, so cells mount once
+    const endCol = isCurrent ? Math.floor((lead + todayIdx) / 7) : cols - 1
+    const shownCols = Math.ceil(viewW / STEP) + 1
+    const firstAnimated = Math.max(0, endCol - shownCols + 1)
+    return (
+      <View style={styles.grid} pointerEvents="none">
+        {Array.from({ length: cols }, (_, col) => (
+          <View key={col} style={styles.col}>
+            {Array.from({ length: 7 }, (_, row) => {
+              const i = col * 7 + row - lead
+              if (i < 0 || i >= cal.days) return <View key={row} style={styles.cell} />
+              const future = isCurrent && i > todayIdx
+              const color = future ? 'transparent' : LEVELS[heatLevel(cal.ms[i], cal.levels)]
+              return col >= firstAnimated && col <= endCol
+                ? <RippleCell key={row} col={col - firstAnimated} row={row} trigger={year} style={[styles.cell, { backgroundColor: color }]} />
+                : <View key={row} style={[styles.cell, { backgroundColor: color }]} />
+            })}
+          </View>
+        ))}
+      </View>
+    )
+  }, [viewW, cal, year, lead, cols, isCurrent, todayIdx])
+
   return (
     <Card padded>
       <View style={styles.head}>
@@ -108,19 +136,7 @@ export function CalendarHeatmap({ years }: {
             accessibilityRole="adjustable"
             accessibilityLabel={`Listening calendar for ${year}: ${cal.activeDays} days with music, longest streak ${cal.longestStreak} days`}
           >
-            <View style={styles.grid} pointerEvents="none">
-              {Array.from({ length: cols }, (_, col) => (
-                <View key={col} style={styles.col}>
-                  {Array.from({ length: 7 }, (_, row) => {
-                    const i = col * 7 + row - lead
-                    if (i < 0 || i >= cal.days) return <View key={row} style={styles.cell} />
-                    const future = isCurrent && i > todayIdx
-                    const color = future ? 'transparent' : LEVELS[heatLevel(cal.ms[i], cal.levels)]
-                    return <RippleCell key={row} col={col} row={row} trigger={year} style={[styles.cell, { backgroundColor: color }]} />
-                  })}
-                </View>
-              ))}
-            </View>
+            {grid}
             {sel !== null && (
               <View pointerEvents="none" style={[styles.ring, {
                 left: Math.floor((lead + sel) / 7) * STEP - 2, top: ((lead + sel) % 7) * STEP - 2,

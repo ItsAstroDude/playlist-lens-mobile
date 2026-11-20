@@ -19,6 +19,23 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.6',
+    name:    'Smooth',
+    date:    '2026-11-20',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Wrapped, Recaps and History stay smooth while they add up your history. The heavy maths now runs on its own, so it never holds up what’s on screen.',
+          'Searching History no longer stutters as you type, even across years of plays.',
+          'Stats you’ve already seen open instantly, even after restarting the app, until a new play arrives.',
+          'The calendar ripples in where you’re looking (around today) instead of starting in January.',
+          'History and Recaps have moved to two icons next to the Wrapped title, always one tap away.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.5',
     name:    'Milestones',
     date:    '2026-11-19',

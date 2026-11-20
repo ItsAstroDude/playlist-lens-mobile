@@ -8,12 +8,12 @@
  *     return combine(a, b)
  *   }
  *   runSync(myStats())        // cheap queries, tests
- *   await runAsync(myStats()) // heavy ones: SQLite works on its own thread, the UI stays smooth
+ *   await runAsync(myStats()) // heavy ones: on the stats connection, on SQLite's own thread
  *
  * Each `yield` hands one query to the runner and gets its result back.
  */
 import { useEffect, useState } from 'react'
-import { db } from '@/utils/playDb'
+import { db, statsDb, playsVersion } from '@/utils/playDb'
 import { storage } from '@/utils/cache'
 
 type Args = (string | number | null)[]
@@ -45,8 +45,12 @@ export function runSync<T>(job: Job<T>): T {
   return step.value
 }
 
+/**
+ * Runs on the second (stats) connection, so the screen's own quick queries on the main
+ * connection never queue behind a long one.
+ */
 export async function runAsync<T>(job: Job<T>): Promise<T> {
-  const d = db()
+  const d = statsDb()
   let step = job.next()
   while (!step.done) {
     const q = step.value
@@ -62,17 +66,28 @@ export async function runAsync<T>(job: Job<T>): Promise<T> {
 }
 
 // ─── cache ────────────────────────────────────────────────────────────────────
-// Heavy answers only change when plays do. The fingerprint is two index lookups.
+// Heavy answers only change when plays do; playDb counts every write, so checking
+// costs nothing (no table scan on the UI thread).
 const cache = new Map<string, { sig: string; value: Promise<unknown> }>()
 
 /** Changes whenever a play is added, replaced or removed (or an import swaps in). */
 export function playsSignature(): string {
-  const r = db().getFirstSync<{ n: number; m: number | null; s: number | null }>(
-    'SELECT COUNT(*) AS n, MAX(t) AS m, SUM(ms) AS s FROM plays', [])
-  return `${r?.n ?? 0}:${r?.m ?? 0}:${r?.s ?? 0}`
+  return String(playsVersion())
 }
 
-const PERSIST_PREFIX = 'stat_cache.v1.'
+const PERSIST_PREFIX = 'stat_cache.v2.'
+type Saved = { sig: string; value: unknown }
+
+// Answers saved by 2.0.5 (no version stamp): drop them once.
+try { for (const k of storage.getAllKeys()) if (k.startsWith('stat_cache.v1.')) storage.remove(k) } catch { /* best effort */ }
+
+function readSaved(name: string): Saved | undefined {
+  try {
+    const raw = storage.getString(PERSIST_PREFIX + name)
+    if (raw) { const v = JSON.parse(raw) as Saved; if (v && typeof v.sig === 'string') return v }
+  } catch { /* unreadable — recompute */ }
+  return undefined
+}
 
 /**
  * Run `make()` off the UI thread, once per (name, extra, plays signature). Callers asking
@@ -85,10 +100,17 @@ export function cachedAsync<T>(name: string, extra: string, make: () => Job<T>):
   const sig = `${playsSignature()}|${extra}`
   const hit = cache.get(name)
   if (hit && hit.sig === sig) return hit.value as Promise<T>
+  // Saved before a restart for these same plays? Then it's still the answer.
+  const saved = readSaved(name)
+  if (saved && saved.sig === sig) {
+    const value = Promise.resolve(saved.value as T)
+    cache.set(name, { sig, value }); last.set(name, saved.value)
+    return value
+  }
   const value = runAsync(make())
   cache.set(name, { sig, value })
   value.then(
-    v => { last.set(name, v); try { storage.set(PERSIST_PREFIX + name, JSON.stringify(v)) } catch { /* best effort */ } },
+    v => { last.set(name, v); try { storage.set(PERSIST_PREFIX + name, JSON.stringify({ sig, value: v })) } catch { /* best effort */ } },
     () => { if (cache.get(name)?.value === value) cache.delete(name) },
   )
   return value
@@ -99,10 +121,8 @@ const last = new Map<string, unknown>()
 /** The last answer for `name` (this session or a saved one), or undefined. Instant. */
 export function peekCached<T>(name: string): T | undefined {
   if (last.has(name)) return last.get(name) as T
-  try {
-    const raw = storage.getString(PERSIST_PREFIX + name)
-    if (raw) { const v = JSON.parse(raw) as T; last.set(name, v); return v }
-  } catch { /* unreadable — recompute */ }
+  const saved = readSaved(name)
+  if (saved) { last.set(name, saved.value); return saved.value as T }
   return undefined
 }
 

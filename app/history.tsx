@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, StyleSheet, TextInput, Pressable, Linking } from 'react-native'
+import { View, Text, StyleSheet, TextInput, Pressable, Linking, ActivityIndicator } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { FlashList } from '@shopify/flash-list'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -7,8 +7,8 @@ import { Colors, FontFamily, FontSize, Radius, Spacing, Type } from '@/constants
 import { haptic } from '@/constants/animation'
 import { fmtHours, fmtMinutesShort } from '@/utils/wrapped'
 import {
-  historyPage, historyTotals, dayTotals, localDay, localOffsetSec,
-  type HistoryFilter, type HistoryPlay,
+  historyStartAsync, historyMoreAsync, localDay, localOffsetSec,
+  type HistoryFilter, type HistoryPlay, type HistoryTotals, type DayTotals,
 } from '@/utils/stats'
 import { Screen, ScreenHeader, Chip, EmptyState, Icon, TrackRow, Sheet, ListRow, Card } from '@/components/ui'
 
@@ -65,32 +65,40 @@ export default function HistoryScreen() {
   }), [pin, debounced, day, off])
 
   const [plays, setPlays] = useState<HistoryPlay[]>([])
-  const [days, setDays] = useState<Map<number, { plays: number; ms: number }>>(new Map())
+  const [days, setDays] = useState<DayTotals>(new Map())
   const [done, setDone] = useState(false)
-  const totals = useMemo(() => historyTotals(filter), [filter])
+  const [totals, setTotals] = useState<HistoryTotals>({ plays: 0, ms: 0, first: null, last: null })
+  const [busy, setBusy] = useState(true)           // a (re)start is in flight
   const loading = useRef(false)
+  // Every query runs off the UI thread (a search scans every play). `gen` drops answers
+  // that arrive after a newer filter — typing fast never shows stale results.
+  const gen = useRef(0)
 
-  // (Re)start from the top whenever the filter changes.
+  // (Re)start from the top whenever the filter changes. The old list stays up until then.
   useEffect(() => {
-    const first = historyPage(filter, null, PAGE)
-    setPlays(first)
-    setDone(first.length < PAGE)
-    setDays(first.length ? dayTotals(filter, localDay(first[first.length - 1].t, off), localDay(first[0].t, off), off) : new Map())
+    const g = ++gen.current
+    setBusy(true)
+    historyStartAsync(filter, off, PAGE).then(r => {
+      if (g !== gen.current) return
+      setPlays(r.page); setDays(r.days); setTotals(r.totals)
+      setDone(r.page.length < PAGE); setBusy(false)
+    }, () => { if (g === gen.current) setBusy(false) })
   }, [filter, off])
 
   const loadMore = useCallback(() => {
-    if (done || loading.current || !plays.length) return
+    if (done || busy || loading.current || !plays.length) return
     loading.current = true
+    const g = gen.current
     const last = plays[plays.length - 1]
-    const next = historyPage(filter, { t: last.t, uri: last.uri }, PAGE)
-    if (next.length) {
-      const more = dayTotals(filter, localDay(next[next.length - 1].t, off), localDay(next[0].t, off), off)
-      setDays(prev => { const m = new Map(prev); more.forEach((v, k) => m.set(k, v)); return m })
-      setPlays(prev => [...prev, ...next])
-    }
-    setDone(next.length < PAGE)
-    loading.current = false
-  }, [done, plays, filter, off])
+    historyMoreAsync(filter, { t: last.t, uri: last.uri }, off, PAGE).then(r => {
+      if (g !== gen.current) return
+      if (r.page.length) {
+        setDays(prev => { const m = new Map(prev); r.days.forEach((v, k) => m.set(k, v)); return m })
+        setPlays(prev => [...prev, ...r.page])
+      }
+      setDone(r.page.length < PAGE)
+    }).finally(() => { loading.current = false })
+  }, [done, busy, plays, filter, off])
 
   const items = useMemo(() => {
     const out: Item[] = []
@@ -114,9 +122,10 @@ export default function HistoryScreen() {
 
   const pinned = pin.track ? `${pin.track}` : pin.album ? pin.album : pin.artist ?? null
   const searching = !!debounced.trim() || !!pinned || day !== null
-  const subtitle = totals.plays
-    ? `${totals.plays.toLocaleString()} plays · ${fmtHours(totals.ms)}${totals.first ? ` · since ${new Date(totals.first * 1000).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}` : ''}`
-    : searching ? 'No plays match' : 'Every play, newest first'
+  const subtitle = busy && !totals.plays ? (searching ? 'Searching…' : 'Every play, newest first')
+    : totals.plays
+      ? `${totals.plays.toLocaleString()} plays · ${fmtHours(totals.ms)}${totals.first ? ` · since ${new Date(totals.first * 1000).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}` : ''}`
+      : searching ? 'No plays match' : 'Every play, newest first'
 
   const renderItem = useCallback(({ item }: { item: Item }) => {
     if (item.kind === 'day') {
@@ -212,7 +221,9 @@ export default function HistoryScreen() {
         )}
       </View>
 
-      {items.length === 0 ? (
+      {items.length === 0 && busy ? (
+        <View style={styles.empty}><ActivityIndicator color={Colors.greenPrimary} /></View>
+      ) : items.length === 0 ? (
         <View style={styles.empty}>
           {searching ? (
             <EmptyState icon="search-outline" title="Nothing matches" body="Try fewer words, or clear the filter." />
