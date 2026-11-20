@@ -4,7 +4,8 @@
  * Opt-in (off until the Settings toggle is flipped). When enabled we schedule a
  * small set of REPEATING calendar triggers that nudge when a recap period closes:
  * weekly (Mon), monthly (1st), seasonal (Mar/Jun/Sep/Dec 1) and yearly (Jan 1).
- * Tapping one opens the Recaps screen (wired in app/_layout). Android delivery is
+ * Tapping one opens that period's story (week / month / year, since 2.0 Phase 4) or the
+ * Recaps screen (seasons) — wired in app/_layout. Android delivery is
  * best-effort (Doze / exact-alarm limits) — fine for a gentle nudge.
  */
 import * as Notifications from 'expo-notifications'
@@ -47,8 +48,11 @@ async function requestPermission(): Promise<boolean> {
 
 const RECAP_DATA = { kind: 'recap' as const }
 
-async function schedule(title: string, body: string, trigger: Notifications.NotificationTriggerInput): Promise<void> {
-  await Notifications.scheduleNotificationAsync({ content: { title, body, data: RECAP_DATA }, trigger })
+/** Story to open from a notification (2.0 Phase 4): the period that just ended. */
+export type StoryLink = { kind: 'week' | 'month' | 'year'; back: number }
+
+async function schedule(title: string, body: string, trigger: Notifications.NotificationTriggerInput, story?: StoryLink): Promise<void> {
+  await Notifications.scheduleNotificationAsync({ content: { title, body, data: { ...RECAP_DATA, ...(story ? { story } : {}) } }, trigger })
 }
 
 /** Wipe + (re)schedule the full set. Safe to call repeatedly. */
@@ -57,16 +61,17 @@ export async function scheduleRecapNotifications(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync()
   const T = Notifications.SchedulableTriggerInputTypes
 
-  await schedule('Your week in sound ✦', 'See what you played this week.',
-    { type: T.WEEKLY, weekday: 2, hour: 18, minute: 0, channelId: CHANNEL_ID })
-  await schedule('Your month, wrapped ✦', 'A fresh monthly recap is ready.',
-    { type: T.MONTHLY, day: 1, hour: 18, minute: 5, channelId: CHANNEL_ID })
+  // Monday / the 1st / 1 January: the period that just ended opens as a story.
+  await schedule('Your week in sound ✦', 'Last week, as a story. Tap to play.',
+    { type: T.WEEKLY, weekday: 2, hour: 18, minute: 0, channelId: CHANNEL_ID }, { kind: 'week', back: 1 })
+  await schedule('Your month, wrapped ✦', 'Last month, as a story. Tap to play.',
+    { type: T.MONTHLY, day: 1, hour: 18, minute: 5, channelId: CHANNEL_ID }, { kind: 'month', back: 1 })
   for (const month of [3, 6, 9, 12]) {
     await schedule('A season just wrapped ✦', 'Your seasonal recap is ready to revisit.',
       { type: T.YEARLY, month, day: 1, hour: 19, minute: 0, channelId: CHANNEL_ID })
   }
-  await schedule('Your year in music ✦', 'Your yearly recap is ready to revisit.',
-    { type: T.YEARLY, month: 1, day: 1, hour: 20, minute: 0, channelId: CHANNEL_ID })
+  await schedule('Your year in music ✦', 'Last year, as a story. Tap to play.',
+    { type: T.YEARLY, month: 1, day: 1, hour: 20, minute: 0, channelId: CHANNEL_ID }, { kind: 'year', back: 1 })
 }
 
 export async function cancelRecapNotifications(): Promise<void> {

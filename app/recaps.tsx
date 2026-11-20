@@ -8,6 +8,7 @@ import { fmtHours, type RecapPeriod } from '@/utils/wrapped'
 import { loadRecaps } from '@/hooks/useWrapped'
 import { autoPullScopeMissing } from '@/utils/recents'
 import { recapsAsync, type recapsFromDb } from '@/utils/stats'
+import { backFromKey } from '@/utils/storyData'
 import { useCachedStat } from '@/utils/sqlJob'
 import { keptSeasons, setSeasonKept, hiddenYears, setYearHidden } from '@/utils/recapPrefs'
 import type { PeriodKind } from '@/utils/periods'
@@ -149,8 +150,16 @@ function RecapDetail({ period, kind, isKept, isHidden, onShare, onToggleKeep, on
   const maxA = period.topArtists[0]?.ms || 1
   const maxT = period.topTracks[0]?.plays || 1
   const maxL = period.topAlbums[0]?.ms || 1
+  // Weeks, months and years can play as a story (seasons aren't a period the engine has).
+  const storyBack = kind === 'season' ? null : backFromKey(kind, period.key)
   return (
     <View style={styles.detail}>
+      {storyBack !== null && (
+        <Card tone="accent">
+          <ListRow icon="play" label={`Play this ${kind} as a story`} hint="Top artists and songs, your biggest day, a card to share"
+            onPress={() => { haptic.medium(); router.push(`/story?kind=${kind}&back=${storyBack}`) }} last />
+        </Card>
+      )}
       <Card tone="accent" padded>
         <Text style={Type.overline}>{period.label}</Text>
         <Text style={styles.heroValue}>{fmtHours(period.ms)}</Text>

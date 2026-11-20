@@ -188,14 +188,14 @@ export function periodStats(kind: StatsKind, opts: StatsOpts = {}): PeriodStats 
 }
 
 /** % change, or null when there's nothing to compare against. */
-function pct(cur: number, prev: number): number | null {
+export function pct(cur: number, prev: number): number | null {
   return prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null
 }
 
-type Comparison = { current: PeriodStats; previous: PeriodStats; deltaMs: number | null; deltaPlays: number | null }
+export type Comparison = { current: PeriodStats; previous: PeriodStats; deltaMs: number | null; deltaPlays: number | null }
 
 /** This period so far vs the previous one cut at the same elapsed point. */
-function* comparePeriodJob(kind: Exclude<StatsKind, 'all'>, opts: { now?: Date; offsetSec?: number; topN?: number } = {}): Job<Comparison> {
+export function* comparePeriodJob(kind: Exclude<StatsKind, 'all'>, opts: { now?: Date; offsetSec?: number; topN?: number } = {}): Job<Comparison> {
   const now = opts.now ?? new Date()
   const off = opts.offsetSec ?? localOffsetSec(now)
   const cur = periodRange(kind, now, off)
@@ -322,18 +322,18 @@ export function historyMoreAsync(f: HistoryFilter, after: HistoryCursor, offsetS
 // utils/listening's PeriodComparison (ms epochs, UTC). These give them the same shape
 // from the engine, in local time.
 
-function toSummary(s: PeriodStats): PeriodSummary {
+export function toSummary(s: PeriodStats): PeriodSummary {
   return {
     kind: s.kind as SummaryKind,
     start: s.start * 1000, end: s.end * 1000,
     ms: s.ms, plays: s.plays, artists: s.artists, tracks: s.tracks,
     buckets: s.buckets,
     topArtists: s.topArtists, topTracks: s.topTracks, topAlbums: s.topAlbums.slice(0, 3),
-    clock: s.clock, weekdays: s.weekdays,
+    clock: s.clock, weekdays: s.weekdays, bucketLabels: s.bucketLabels,
   }
 }
 
-function toComparison(c: Comparison): PeriodComparison {
+export function toComparison(c: Comparison): PeriodComparison {
   return { current: toSummary(c.current), previous: toSummary(c.previous), deltaMs: c.deltaMs, deltaPlays: c.deltaPlays }
 }
 

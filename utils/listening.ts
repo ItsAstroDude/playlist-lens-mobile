@@ -26,6 +26,8 @@ export interface PeriodSummary {
   /** ms by local hour 0..23 and by weekday Mon..Sun (from the stats engine). */
   clock?:      number[]
   weekdays?:   number[]
+  /** Names for `buckets` when they aren't the usual ones (all time: years). */
+  bucketLabels?: string[]
 }
 
 export interface PeriodComparison {

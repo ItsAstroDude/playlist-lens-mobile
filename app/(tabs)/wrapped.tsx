@@ -52,7 +52,7 @@ type Block =
   | { t: 'pBars'; kind: SummaryKind; buckets: number[]; labels: string[]; current: number }
   | { t: 'pEmpty'; kind: SummaryKind; tracked: boolean }
   | { t: 'pCta' }
-  | { t: 'pStory'; kind: SummaryKind }
+  | { t: 'pStory'; kind: SummaryKind | 'all' }
 
 interface Row { name: string; sub?: string; value: string; frac: number; sel: WrappedSelection; add?: QueueItem }
 
@@ -136,6 +136,7 @@ function buildBlocks(stats: WrappedStats, imported: boolean, years: number[], ex
     { t: 'hero', ms: stats.totalMs, since },
     { t: 'pills', streams: stats.totalStreams, artists: stats.uniqueArtists, tracks: stats.uniqueTracks },
   ]
+  blocks.push({ t: 'pStory', kind: 'all' })
   if (extra.streaks?.longest) blocks.push({ t: 'streaks', s: extra.streaks })
   if (extra.miles && (extra.miles.reached.length || extra.miles.next.length)) blocks.push({ t: 'miles', m: extra.miles })
   if (artistRows.length) blocks.push({ t: 'list', key: 'artists', title: 'TOP ARTISTS · BY TIME', kind: 'artist', color: Colors.greenPrimary, rows: artistRows })
@@ -376,7 +377,8 @@ export default function WrappedTab() {
       case 'pStory':
         return (
           <Card tone="accent" style={styles.block}>
-            <ListRow icon="play" label={`Play your ${PERIOD_WORD[item.kind]}`} hint="As a story: top artist, on repeat, your biggest day"
+            <ListRow icon="play" label={item.kind === 'all' ? 'Play your story: all time' : `Play your ${PERIOD_WORD[item.kind]}`}
+              hint={item.kind === 'all' ? 'Every year, as a story: your top artists, your biggest year, a card to share' : 'As a story: top artists and songs, your biggest day, a card to share'}
               onPress={() => { haptic.medium(); router.push(`/story?kind=${item.kind}`) }} last />
           </Card>
         )

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, StyleSheet, Pressable, BackHandler, Dimensions } from 'react-native'
+import { View, Text, StyleSheet, Pressable, BackHandler, Dimensions, ActivityIndicator } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
@@ -8,29 +8,46 @@ import Animated, {
 import { FontFamily, Spacing } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { Icon } from '@/components/ui/Icon'
-import { Aurora, RollingNumber, useMotionReduced } from '@/components/motion'
+import { Aurora, RollingNumber, RackFocus, useMotionReduced } from '@/components/motion'
 import { KineticText } from '@/components/motion/KineticText'
-import type { SummaryKind } from '@/utils/listening'
-import { periodComparison } from '@/utils/stats'
-import { buildStory } from '@/utils/story'
+import { ArtThumb } from '@/components/ui'
+import { ShareCard, CARD_W, CARD_H } from '@/components/story/ShareCard'
+import { buildStory, type Palette } from '@/utils/story'
+import { storyAsync, type StoryData, type StoryKind } from '@/utils/storyData'
+import { showToast } from '@/utils/dialog'
+import { captureRef } from 'react-native-view-shot'
+import * as Sharing from 'expo-sharing'
 
 const SLIDE_MS = 5200
 const { width: SW } = Dimensions.get('window')
+
+const LOADING_PALETTE: Palette = ['#6a2bd9', '#ff70a5', '#ffb347', '#b39dff']
 
 /**
  * Motion #6 — Story mode. Your week / month / year as full-screen slides: progress bars,
  * tap right for next and left for back, hold to pause. Words rise line by line, numbers
  * roll, and the aurora behind changes colour with every slide.
+ *
+ * Phase 4: any period — /story?kind=week|month|year|all&back=N (N periods ago; 0 = so
+ * far) — covers, top-5 lists, a listening-clock slide, and a share card at the end.
+ * The data comes off the UI thread (a year or all time is real work).
  */
 export default function StoryScreen() {
   const insets = useSafeAreaInsets()
   const reduced = useMotionReduced()
-  const params = useLocalSearchParams<{ kind?: string }>()
-  const kind: SummaryKind = params.kind === 'month' || params.kind === 'year' ? params.kind : 'week'
-  const slides = useMemo(() => {
-    const now = new Date()
-    return buildStory(periodComparison(kind, now))   // stats engine, local time
-  }, [kind])
+  const params = useLocalSearchParams<{ kind?: string; back?: string }>()
+  const kind: StoryKind = params.kind === 'month' || params.kind === 'year' || params.kind === 'all' ? params.kind : 'week'
+  const back = Math.max(0, Math.floor(Number(params.back) || 0))
+  const [data, setData] = useState<StoryData | null>(null)
+  useEffect(() => {
+    let alive = true
+    storyAsync(kind, back).then(d => { if (alive) setData(d) }, () => { if (alive) router.back() })
+    return () => { alive = false }
+  }, [kind, back])
+  const slides = useMemo(
+    () => (data ? buildStory(data.comparison, { all: data.all, past: data.past, newArtists: data.newArtists }) : null),
+    [data],
+  )
 
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -39,18 +56,20 @@ export default function StoryScreen() {
   const remaining = useRef(SLIDE_MS)
 
   const close = useCallback(() => { haptic.light(); router.back() }, [])
+  const count = slides?.length ?? 0
   const go = useCallback((n: number) => {
     if (n < 0) n = 0
-    if (n >= slides.length) { close(); return }
+    if (n >= count) { close(); return }
     haptic.light()
     setI(n)
-  }, [slides.length])
+  }, [count])
 
   const run = useCallback((ms: number) => {
     prog.value = withTiming(1, { duration: ms, easing: Easing.linear }, done => { if (done) runOnJS(go)(idx.value + 1) })
   }, [go])
 
   useEffect(() => {
+    if (!slides) return                       // still loading: no timer yet
     idx.value = i
     cancelAnimation(prog)
     remaining.current = SLIDE_MS
@@ -58,7 +77,7 @@ export default function StoryScreen() {
     if (reduced) { prog.value = 1; return }
     prog.value = 0
     run(SLIDE_MS)
-  }, [i, reduced])
+  }, [i, reduced, slides])
 
   const pause = () => { if (reduced) return; cancelAnimation(prog); remaining.current = SLIDE_MS * (1 - prog.value); setPaused(true) }
   const resume = () => { if (!paused) return; setPaused(false); run(remaining.current) }
@@ -67,6 +86,48 @@ export default function StoryScreen() {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => { close(); return true })
     return () => sub.remove()
   }, [])
+
+  // ── Share card ──
+  const card = useRef<View>(null)
+  const [sharing, setSharing] = useState(false)
+  const share = useCallback(async () => {
+    if (sharing || !data) return
+    haptic.medium()
+    // Hold the slide timer while the share sheet is up; carry on after.
+    cancelAnimation(prog)
+    remaining.current = SLIDE_MS * (1 - prog.value)
+    setSharing(true)
+    try {
+      if (!(await Sharing.isAvailableAsync())) { showToast('Sharing isn’t available on this phone', 'alert-circle-outline'); return }
+      const uri = await captureRef(card, { format: 'png', quality: 1, width: CARD_W * 3, height: CARD_H * 3 })
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share your story' })
+    } catch {
+      showToast('Couldn’t make the card — try again', 'alert-circle-outline')
+    } finally {
+      setSharing(false)
+      if (!reduced) run(Math.max(remaining.current, 1500))
+    }
+  }, [sharing, data, reduced, run])
+
+  if (!slides || !data) {
+    return (
+      <View style={styles.root}>
+        <Aurora colors={LOADING_PALETTE} style={StyleSheet.absoluteFill} dim={0.34} />
+        <View style={[styles.top, { paddingTop: insets.top + Spacing.sm }]}>
+          <View style={styles.topRow}>
+            <Text style={styles.brand}>playlist<Text style={{ color: '#fff' }}>.</Text>lens</Text>
+            <Pressable onPress={close} hitSlop={12} style={styles.close} accessibilityRole="button" accessibilityLabel="Close story">
+              <Icon name="close" size={22} color="#fff" />
+            </Pressable>
+          </View>
+        </View>
+        <View style={styles.loading}>
+          <ActivityIndicator color="#fff" />
+          <Text style={styles.sub}>Getting your story ready…</Text>
+        </View>
+      </View>
+    )
+  }
 
   const s = slides[i]
   return (
@@ -94,15 +155,68 @@ export default function StoryScreen() {
       </View>
 
       <View style={styles.body} pointerEvents="none" key={s.id} accessibilityLiveRegion="polite">
+        {s.art ? (
+          <RackFocus index={0}>
+            <ArtThumb kind={s.art.kind} name={s.art.name} artist={s.art.artist} size={132} />
+          </RackFocus>
+        ) : null}
         <KineticText text={s.kicker} style={styles.kicker} stagger={60} />
-        {s.roll
+        {s.list ? (
+          <View style={styles.list}>
+            {s.list.map((r, k) => (
+              <RackFocus key={r.name + k} index={k + 1} step={110}>
+                <View style={styles.listRow}>
+                  <Text style={styles.listRank}>{k + 1}</Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.listName} numberOfLines={1}>{r.name}</Text>
+                    {r.sub ? <Text style={styles.listSub} numberOfLines={1}>{r.sub}</Text> : null}
+                  </View>
+                  <Text style={styles.listValue}>{r.value}</Text>
+                </View>
+              </RackFocus>
+            ))}
+          </View>
+        ) : s.roll
           ? <RollingNumber value={s.big} style={styles.big} unitStyle={styles.bigUnit} stagger={90} />
           : <KineticText text={s.big} style={styles.big} delay={260} stagger={110} />}
+        {s.clock ? <MiniClock clock={s.clock} /> : null}
         {s.sub ? <KineticText text={s.sub} style={styles.sub} delay={700} stagger={40} /> : null}
       </View>
 
+      {s.share && (
+        <Pressable
+          onPress={share} disabled={sharing}
+          style={[styles.shareBtn, { bottom: insets.bottom + 64 }]}
+          accessibilityRole="button" accessibilityLabel="Share your story card"
+        >
+          {sharing ? <ActivityIndicator color="#0d0b14" /> : <Icon name="share-outline" size={18} color="#0d0b14" />}
+          <Text style={styles.shareText}>Share card</Text>
+        </Pressable>
+      )}
+      {/* Off-screen, captured on Share. */}
+      {s.share && (
+        <View style={styles.offscreen} pointerEvents="none">
+          <ShareCard ref={card} s={data.comparison.current} all={data.all} palette={s.palette} />
+        </View>
+      )}
+
       {paused && <Text style={[styles.paused, { bottom: insets.bottom + 28 }]}>paused · let go to continue</Text>}
       {reduced && !paused && <Text style={[styles.paused, { bottom: insets.bottom + 28 }]}>tap to go on</Text>}
+    </View>
+  )
+}
+
+/** 24 thin bars: when in the day you listen. */
+function MiniClock({ clock }: { clock: number[] }) {
+  const max = Math.max(...clock, 1)
+  const peak = clock.indexOf(max)
+  return (
+    <View style={styles.clock}>
+      {clock.map((v, h) => (
+        <View key={h} style={styles.clockCol}>
+          <View style={[styles.clockBar, { height: `${Math.max(4, (v / max) * 100)}%`, opacity: h === peak ? 1 : 0.45 }]} />
+        </View>
+      ))}
     </View>
   )
 }
@@ -127,4 +241,20 @@ const styles = StyleSheet.create({
   bigUnit: { fontFamily: FontFamily.syneBold, fontSize: 26, color: 'rgba(255,255,255,0.8)', marginBottom: 6 },
   sub:     { fontFamily: FontFamily.mono, fontSize: 14, lineHeight: 21, color: 'rgba(255,255,255,0.86)' },
   paused:  { position: 'absolute', alignSelf: 'center', fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.7)' },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+  list:      { gap: 10, marginTop: Spacing.xs },
+  listRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  listRank:  { fontFamily: FontFamily.syneBold, fontSize: 22, color: 'rgba(255,255,255,0.6)', width: 24 },
+  listName:  { fontFamily: FontFamily.syneBold, fontSize: 20, lineHeight: 24, color: '#fff', letterSpacing: -0.5 },
+  listSub:   { fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.75)' },
+  listValue: { fontFamily: FontFamily.mono, fontSize: 13, color: 'rgba(255,255,255,0.86)' },
+  clock:     { flexDirection: 'row', alignItems: 'flex-end', height: 72, gap: 3 },
+  clockCol:  { flex: 1, height: '100%', justifyContent: 'flex-end' },
+  clockBar:  { width: '100%', borderRadius: 2, backgroundColor: '#fff' },
+  shareBtn:  {
+    position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 20, height: 46, borderRadius: 23, backgroundColor: '#fff',
+  },
+  shareText: { fontFamily: FontFamily.monoMedium, fontSize: 14, color: '#0d0b14' },
+  offscreen: { position: 'absolute', left: -CARD_W * 3, top: 0 },
 })

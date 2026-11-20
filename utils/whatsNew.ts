@@ -19,6 +19,26 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.10',
+    name:    'Stories',
+    date:    '2026-11-20',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Play any period as a story: this week, month or year, all time, or any past week, month or year from Recaps.',
+          'Stories have more to show: photos of your top artist and song, your top 5 artists and songs, your biggest day (or month, or year), what kind of listener you are by the clock, and how many artists were new to you.',
+          'Share card: the last slide makes a story-sized picture of your period to send anywhere.',
+          'Recap notifications open the week, month or year that just ended as a story.',
+        ],
+      },
+      {
+        label: 'Fixed',
+        items: ['A month’s “biggest day” could name the day before. It now follows your own calendar.'],
+      },
+    ],
+  },
+  {
     version: '2.0.9',
     name:    'Covers',
     date:    '2026-11-20',
