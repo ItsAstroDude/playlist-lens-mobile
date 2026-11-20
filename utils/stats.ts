@@ -329,6 +329,7 @@ function toSummary(s: PeriodStats): PeriodSummary {
     ms: s.ms, plays: s.plays, artists: s.artists, tracks: s.tracks,
     buckets: s.buckets,
     topArtists: s.topArtists, topTracks: s.topTracks, topAlbums: s.topAlbums.slice(0, 3),
+    clock: s.clock, weekdays: s.weekdays,
   }
 }
 
@@ -349,7 +350,8 @@ export function periodComparison(kind: SummaryKind, now: Date = new Date(), offs
 export function periodComparisonAsync(kind: SummaryKind, now: Date = new Date()): Promise<PeriodComparison> {
   const off = localOffsetSec(now)
   const hour = Math.floor(now.getTime() / 3_600_000)
-  return cachedAsync(`cmp.${kind}`, `${off}:${hour}`, () => (function* () {
+  // v2: includes the clock and weekdays (2.0.9)
+  return cachedAsync(`cmp2.${kind}`, `${off}:${hour}`, () => (function* () {
     return toComparison(yield* comparePeriodJob(kind, { now, offsetSec: off, topN: 5 }))
   })())
 }

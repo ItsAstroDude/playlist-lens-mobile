@@ -131,6 +131,22 @@ async function fetchSpotifyArtistImage(name: string): Promise<string | null> {
   }
 }
 
+// iTunes Search allows roughly 20 requests a minute. Since 2.0.9 every top list shows
+// artwork (~30 rows at once), so automatic lookups are spaced out — they fill in over a
+// minute the first time and come from the cache ever after. User-started searches
+// (fetchArtworkCandidates) don't wait, but still count.
+const ITUNES_GAP_MS = 3100
+let itunesNext = 0
+function itunesSlot(wait: boolean): Promise<void> {
+  const now = Date.now()
+  const at = Math.max(now, itunesNext)
+  itunesNext = (wait ? at : now) + ITUNES_GAP_MS
+  return wait && at > now ? new Promise(r => setTimeout(r, at - now)) : Promise.resolve()
+}
+
+// One lookup per item at a time, however many rows ask for it.
+const inflight = new Map<string, Promise<string | null>>()
+
 async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<string | null> {
   // Artists: prefer a real Spotify portrait; fall back to an iTunes song cover.
   if (kind === 'artist') {
@@ -141,6 +157,7 @@ async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<s
   const term   = kind === 'artist' ? name : `${name} ${artist ?? ''}`.trim()
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=${entity}&limit=8`
   try {
+    await itunesSlot(true)
     const res  = await fetch(url)
     const json = await res.json()
     return pickArtwork(json?.results ?? [], kind, name, artist)
@@ -167,11 +184,16 @@ export function useArtwork(kind: ArtKind | null, name?: string, artist?: string)
     if (ov) { const o = readOverride(ov); if (o != null) { setUrl(o); return } }
     if (mem.has(k)) { setUrl(mem.get(k)!); return }
     let cancelled = false
-    fetchArt(kind, name, artist).then(u => {
-      mem.set(k, u)
-      if (u) storage.set(k, u)
-      if (!cancelled) setUrl(u)
-    })
+    let p = inflight.get(k)
+    if (!p) {
+      p = fetchArt(kind, name, artist).then(u => {
+        mem.set(k, u)
+        if (u) storage.set(k, u)
+        return u
+      }).finally(() => inflight.delete(k))
+      inflight.set(k, p)
+    }
+    p.then(u => { if (!cancelled) setUrl(u) })
     return () => { cancelled = true }
   }, [k])
 
@@ -189,6 +211,7 @@ export async function fetchArtworkCandidates(
   const q = (term && term.trim()) || (kind === 'artist' ? name : `${name} ${artist ?? ''}`.trim())
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=${entity}&limit=20`
   try {
+    await itunesSlot(false)
     const res  = await fetch(url)
     const json = await res.json()
     const seen = new Set<string>()

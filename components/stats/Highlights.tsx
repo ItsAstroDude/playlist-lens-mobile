@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native'
 import { router } from 'expo-router'
 import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
-import { Card, Chip, RankRow, Icon, type IconName } from '@/components/ui'
+import { Card, Chip, RankRow, Icon, ArtThumb, type IconName } from '@/components/ui'
 import { fmtHours, fmtMinutesShort } from '@/utils/wrapped'
 import { emitOpenStartQueue } from '@/utils/overlayEvents'
 import { addManyToCart, addAllMessage, cartFull, type QueueItem } from '@/utils/queueCart'
@@ -44,6 +44,7 @@ export function NewToYouCard({ kind, n }: { kind: string; n: NewToYou }) {
       </Text>
       {n.topArtists.map((a, i) => (
         <RankRow key={a.name} rank={i + 1} name={a.name} value={fmtMinutesShort(a.ms)} frac={a.ms / max} color={Colors.lavender}
+          leading={<ArtThumb kind="artist" name={a.name} />}
           onPress={() => { haptic.light(); router.push({ pathname: '/history', params: { artist: a.name } }) }} />
       ))}
     </Card>

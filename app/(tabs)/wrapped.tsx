@@ -17,7 +17,7 @@ import { newToYouAsync, onThisDay, streaksAsync, milestonesAsync, type NewToYou,
 import { NewToYouCard, OnThisDayCard, StreaksCard, MilestonesCard } from '@/components/stats/Highlights'
 import { CalendarHeatmap } from '@/components/stats/CalendarHeatmap'
 import { trackingEnrolled } from '@/utils/tracking'
-import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow, IconButton } from '@/components/ui'
+import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow, IconButton, ArtThumb } from '@/components/ui'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
@@ -36,6 +36,7 @@ type Block =
   | { t: 'pills'; streams: number; artists: number; tracks: number }
   | { t: 'list'; key: string; title: string; kind: ArtKind; color: string; rows: Row[] }
   | { t: 'clock'; clock: number[] }
+  | { t: 'weekdays'; days: number[] }
   | { t: 'heat'; years: number[] }
   | { t: 'newToYou'; kind: SummaryKind; n: NewToYou }
   | { t: 'otd'; years: OnThisDayYear[] }
@@ -59,6 +60,32 @@ interface Row { name: string; sub?: string; value: string; frac: number; sel: Wr
 const FIRST_BLOCKS = 4
 /** Stable identity per card, so a card arriving late (streaks, milestones) doesn't rebuild the ones below it. */
 const blockKey = (b: Block): string => ('key' in b && typeof b.key === 'string' ? b.key : b.t)
+
+const WEEKDAY_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+const WEEKDAY_NAME = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+/** Listening by weekday (Mon..Sun), like the clock. */
+const Weekdays = React.memo(function Weekdays({ days }: { days: number[] }) {
+  const max = Math.max(...days, 1)
+  const peak = days.indexOf(max)
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardSpecular} />
+      <Text style={styles.sectionLabel}>BY WEEKDAY</Text>
+      <View style={styles.clockRow} accessible accessibilityLabel={`Listening by weekday; busiest is ${WEEKDAY_NAME[peak]}`}>
+        {days.map((ms, d) => (
+          <View key={d} style={styles.clockCol}>
+            <View style={[styles.clockBar, { height: `${Math.max(3, (ms / max) * 100)}%`, backgroundColor: d === peak ? Colors.greenPrimary : alpha(Colors.greenPrimary, 0.35) }]} />
+          </View>
+        ))}
+      </View>
+      <View style={styles.clockLabels}>
+        {WEEKDAY_SHORT.map((l, d) => <Text key={d} style={[styles.clockLabel, styles.bucketLabel, d === peak && { color: Colors.greenPrimary }]}>{l}</Text>)}
+      </View>
+      <Text style={styles.clockPeak}>Busiest day: {WEEKDAY_NAME[peak]}</Text>
+    </View>
+  )
+})
 
 const Clock = React.memo(function Clock({ clock }: { clock: number[] }) {
   const max = Math.max(...clock, 1)
@@ -115,6 +142,10 @@ function buildBlocks(stats: WrappedStats, imported: boolean, years: number[], ex
   if (trackRows.length)  blocks.push({ t: 'list', key: 'tracks',  title: 'TOP TRACKS · BY PLAYS', kind: 'track', color: Colors.pink, rows: trackRows })
   if (albumRows.length)  blocks.push({ t: 'list', key: 'albums',  title: 'TOP ALBUMS · BY TIME', kind: 'album', color: Colors.lavender, rows: albumRows })
   blocks.push({ t: 'clock', clock: stats.clock })
+  // WrappedStats keeps weekdays Sunday-first; the chart reads Monday-first.
+  if (stats.weekday?.length === 7 && stats.weekday.some(v => v > 0)) {
+    blocks.push({ t: 'weekdays', days: [...stats.weekday.slice(1), stats.weekday[0]] })
+  }
   if (years.length) blocks.push({ t: 'heat', years })   // calendar heatmap, a year at a time
   if (stats.byYear.length) blocks.push({ t: 'years', rows: stats.byYear.map(y => ({ year: y.year, ms: y.ms, topArtist: y.topArtist, frac: y.ms / maxY })) })
   // Skips are only known from an import (the export records them; tracking can't).
@@ -161,6 +192,10 @@ function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date, ext
   if (s.topAlbums.length) blocks.push({ t: 'list', key: 'p-albums', title: 'TOP ALBUMS', kind: 'album', color: Colors.lavender,
     rows: s.topAlbums.map((a, i) => ({ name: a.name, sub: a.sub, value: fmtPeriod(kind, a.ms), frac: a.ms / maxL,
       sel: { kind: 'album', name: a.name, rank: i + 1, ms: a.ms, accent: Colors.lavender } })) })
+  // The listening clock for every period; the weekday split where the bars aren't
+  // already weekdays (a week's bars are).
+  if (s.clock?.some(v => v > 0)) blocks.push({ t: 'clock', clock: s.clock })
+  if (kind !== 'week' && s.weekdays?.some(v => v > 0)) blocks.push({ t: 'weekdays', days: s.weekdays })
   // Only when the history starts well before this period — otherwise everything is "new".
   if (extra.fresh?.trusted && extra.fresh.artists > 0) blocks.push({ t: 'newToYou', kind, n: extra.fresh })
   if (!tracked) blocks.push({ t: 'pCta' })
@@ -243,7 +278,7 @@ export default function WrappedTab() {
   // UI thread — and a saved one only shows if it's for this same year.
   const off = useMemo(() => localOffsetSec(now), [now])
   const shortCmp = useMemo(() => (mode === 'week' || mode === 'month' ? periodComparison(mode, now) : null), [mode, now])
-  const yearCmp = useCachedStat('cmp.year', () => periodComparisonAsync('year', now), [now], { enabled: mode === 'year' })
+  const yearCmp = useCachedStat('cmp2.year', () => periodComparisonAsync('year', now), [now], { enabled: mode === 'year' })
   const yearStartMs = statsPeriodRange('year', now, off).start * 1000
   const yearValue = yearCmp.value && yearCmp.value.current.start === yearStartMs ? yearCmp.value : undefined
   const comparison = mode === 'all' ? null : mode === 'year' ? (yearValue ?? null) : shortCmp
@@ -299,13 +334,17 @@ export default function WrappedTab() {
             <Text style={styles.sectionLabel}>{item.title}</Text>
             {item.rows.map((r, i) => (
               <RackFocus key={r.name + i} index={Math.min(i, 8)} step={70}>
-                <RankRow rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)} trailing={r.add ? <AddToQueueButton item={r.add} /> : undefined} />
+                <RankRow rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)}
+                  leading={<ArtThumb kind={item.kind} name={r.name} artist={item.kind === 'artist' ? undefined : r.sub} />}
+                  trailing={r.add ? <AddToQueueButton item={r.add} /> : undefined} />
               </RackFocus>
             ))}
           </View>
         )
       case 'clock':
         return <Clock clock={item.clock} />
+      case 'weekdays':
+        return <Weekdays days={item.days} />
       case 'years':
         return (
           <View style={styles.card}>

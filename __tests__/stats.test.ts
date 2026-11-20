@@ -266,3 +266,16 @@ describe('calendar', () => {
     expect(historyPage({ from, to }, null).map(p => p.track)).toEqual(['late'])
   })
 })
+
+
+describe('period comparison carries the clock and weekdays', () => {
+  it('for the screens that draw them', () => {
+    const { periodComparison } = require('@/utils/stats')
+    insertPlays([row('2026-11-17T21:00:00Z', 'a', 'A', 120_000)], 'recent')     // Tue 21:00 UTC
+    const c = periodComparison('month', NOW, UTC)
+    expect(c.current.clock[21]).toBe(120_000)
+    expect(c.current.weekdays[1]).toBe(120_000)
+    expect(c.current.clock).toHaveLength(24)
+    expect(c.current.weekdays).toHaveLength(7)
+  })
+})

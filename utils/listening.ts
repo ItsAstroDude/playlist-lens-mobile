@@ -23,6 +23,9 @@ export interface PeriodSummary {
   topArtists:  TopItem[]
   topTracks:   TopItem[]
   topAlbums:   TopItem[]
+  /** ms by local hour 0..23 and by weekday Mon..Sun (from the stats engine). */
+  clock?:      number[]
+  weekdays?:   number[]
 }
 
 export interface PeriodComparison {

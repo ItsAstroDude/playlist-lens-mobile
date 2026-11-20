@@ -12,7 +12,7 @@ import { useCachedStat } from '@/utils/sqlJob'
 import { keptSeasons, setSeasonKept, hiddenYears, setYearHidden } from '@/utils/recapPrefs'
 import type { PeriodKind } from '@/utils/periods'
 import {
-  Screen, ScreenHeader, Card, ListRow, Chip, EmptyState, RankRow, Button,
+  Screen, ScreenHeader, Card, ListRow, Chip, EmptyState, RankRow, Button, ArtThumb,
 } from '@/components/ui'
 
 const KINDS: { id: PeriodKind; label: string }[] = [
@@ -159,17 +159,20 @@ function RecapDetail({ period, kind, isKept, isHidden, onShare, onToggleKeep, on
 
       {period.topArtists.length > 0 && (
         <RankCard title="top artists · by time">
-          {period.topArtists.map((a, i) => <RankRow key={a.name + i} rank={i + 1} name={a.name} value={fmtHours(a.ms)} frac={a.ms / maxA} color={Colors.greenPrimary} />)}
+          {period.topArtists.map((a, i) => <RankRow key={a.name + i} rank={i + 1} name={a.name} value={fmtHours(a.ms)} frac={a.ms / maxA} color={Colors.greenPrimary}
+            leading={<ArtThumb kind="artist" name={a.name} />} />)}
         </RankCard>
       )}
       {period.topTracks.length > 0 && (
         <RankCard title="top tracks · by plays">
-          {period.topTracks.map((t, i) => <RankRow key={t.name + i} rank={i + 1} name={t.name} sub={t.artist} value={`${t.plays}×`} frac={t.plays / maxT} color={Colors.pink} />)}
+          {period.topTracks.map((t, i) => <RankRow key={t.name + i} rank={i + 1} name={t.name} sub={t.artist} value={`${t.plays}×`} frac={t.plays / maxT} color={Colors.pink}
+            leading={<ArtThumb kind="track" name={t.name} artist={t.artist} />} />)}
         </RankCard>
       )}
       {period.topAlbums.length > 0 && (
         <RankCard title="top albums · by time">
-          {period.topAlbums.map((a, i) => <RankRow key={a.name + i} rank={i + 1} name={a.name} value={fmtHours(a.ms)} frac={a.ms / maxL} color={Colors.lavender} />)}
+          {period.topAlbums.map((a, i) => <RankRow key={a.name + i} rank={i + 1} name={a.name} value={fmtHours(a.ms)} frac={a.ms / maxL} color={Colors.lavender}
+            leading={<ArtThumb kind="album" name={a.name} />} />)}
         </RankCard>
       )}
 

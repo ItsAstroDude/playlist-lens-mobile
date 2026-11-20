@@ -252,7 +252,10 @@ The 12 motions picked from the Motion Reel (claude.ai/artifact/5bdHJcHSDSsQb26Si
   `utils/sqlJob.ts` (one generator, sync or async runner) and open on the last saved
   answer. Measured at 150k plays in Node: recaps ~1.1 s, milestones ~0.7 s, All time
   ~0.5 s — fine off-thread, but worth precomputing per closed period if it grows
-- [ ] Listening clock + by-day for every period; artwork on every top list
+- [x] Listening clock + by-day for every period; artwork on every top list — 2.0.9
+      (iTunes lookups spaced ~3 s apart: covers fill in over a minute the first time, cached after)
+- **Phase 3 done (2.0.3–2.0.9).** Perf notes: heavy stats on a second SQLite connection
+  (`statsDb`), cached by `plays.version`; Wrapped is a ScrollView, not FlashList (cards built once)
 
 ## Phase 4 — Headline 3: Story mode Wrapped (OTA)
 - [ ] Story player: full-screen slides, progress bars, tap / hold / swipe, music-free
