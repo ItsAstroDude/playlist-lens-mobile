@@ -1,10 +1,9 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking,
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, ScrollView,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
-import { FlashList } from '@shopify/flash-list'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
@@ -55,6 +54,11 @@ type Block =
   | { t: 'pStory'; kind: SummaryKind }
 
 interface Row { name: string; sub?: string; value: string; frac: number; sel: WrappedSelection; add?: QueueItem }
+
+/** Cards built on the first frame (about a screenful); the rest follow a couple per frame. */
+const FIRST_BLOCKS = 4
+/** Stable identity per card, so a card arriving late (streaks, milestones) doesn't rebuild the ones below it. */
+const blockKey = (b: Block): string => ('key' in b && typeof b.key === 'string' ? b.key : b.t)
 
 const Clock = React.memo(function Clock({ clock }: { clock: number[] }) {
   const max = Math.max(...clock, 1)
@@ -252,7 +256,11 @@ export default function WrappedTab() {
   )
   const otd = useMemo(() => (mode === 'week' ? onThisDay(now) : []), [mode, now])
   const gutter = useNowPlayingGutter()
-  const scrollY = useSharedValue(0)
+  // Build the first screenful at once and the rest a couple of cards per frame, so
+  // opening stays quick. Reset only when the view (mode) changes — not when data
+  // arrives, which would rebuild cards that are already up.
+  const [shownBlocks, setShownBlocks] = useState(FIRST_BLOCKS)
+  useEffect(() => { setShownBlocks(FIRST_BLOCKS) }, [mode])
 
 
   const onImport = useCallback(() => { haptic.medium(); importHistory() }, [importHistory])
@@ -414,6 +422,11 @@ export default function WrappedTab() {
         : []),
     [comparison, tracked, now, stats, storedStats, fresh.value, otd, allBundle.value],
   )
+  useEffect(() => {
+    if (shownBlocks >= blocks.length) return
+    const raf = requestAnimationFrame(() => setShownBlocks(n => n + 2))
+    return () => cancelAnimationFrame(raf)
+  }, [shownBlocks, blocks.length])
   // Content on screen: a period view, lifetime stats, or the settled empty state.
   useLoadTime('wrapped', t0, !parsing && (blocks.length > 0 || stats === null))
   const subtitle = mode === 'all'
@@ -453,18 +466,19 @@ export default function WrappedTab() {
             <Text style={styles.parsingText}>{periodLoading ? 'Adding up your year…' : 'Adding up all your listening…'}</Text>
           </View>
         ) : (mode !== 'all' || stats) ? (
-          <View style={{ flex: 1 }}>
-            <FlashList
-              data={blocks}
-              renderItem={renderBlock}
-              keyExtractor={(item, i) => item.t + i}
-              getItemType={item => item.t}
-              contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: 130 + gutter }}
-              showsVerticalScrollIndicator={false}
-              onScroll={e => { scrollY.value = e.nativeEvent.contentOffset.y }}
-              scrollEventThrottle={16}
-            />
-          </View>
+          // A plain ScrollView, not a virtualised list: Wrapped is ~15 different cards, and
+          // FlashList built each heavy one (the calendar, 30 animated rows…) the moment it
+          // scrolled into view — the stutter while scrolling. Now every card is built once,
+          // right after opening, and scrolling only moves them.
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: 130 + gutter }}
+            showsVerticalScrollIndicator={false}
+          >
+            {blocks.slice(0, shownBlocks).map(item => (
+              <React.Fragment key={blockKey(item)}>{renderBlock({ item })}</React.Fragment>
+            ))}
+          </ScrollView>
         ) : (
           <View style={styles.scrollPad}>
             <EmptyState onImport={onImport} />

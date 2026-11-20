@@ -19,6 +19,19 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.8',
+    name:    'Glide',
+    date:    '2026-11-20',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Scrolling Wrapped no longer stutters, especially in Year and All time. Every card is now built right after the page opens, instead of the moment it scrolls into view.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.7',
     name:    'Smoother',
     date:    '2026-11-20',
