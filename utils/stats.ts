@@ -192,16 +192,21 @@ function pct(cur: number, prev: number): number | null {
   return prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null
 }
 
+type Comparison = { current: PeriodStats; previous: PeriodStats; deltaMs: number | null; deltaPlays: number | null }
+
 /** This period so far vs the previous one cut at the same elapsed point. */
-export function comparePeriod(kind: Exclude<StatsKind, 'all'>, opts: { now?: Date; offsetSec?: number; topN?: number } = {}) {
+function* comparePeriodJob(kind: Exclude<StatsKind, 'all'>, opts: { now?: Date; offsetSec?: number; topN?: number } = {}): Job<Comparison> {
   const now = opts.now ?? new Date()
   const off = opts.offsetSec ?? localOffsetSec(now)
   const cur = periodRange(kind, now, off)
   const prev = periodRange(kind, now, off, 1)
   const elapsed = Math.min(Math.floor(now.getTime() / 1000), cur.end) - cur.start
-  const current  = periodStats(kind, { now, offsetSec: off, topN: opts.topN, cutoff: Math.floor(now.getTime() / 1000) + 1 })
-  const previous = periodStats(kind, { now, offsetSec: off, topN: opts.topN, back: 1, cutoff: prev.start + elapsed })
+  const current: PeriodStats  = yield* periodStatsJob(kind, { now, offsetSec: off, topN: opts.topN, cutoff: Math.floor(now.getTime() / 1000) + 1 })
+  const previous: PeriodStats = yield* periodStatsJob(kind, { now, offsetSec: off, topN: opts.topN, back: 1, cutoff: prev.start + elapsed })
   return { current, previous, deltaMs: pct(current.ms, previous.ms), deltaPlays: pct(current.plays, previous.plays) }
+}
+export function comparePeriod(kind: Exclude<StatsKind, 'all'>, opts: { now?: Date; offsetSec?: number; topN?: number } = {}): Comparison {
+  return runSync(comparePeriodJob(kind, opts))
 }
 
 // ─── history ──────────────────────────────────────────────────────────────────
@@ -327,10 +332,26 @@ function toSummary(s: PeriodStats): PeriodSummary {
   }
 }
 
+function toComparison(c: Comparison): PeriodComparison {
+  return { current: toSummary(c.current), previous: toSummary(c.previous), deltaMs: c.deltaMs, deltaPlays: c.deltaPlays }
+}
+
 /** `comparePeriod` in the PeriodComparison shape (top 5, albums top 3, like before). */
 export function periodComparison(kind: SummaryKind, now: Date = new Date(), offsetSec = localOffsetSec(now)): PeriodComparison {
-  const c = comparePeriod(kind, { now, offsetSec, topN: 5 })
-  return { current: toSummary(c.current), previous: toSummary(c.previous), deltaMs: c.deltaMs, deltaPlays: c.deltaPlays }
+  return toComparison(comparePeriod(kind, { now, offsetSec, topN: 5 }))
+}
+
+/**
+ * The same, off the UI thread and cached — for a year, which is a few hundred
+ * milliseconds of SQL on a phone (a week is ~1 ms and stays synchronous).
+ * Recomputed when a play arrives or the hour changes ("so far" moves with time).
+ */
+export function periodComparisonAsync(kind: SummaryKind, now: Date = new Date()): Promise<PeriodComparison> {
+  const off = localOffsetSec(now)
+  const hour = Math.floor(now.getTime() / 3_600_000)
+  return cachedAsync(`cmp.${kind}`, `${off}:${hour}`, () => (function* () {
+    return toComparison(yield* comparePeriodJob(kind, { now, offsetSec: off, topN: 5 }))
+  })())
 }
 
 /** Index of the bucket `now` falls in (today's bar / this month's bar). */

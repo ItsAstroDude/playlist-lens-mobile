@@ -130,13 +130,16 @@ export function peekCached<T>(name: string): T | undefined {
  * State for a heavy stat: starts from the last saved answer (instant), then swaps in
  * the fresh one when `run()` resolves. `loading` is true until the first fresh answer.
  * Re-runs when `deps` change; does nothing while `enabled` is false.
- * `peek: false` skips the saved answer (when it could belong to a different period).
+ * `peek: false` skips the saved answer (when it could belong to a different period);
+ * `initial` supplies the starting value instead (e.g. built from several saved answers).
  */
 export function useCachedStat<T>(
-  name: string, run: () => Promise<T>, deps: unknown[], opts: { enabled?: boolean; peek?: boolean } = {},
+  name: string, run: () => Promise<T>, deps: unknown[],
+  opts: { enabled?: boolean; peek?: boolean; initial?: () => T | undefined } = {},
 ): { value: T | undefined; loading: boolean } {
   const enabled = opts.enabled ?? true
-  const [value, setValue] = useState<T | undefined>(() => (opts.peek === false ? undefined : peekCached<T>(name)))
+  const [value, setValue] = useState<T | undefined>(() =>
+    opts.initial ? opts.initial() : opts.peek === false ? undefined : peekCached<T>(name))
   const [loading, setLoading] = useState(enabled)
   useEffect(() => {
     if (!enabled) return

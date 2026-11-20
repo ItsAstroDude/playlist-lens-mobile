@@ -6,7 +6,7 @@ import { haptic } from '@/constants/animation'
 import { Card, Chip } from '@/components/ui'
 import { RippleCell } from '@/components/motion'
 import { fmtMinutesShort } from '@/utils/wrapped'
-import { yearCalendar, heatLevel, localDay, localOffsetSec } from '@/utils/stats'
+import { yearCalendar, heatLevel, localDay, localOffsetSec, type YearCalendar } from '@/utils/stats'
 
 /**
  * Calendar heatmap (2.0 Phase 3, motion #9): a year of listening, one cell per day,
@@ -66,7 +66,9 @@ export function CalendarHeatmap({ years }: {
     setSel(s => (s === i ? null : i))
   }
 
-  const pickYear = (y: number) => { setSel(null); setYear(y) }
+  // Reset the mount count in the same render as the year, so no cell of the new year
+  // mounts with the old wave's timing.
+  const pickYear = (y: number) => { setSel(null); setMounted(0); setYear(y) }
 
   // Open with this week at the right edge (a past year: on December).
   useEffect(() => {
@@ -79,33 +81,37 @@ export function CalendarHeatmap({ years }: {
   }, [viewW, year])
   const selDay = sel === null ? null : cal.firstDay + sel
 
-  // The grid only depends on the year's data and the view width — selecting a day
-  // just moves the ring, it doesn't re-render 371 cells.
-  // Only the columns on screen ripple in (their wave starts at the left edge of the view,
-  // same step and diagonal as ever); the rest are drawn in place, ready when you scroll.
-  const grid = useMemo(() => {
-    if (!viewW) return null                      // measure first, so cells mount once
-    const endCol = isCurrent ? Math.floor((lead + todayIdx) / 7) : cols - 1
-    const shownCols = Math.ceil(viewW / STEP) + 1
-    const firstAnimated = Math.max(0, endCol - shownCols + 1)
-    return (
-      <View style={styles.grid} pointerEvents="none">
-        {Array.from({ length: cols }, (_, col) => (
-          <View key={col} style={styles.col}>
-            {Array.from({ length: 7 }, (_, row) => {
-              const i = col * 7 + row - lead
-              if (i < 0 || i >= cal.days) return <View key={row} style={styles.cell} />
-              const future = isCurrent && i > todayIdx
-              const color = future ? 'transparent' : LEVELS[heatLevel(cal.ms[i], cal.levels)]
-              return col >= firstAnimated && col <= endCol
-                ? <RippleCell key={row} col={col - firstAnimated} row={row} trigger={year} style={[styles.cell, { backgroundColor: color }]} />
-                : <View key={row} style={[styles.cell, { backgroundColor: color }]} />
-            })}
-          </View>
-        ))}
-      </View>
-    )
-  }, [viewW, cal, year, lead, cols, isCurrent, todayIdx])
+  // Which columns ripple: the ones on screen (the wave starts at the view's left edge,
+  // same step and diagonal as ever). The rest are drawn in place, ready when you scroll.
+  const endCol = isCurrent ? Math.floor((lead + todayIdx) / 7) : cols - 1
+  const firstAnimated = viewW ? Math.max(0, endCol - (Math.ceil(viewW / STEP) + 1) + 1) : 0
+  // Mount order: on-screen columns left to right, then the rest nearest-first.
+  const order = useMemo(() => {
+    const onScreen = Array.from({ length: endCol - firstAnimated + 1 }, (_, i) => firstAnimated + i)
+    const rest = Array.from({ length: cols }, (_, c) => c).filter(c => c < firstAnimated || c > endCol)
+      .sort((x, y) => Math.abs(x - endCol) - Math.abs(y - endCol))
+    return { onScreen, rest, rank: new Map([...onScreen, ...rest].map((c, i) => [c, i])) }
+  }, [cols, firstAnimated, endCol])
+
+  // Mount the cells over a few frames instead of ~370 views in one go (a visible hitch
+  // when the view opens): 3 on-screen columns a frame — far ahead of the wave, which
+  // moves one column per 24 ms — then 8 of the rest. `startedAt` keeps the wave's
+  // timing exactly as if everything had mounted at once.
+  const [mounted, setMounted] = useState(0)
+  const startedAt = useRef(0)
+  useEffect(() => {
+    if (!viewW) return
+    startedAt.current = Date.now()
+    setMounted(0)
+    let n = 0, raf = 0
+    const tick = () => {
+      n += n < order.onScreen.length ? 3 : 8
+      setMounted(n)
+      if (n < cols) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [viewW, year, order, cols])
 
   return (
     <Card padded>
@@ -136,7 +142,20 @@ export function CalendarHeatmap({ years }: {
             accessibilityRole="adjustable"
             accessibilityLabel={`Listening calendar for ${year}: ${cal.activeDays} days with music, longest streak ${cal.longestStreak} days`}
           >
-            {grid}
+            {viewW > 0 && (
+              <View style={styles.grid} pointerEvents="none">
+                {Array.from({ length: cols }, (_, col) => (
+                  <HeatColumn
+                    key={col} col={col} cal={cal} lead={lead} year={year}
+                    limit={isCurrent ? todayIdx : cal.days - 1}
+                    mounted={(order.rank.get(col) ?? 0) < mounted}
+                    animated={col >= firstAnimated && col <= endCol}
+                    waveCol={col - firstAnimated}
+                    startedAt={startedAt.current}
+                  />
+                ))}
+              </View>
+            )}
             {sel !== null && (
               <View pointerEvents="none" style={[styles.ring, {
                 left: Math.floor((lead + sel) / 7) * STEP - 2, top: ((lead + sel) % 7) * STEP - 2,
@@ -172,6 +191,28 @@ export function CalendarHeatmap({ years }: {
   )
 }
 
+/** One week of the grid. Memoised: mounting more columns doesn't re-render these. */
+const HeatColumn = React.memo(function HeatColumn({ col, cal, lead, year, limit, mounted, animated, waveCol, startedAt }: {
+  col: number; cal: YearCalendar; lead: number; year: number
+  /** Last day index with colour (today, in the current year). */
+  limit: number
+  mounted: boolean; animated: boolean; waveCol: number; startedAt: number
+}) {
+  if (!mounted) return <View style={styles.colSpacer} />
+  return (
+    <View style={styles.col}>
+      {Array.from({ length: 7 }, (_, row) => {
+        const i = col * 7 + row - lead
+        if (i < 0 || i >= cal.days) return <View key={row} style={styles.cell} />
+        const color = i > limit ? 'transparent' : LEVELS[heatLevel(cal.ms[i], cal.levels)]
+        return animated
+          ? <RippleCell key={row} col={waveCol} row={row} trigger={year} startedAt={startedAt} style={[styles.cell, { backgroundColor: color }]} />
+          : <View key={row} style={[styles.cell, { backgroundColor: color }]} />
+      })}
+    </View>
+  )
+})
+
 const styles = StyleSheet.create({
   head:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: Spacing.sm },
   yearsScroll: { marginBottom: Spacing.sm, marginHorizontal: -Spacing.lg },
@@ -180,6 +221,7 @@ const styles = StyleSheet.create({
   month:       { position: 'absolute', top: 0, fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
   grid:        { flexDirection: 'row', gap: GAP },
   col:         { gap: GAP },
+  colSpacer:   { width: CELL, height: 7 * STEP - GAP },
   cell:        { width: CELL, height: CELL, borderRadius: 3 },
   ring:        { position: 'absolute', width: CELL + 4, height: CELL + 4, borderRadius: 5, borderWidth: 1.5, borderColor: Colors.text },
   info:        { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginTop: Spacing.md, minHeight: 36 },

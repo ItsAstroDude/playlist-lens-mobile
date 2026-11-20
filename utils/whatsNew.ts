@@ -19,6 +19,19 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.7',
+    name:    'Smoother',
+    date:    '2026-11-20',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Year and All time in Wrapped no longer hiccup when you open them. Adding up a whole year now happens in the background, and the calendar draws itself in over a few frames instead of all at once. The ripple looks exactly the same.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.6',
     name:    'Smooth',
     date:    '2026-11-20',

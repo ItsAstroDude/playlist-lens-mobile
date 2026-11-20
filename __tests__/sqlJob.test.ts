@@ -1,7 +1,7 @@
 import { storage } from '@/utils/cache'
 import { insertPlays, _resetForTests, db } from '@/utils/playDb'
 import { all, first, exec, runSync, runAsync, cachedAsync, peekCached, clearStatCache, _clearJobCache, type Job } from '@/utils/sqlJob'
-import { periodStatsJob, allTimeAsync, allTimeStats } from '@/utils/stats'
+import { periodStatsJob, allTimeAsync, allTimeStats, periodComparison, periodComparisonAsync } from '@/utils/stats'
 import type { StreamRow } from '@/utils/wrapped'
 
 const row = (ts: string, track: string, artist: string, ms = 180_000): StreamRow => ({
@@ -75,5 +75,10 @@ describe('cachedAsync', () => {
     const s = allTimeStats(null, NOW)
     expect({ ...a, generatedAt: '' }).toEqual({ ...s, generatedAt: '' })
     expect(db()).toBeTruthy()
+  })
+
+  it('the year comparison off the UI thread matches the synchronous one', async () => {
+    insertPlays([row('2026-03-01T10:00:00Z', 'a', 'A'), row('2025-03-01T10:00:00Z', 'b', 'B'), row('2025-12-01T10:00:00Z', 'c', 'C')], 'recent')
+    expect(await periodComparisonAsync('year', NOW)).toEqual(periodComparison('year', NOW))
   })
 })

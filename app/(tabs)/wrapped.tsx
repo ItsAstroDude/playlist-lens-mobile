@@ -12,8 +12,8 @@ import { useWrapped } from '@/hooks/useWrapped'
 import { fmtHours, fmtMinutesShort, type WrappedStats, type StreamRow } from '@/utils/wrapped'
 import { periodTitle, bucketLabels, type SummaryKind, type PeriodComparison } from '@/utils/listening'
 import { countSince, windowStartT } from '@/utils/playDb'
-import { periodComparison, currentBucket, allTimeAsync, yearsWithPlays } from '@/utils/stats'
-import { useCachedStat } from '@/utils/sqlJob'
+import { periodComparison, periodComparisonAsync, currentBucket, allTimeAsync, yearsWithPlays, localOffsetSec, periodRange as statsPeriodRange } from '@/utils/stats'
+import { useCachedStat, peekCached } from '@/utils/sqlJob'
 import { newToYouAsync, onThisDay, streaksAsync, milestonesAsync, type NewToYou, type OnThisDayYear, type Streaks, type Milestone, type NextMilestone } from '@/utils/highlights'
 import { NewToYouCard, OnThisDayCard, StreaksCard, MilestonesCard } from '@/components/stats/Highlights'
 import { CalendarHeatmap } from '@/components/stats/CalendarHeatmap'
@@ -215,14 +215,35 @@ export default function WrappedTab() {
   // import); falls back to the stored import summary for pre-2.0 imports. It scans the
   // whole history, so it runs off the UI thread, only while All time is open, and
   // opens on the last saved answer while the fresh one is worked out.
+  // All time, its streaks and milestones arrive together: one list rebuild, not three.
   const allOpen = mode === 'all'
-  const allTime  = useCachedStat('allTime', () => allTimeAsync(storedStats, now), [storedStats, now], { enabled: allOpen })
-  const streakSt = useCachedStat('streaks', () => streaksAsync(now), [now], { enabled: allOpen })
-  const milesSt  = useCachedStat('milestones', () => milestonesAsync(), [now], { enabled: allOpen })
-  const stats = allOpen ? (allTime.value ?? storedStats) : storedStats
-  const allLoading = allOpen && !stats && allTime.loading
-  // Straight from the stats engine (SQL, local time): this period so far vs the last.
-  const comparison = useMemo(() => (mode === 'all' ? null : periodComparison(mode, now)), [mode, now])
+  type AllBundle = { stats: WrappedStats | null; streaks?: Streaks; miles?: { reached: Milestone[]; next: NextMilestone[] } }
+  const allBundle = useCachedStat<AllBundle>(
+    'allBundle',
+    () => Promise.all([allTimeAsync(storedStats, now), streaksAsync(now), milestonesAsync()])
+      .then(([stats, streaks, miles]) => ({ stats, streaks, miles })),
+    [storedStats, now],
+    {
+      enabled: allOpen,
+      initial: () => {
+        const s = peekCached<WrappedStats | null>('allTime')
+        return s === undefined ? undefined
+          : { stats: s, streaks: peekCached<Streaks>('streaks'), miles: peekCached<AllBundle['miles']>('milestones') }
+      },
+    },
+  )
+  const stats = allOpen ? (allBundle.value?.stats ?? storedStats) : storedStats
+  const allLoading = allOpen && !stats && allBundle.loading
+  // This period so far vs the last, from the stats engine (SQL, local time). A week or a
+  // month is a millisecond or two; a year is a few hundred on a phone, so it runs off the
+  // UI thread — and a saved one only shows if it's for this same year.
+  const off = useMemo(() => localOffsetSec(now), [now])
+  const shortCmp = useMemo(() => (mode === 'week' || mode === 'month' ? periodComparison(mode, now) : null), [mode, now])
+  const yearCmp = useCachedStat('cmp.year', () => periodComparisonAsync('year', now), [now], { enabled: mode === 'year' })
+  const yearStartMs = statsPeriodRange('year', now, off).start * 1000
+  const yearValue = yearCmp.value && yearCmp.value.current.start === yearStartMs ? yearCmp.value : undefined
+  const comparison = mode === 'all' ? null : mode === 'year' ? (yearValue ?? null) : shortCmp
+  const periodLoading = mode === 'year' && !yearValue
   // New to you (this period) and On this day (week view only — it's about today).
   const fresh = useCachedStat(
     `new.${mode}`,
@@ -389,9 +410,9 @@ export default function WrappedTab() {
       : stats
         // Engine stats (version 2) know their years; a pre-2.0 summary doesn't cover the database.
         ? buildBlocks(stats, !!storedStats, stats.version >= 2 ? stats.byYear.map(y => y.year).reverse() : yearsWithPlays(),
-            { streaks: streakSt.value, miles: milesSt.value })
+            { streaks: allBundle.value?.streaks, miles: allBundle.value?.miles })
         : []),
-    [comparison, tracked, now, stats, storedStats, fresh.value, otd, streakSt.value, milesSt.value],
+    [comparison, tracked, now, stats, storedStats, fresh.value, otd, allBundle.value],
   )
   // Content on screen: a period view, lifetime stats, or the settled empty state.
   useLoadTime('wrapped', t0, !parsing && (blocks.length > 0 || stats === null))
@@ -426,10 +447,10 @@ export default function WrappedTab() {
             </LiquidFill>
             <Text style={styles.parsingText}>Crunching your history{progress.total ? `  ${progress.done}/${progress.total} files` : ''}…</Text>
           </View>
-        ) : allLoading ? (
+        ) : allLoading || periodLoading ? (
           <View style={styles.parsing}>
             <ActivityIndicator color={Colors.greenPrimary} />
-            <Text style={styles.parsingText}>Adding up all your listening…</Text>
+            <Text style={styles.parsingText}>{periodLoading ? 'Adding up your year…' : 'Adding up all your listening…'}</Text>
           </View>
         ) : (mode !== 'all' || stats) ? (
           <View style={{ flex: 1 }}>
