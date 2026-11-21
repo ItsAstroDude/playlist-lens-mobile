@@ -16,7 +16,7 @@ import { FitHeadline } from '@/components/story/FitHeadline'
 import { StoryMosaic, StoryClock, StorySongs, StoryCardPreview, StoryTime, StoryHero, StoryPyramid, PREVIEW_MAX_H } from '@/components/story/Visuals'
 import { useArtwork } from '@/hooks/useArtwork'
 import { usePalette } from '@/hooks/usePalette'
-import { buildStory, slideSongs, type Palette } from '@/utils/story'
+import { buildStory, slideSongs, cardLine, type Palette } from '@/utils/story'
 import { storyAsync, type StoryData, type StoryKind } from '@/utils/storyData'
 import { showToast } from '@/utils/dialog'
 import { captureRef } from 'react-native-view-shot'
@@ -136,6 +136,17 @@ export default function StoryScreen() {
   const pal = palKey ? palettes[palKey] : undefined
   const coverPalette: Palette | null = artSlide && pal ? [pal.primary, pal.secondary, pal.detail, pal.background] : null
 
+  // ── Share card: colours from your #1 song's cover (or the story's), and one line
+  //    about you at the bottom. ──
+  const topSong = data?.comparison.current.topTracks[0]
+  const topCover = useArtwork(topSong ? 'track' : null, topSong?.name, topSong?.sub)
+  const cardPal = usePalette()
+  const cardPalKey = topCover ? `story-${topCover}` : null
+  useEffect(() => { if (cardPalKey && topCover) cardPal.extract(cardPalKey, topCover) }, [cardPalKey])
+  const coverColours = cardPalKey ? cardPal.palettes[cardPalKey] : undefined
+  const [useCoverColours, setUseCoverColours] = useState(true)
+  const line = useMemo(() => (data ? cardLine(data.comparison, { all: data.all, newArtists: data.newArtists }) : ''), [data])
+
   // ── Music: a 30-second preview under every slide (see slideSongs) ──
   const music = useStoryMusic(slides && data ? slideSongs(
     slides,
@@ -164,6 +175,9 @@ export default function StoryScreen() {
   }
 
   const s = slides[i]
+  const cardPalette: Palette = useCoverColours && coverColours
+    ? [coverColours.primary, coverColours.secondary, coverColours.detail, coverColours.background]
+    : s.palette
   const hasVisual = !!(s.hero || s.list || s.bars || s.compare || s.chips || s.mosaic || s.pyramid || s.clock || s.share)
   return (
     <View style={styles.root}>
@@ -201,7 +215,7 @@ export default function StoryScreen() {
         style={[
           styles.body,
           s.art && styles.bodyArt,
-          hasVisual && !s.art && [styles.bodySplit, { paddingTop: insets.top + 92, paddingBottom: insets.bottom + (s.share ? 128 : 44) }],
+          hasVisual && !s.art && [styles.bodySplit, { paddingTop: insets.top + 92, paddingBottom: insets.bottom + (s.share ? 158 : 44) }],
         ]}
         pointerEvents="none" key={s.id} accessibilityLiveRegion="polite"
       >
@@ -229,12 +243,32 @@ export default function StoryScreen() {
                   {s.songs ? <StorySongs songs={s.songs} /> : null}
                 </View>
               )
-              : s.share ? <StoryCardPreview s={data.comparison.current} all={data.all} palette={s.palette} maxHeight={PREVIEW_MAX_H} />
+              : s.share ? <StoryCardPreview s={data.comparison.current} all={data.all} palette={cardPalette} line={line} maxHeight={PREVIEW_MAX_H} />
               : null}
           </View>
         ) : null}
       </View>
 
+      {s.share && coverColours && (
+        <Pressable
+          onPress={() => { haptic.light(); setUseCoverColours(v => !v) }}
+          style={[styles.colourChip, { bottom: insets.bottom + 112 }]}
+          accessibilityRole="switch" accessibilityState={{ checked: useCoverColours }}
+          accessibilityLabel="Card colours from your top song's cover"
+        >
+          <Icon name="color-palette-outline" size={14} color="#fff" />
+          <Text style={styles.colourText}>{useCoverColours ? 'Cover colours' : 'Story colours'}</Text>
+        </Pressable>
+      )}
+      {music.now && !paused && (
+        <View style={[styles.nowPlaying, { bottom: insets.bottom + 18 }]} pointerEvents="none" accessible
+          accessibilityLabel={`Playing ${music.now.name}${music.now.artist ? ` by ${music.now.artist}` : ''}`}>
+          <Icon name="musical-notes" size={13} color="#fff" />
+          <Text style={styles.nowText} numberOfLines={1}>
+            {music.now.name}{music.now.artist ? <Text style={styles.nowArtist}>  ·  {music.now.artist}</Text> : null}
+          </Text>
+        </View>
+      )}
       {s.share && (
         <View style={[styles.cardBtns, { bottom: insets.bottom + 56 }]}>
           <Pressable
@@ -258,7 +292,7 @@ export default function StoryScreen() {
       {/* Off-screen, captured on Share. */}
       {s.share && (
         <View style={styles.offscreen} pointerEvents="none">
-          <ShareCard ref={card} s={data.comparison.current} all={data.all} palette={s.palette} />
+          <ShareCard ref={card} s={data.comparison.current} all={data.all} palette={cardPalette} line={line} />
         </View>
       )}
 
@@ -305,6 +339,18 @@ const styles = StyleSheet.create({
   },
   saveBtn:   { backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)' },
   topBtns:   { flexDirection: 'row', alignItems: 'center' },
+  colourChip: {
+    position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+  },
+  colourText: { fontFamily: FontFamily.monoMedium, fontSize: 12, color: '#fff' },
+  nowPlaying: {
+    position: 'absolute', left: Spacing.xl, right: Spacing.xl, flexDirection: 'row', alignItems: 'center', gap: 6,
+    justifyContent: 'center',
+  },
+  nowText:   { fontFamily: FontFamily.monoMedium, fontSize: 12, color: '#fff', flexShrink: 1 },
+  nowArtist: { fontFamily: FontFamily.mono, color: 'rgba(255,255,255,0.7)' },
   shareText: { fontFamily: FontFamily.monoMedium, fontSize: 14, color: '#0d0b14' },
   offscreen: { position: 'absolute', left: -CARD_W * 3, top: 0 },
 })

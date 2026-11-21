@@ -22,6 +22,8 @@ const STEPS = 8
 export function useStoryMusic(plan: (SlideSong | null)[] | null, index: number) {
   const player = useAudioPlayer(null)
   const [on, setOn] = useState(() => storage.getBoolean(MUSIC_KEY) ?? true)
+  /** The song actually loaded and playing (for the "♪ name · artist" label). */
+  const [now, setNow] = useState<SlideSong | null>(null)
   const onRef = useRef(on)
   onRef.current = on
   const playing = useRef<string | null>(null)       // the url loaded in the player
@@ -47,10 +49,11 @@ export function useStoryMusic(plan: (SlideSong | null)[] | null, index: number) 
     }, ms / STEPS)
   }
 
-  const switchTo = (url: string) => {
+  const switchTo = (url: string, song: SlideSong) => {
     const start = () => {
       safe(() => { player.replace(url); player.volume = 0 })
       playing.current = url
+      if (alive.current) setNow(song)
       if (paused.current || !onRef.current) return
       safe(() => player.play())
       ramp(0, VOLUME, FADE_IN_MS)
@@ -70,7 +73,7 @@ export function useStoryMusic(plan: (SlideSong | null)[] | null, index: number) 
     let current = true
     previewUrl(song).then(url => {
       if (!current || !url || url === playing.current) return   // same song: keep playing
-      switchTo(url)
+      switchTo(url, song)
     })
     return () => { current = false }
   }, [songKey, on])
@@ -93,5 +96,5 @@ export function useStoryMusic(plan: (SlideSong | null)[] | null, index: number) 
     else if (playing.current && !paused.current) safe(() => { player.volume = VOLUME; player.play() })
   }, [])
 
-  return useMemo(() => ({ on, toggle, pause, resume }), [on, toggle, pause, resume])
+  return useMemo(() => ({ on, toggle, pause, resume, now: on ? now : null }), [on, toggle, pause, resume, now])
 }

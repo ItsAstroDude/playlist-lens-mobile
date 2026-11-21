@@ -135,13 +135,13 @@ export function StoryClock({ clock, compact }: { clock: number[]; compact?: bool
 }
 
 /** The share card itself, scaled to the free space — what you'd send. */
-export function StoryCardPreview({ s, all, palette, maxHeight }: { s: PeriodSummary; all: boolean; palette: Palette; maxHeight: number }) {
+export function StoryCardPreview({ s, all, palette, maxHeight, line }: { s: PeriodSummary; all: boolean; palette: Palette; maxHeight: number; line?: string }) {
   const scale = Math.min(INNER / CARD_W, maxHeight / CARD_H, 1)
   return (
     <RackFocus index={1} step={120} style={{ alignSelf: 'center' }}>
       <View style={[styles.preview, { width: CARD_W * scale, height: CARD_H * scale }]}>
         <View style={{ width: CARD_W, height: CARD_H, transform: [{ scale }], transformOrigin: 'top left' }}>
-          <ShareCard s={s} all={all} palette={palette} />
+          <ShareCard s={s} all={all} palette={palette} line={line} />
         </View>
       </View>
     </RackFocus>
@@ -262,7 +262,7 @@ export function StoryPyramid({ items }: { items: NonNullable<StorySlide['pyramid
 }
 
 /** Room for a card preview between the words and the Share button. */
-export const PREVIEW_MAX_H = Math.round(SH * 0.46)
+export const PREVIEW_MAX_H = Math.round(SH * 0.4)
 
 const styles = StyleSheet.create({
   timeStack:    { gap: Spacing.md },

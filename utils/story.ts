@@ -219,3 +219,21 @@ export function slideSongs(slides: StorySlide[], tracks: { name: string; sub?: s
     return song(pool[k++ % pool.length])
   })
 }
+
+// ─── share card line ──────────────────────────────────────────────────────────
+/** One line about you for the share card: "Night owl · Biggest day: Tuesday · 12 new artists". */
+export function cardLine(c: PeriodComparison, opts: { all?: boolean; newArtists?: number | null } = {}): string {
+  const s = c.current
+  const parts: string[] = []
+  if (s.clock && s.clock.some(v => v > 0)) {
+    const persona = clockPersona(s.clock.indexOf(Math.max(...s.clock))).replace(/^An? /, '')
+    parts.push(persona.charAt(0).toUpperCase() + persona.slice(1))
+  }
+  const peak = s.buckets.reduce((best, v, i) => (v > s.buckets[best] ? i : best), 0)
+  if (s.buckets[peak] > 0) {
+    const name = opts.all ? (s.bucketLabels?.[peak] ?? '') : bucketName(s.kind, s.start, peak)
+    parts.push(`Biggest ${opts.all ? 'year' : s.kind === 'year' ? 'month' : 'day'}: ${name}`)
+  }
+  if (opts.newArtists && opts.newArtists > 0) parts.push(`${opts.newArtists.toLocaleString()} new ${opts.newArtists === 1 ? 'artist' : 'artists'}`)
+  return parts.join(' · ')
+}

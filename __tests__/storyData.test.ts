@@ -158,3 +158,16 @@ describe('story music + "what you played then" (2.0.15)', () => {
     expect(slides.find(s => s.id === 'time')?.songs?.title).toBe('Tuesday’s soundtrack')
   })
 })
+
+describe('share card line (2.0.16)', () => {
+  const { cardLine } = require('@/utils/story')
+  it('persona · biggest day · new artists', () => {
+    insertPlays([
+      row('2026-11-17T22:05:00Z', 'Late', 'A'), row('2026-11-17T22:30:00Z', 'Late', 'A'), row('2026-11-16T09:00:00Z', 'Morning', 'C'),
+    ], 'recent')
+    const d = runSync(storyJob('week', 0, NOW, UTC))
+    expect(cardLine(d.comparison, { newArtists: 12 })).toBe('Night owl · Biggest day: Tuesday · 12 new artists')
+    expect(cardLine(d.comparison, { newArtists: 1 })).toMatch(/1 new artist$/)
+    expect(cardLine(d.comparison)).toBe('Night owl · Biggest day: Tuesday')
+  })
+})

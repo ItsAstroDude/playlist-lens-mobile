@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store'
 import { storage, SecureKeys } from '@/utils/cache'
 import { artworkEnabled } from '@/utils/settings'
 import { BACKEND_URL } from '@/utils/api'
+import { db } from '@/utils/playDb'
 
 /**
  * Artwork lookup via the iTunes Search API — no auth, no backend, on-device.
@@ -150,19 +151,61 @@ const inflight = new Map<string, Promise<string | null>>()
 // "No picture exists for this" is an answer too: saved for a while, so items iTunes
 // can't match aren't looked up on every launch (holding up the queue for ones it can).
 // Network errors and rate limits are NOT saved — those retry on the next launch.
-const MISS_PREFIX = 'artmiss:'
+const MISS_PREFIX = 'artmiss2:'   // v2 (2.0.16): misses from before the Spotify covers get retried
 const MISS_TTL_MS = 14 * 86_400_000
 function knownMiss(k: string): boolean {
   const at = storage.getNumber(MISS_PREFIX + k)
   return at !== undefined && Date.now() - at < MISS_TTL_MS
 }
 
+// ─── Spotify covers (2.0.16) ──────────────────────────────────────────────────
+// iTunes doesn't carry a lot of what people play (indie / Vocaloid / SoundCloud-born
+// releases), so those rows stayed blank. Every play we hold has its Spotify URI, and
+// Spotify's public oEmbed endpoint returns that song's cover — exact, no login, no
+// backend. Songs, albums (via one of their songs) and artists without a portrait (via
+// one of their songs) try it before iTunes.
+
+/** A Spotify track URI from the play database for this song / album / artist. */
+function uriFor(kind: ArtKind, name: string, artist?: string): string | null {
+  try {
+    const d = db()
+    const r = kind === 'track'
+      ? d.getFirstSync<{ uri: string }>(`SELECT uri FROM plays WHERE artist IS ? AND track = ? AND uri LIKE 'spotify:track:%' LIMIT 1`, [artist ?? null, name])
+        ?? d.getFirstSync<{ uri: string }>(`SELECT uri FROM plays WHERE track = ? AND uri LIKE 'spotify:track:%' LIMIT 1`, [name])
+      : kind === 'album'
+        ? d.getFirstSync<{ uri: string }>(`SELECT uri FROM plays WHERE album = ? AND uri LIKE 'spotify:track:%'${artist ? ' AND artist = ?' : ''} LIMIT 1`, artist ? [name, artist] : [name])
+        : d.getFirstSync<{ uri: string }>(`SELECT uri FROM plays WHERE artist = ? AND uri LIKE 'spotify:track:%' LIMIT 1`, [name])
+    return r?.uri ?? null
+  } catch {
+    return null
+  }
+}
+
+/** The cover of a Spotify track (URI), or null. `final` = Spotify answered. */
+async function spotifyCover(uri: string): Promise<{ url: string | null; final: boolean }> {
+  const id = uri.slice('spotify:track:'.length)
+  try {
+    const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(`https://open.spotify.com/track/${id}`)}`)
+    if (!res.ok) return { url: null, final: res.status === 404 }
+    const json = await res.json()
+    const url = typeof json?.thumbnail_url === 'string' ? json.thumbnail_url : null
+    return { url, final: true }
+  } catch {
+    return { url: null, final: false }
+  }
+}
+
 /** The cover, plus whether that's a real answer (`final`) or a failed lookup. */
 async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<{ url: string | null; final: boolean }> {
-  // Artists: prefer a real Spotify portrait; fall back to an iTunes song cover.
+  // Artists: prefer a real Spotify portrait; then one of their songs' covers.
   if (kind === 'artist') {
     const portrait = await fetchSpotifyArtistImage(name)
     if (portrait) return { url: portrait, final: true }
+  }
+  const uri = uriFor(kind, name, artist)
+  if (uri) {
+    const sp = await spotifyCover(uri)
+    if (sp.url) return sp
   }
   const entity = kind === 'album' ? 'album' : 'song'
   const term   = kind === 'artist' ? name : `${name} ${artist ?? ''}`.trim()

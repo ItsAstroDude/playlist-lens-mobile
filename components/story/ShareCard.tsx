@@ -17,29 +17,31 @@ export const CARD_H = 640
  * captures it reliably. Rendered off-screen for the capture, and scaled as a preview
  * on the last slide.
  */
-export const ShareCard = forwardRef<View, { s: PeriodSummary; all: boolean; palette: Palette }>(
-  function ShareCard({ s, all, palette }, ref) {
+export const ShareCard = forwardRef<View, { s: PeriodSummary; all: boolean; palette: Palette; line?: string }>(
+  function ShareCard({ s, all, palette, line }, ref) {
     const label = all ? 'All time' : periodTitle(s)
     const kicker = all ? 'Everything I’ve played' : `My ${s.kind} in music`
     const top = s.topTracks[0]
     const artists = s.topArtists.slice(0, 5)
-    const more = s.topTracks.slice(1, 5)
+    const more = s.topTracks.slice(1, 4)
     return (
       <View ref={ref} collapsable={false} style={styles.card}>
         <LinearGradient colors={[palette[0], palette[1], '#0d0b14']} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
         <View style={styles.veil} />
 
-        <View style={styles.head}>
-          <Text style={styles.brand}>playlist<Text style={{ color: palette[2] }}>.</Text>lens</Text>
-          <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
+        {/* Brand and kicker on one line, the period on its own line under them, so a
+            long one ("November 2026") is never cut. */}
+        <View>
+          <View style={styles.head}>
+            <Text style={styles.brand}>playlist<Text style={{ color: palette[2] }}>.</Text>lens</Text>
             <Text style={styles.kicker} numberOfLines={1}>{kicker}</Text>
-            <Text style={styles.label} numberOfLines={1}>{label}</Text>
           </View>
+          <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit>{label}</Text>
         </View>
 
         {top && (
           <View style={styles.hero}>
-            <View style={styles.heroCover}><ArtThumb kind="track" name={top.name} artist={top.sub} size={128} /></View>
+            <View style={styles.heroCover}><ArtThumb kind="track" name={top.name} artist={top.sub} size={108} /></View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.cap}>On repeat</Text>
               <Text style={[styles.heroName, heroSize(top.name)]} numberOfLines={3}>{top.name}</Text>
@@ -59,7 +61,7 @@ export const ShareCard = forwardRef<View, { s: PeriodSummary; all: boolean; pale
               {/* Values share a bottom line: a long one ("12h 23m") is set smaller, not
                   shrunk-to-fit, which would leave it floating higher than its neighbours. */}
               <View style={styles.tileValueBox}>
-                <Text style={[styles.tileValue, { fontSize: t.v.length > 5 ? 15 : 19 }]} numberOfLines={1}>{t.v}</Text>
+                <Text style={[styles.tileValue, { fontSize: tileSize(t.v) }]} numberOfLines={1}>{t.v}</Text>
               </View>
               <Text style={styles.tileLabel}>{t.l}</Text>
             </View>
@@ -95,6 +97,8 @@ export const ShareCard = forwardRef<View, { s: PeriodSummary; all: boolean; pale
             ))}
           </View>
         )}
+
+        {line ? <Text style={styles.line} numberOfLines={2}>{line}</Text> : null}
       </View>
     )
   },
@@ -111,13 +115,20 @@ function heroSize(name: string): { fontSize: number; lineHeight: number } {
   return { fontSize: fs, lineHeight: Math.round(fs * 1.2) }
 }
 
+/** A tile value's size: up to 19 pt, small enough that it fits the tile (~78 pt). */
+function tileSize(v: string): number {
+  // ~78 pt of tile width; the display face runs ~0.8 em a character.
+  return Math.max(11, Math.min(19, Math.floor(78 / (v.length * 0.8))))
+}
+
 const styles = StyleSheet.create({
-  card:       { width: CARD_W, height: CARD_H, paddingHorizontal: 24, paddingVertical: 26, gap: 18, overflow: 'hidden', backgroundColor: '#0d0b14' },
+  card:       { width: CARD_W, height: CARD_H, paddingHorizontal: 24, paddingVertical: 24, gap: 14, overflow: 'hidden', backgroundColor: '#0d0b14' },
   veil:       { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,14,0.3)' },
-  head:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  head:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   brand:      { fontFamily: FontFamily.syneBold, fontSize: 15, color: 'rgba(255,255,255,0.92)', letterSpacing: -0.5 },
   kicker:     { fontFamily: FontFamily.mono, fontSize: 10, color: 'rgba(255,255,255,0.75)' },
-  label:      { fontFamily: FontFamily.syneBold, fontSize: 14, color: '#fff', letterSpacing: -0.3 },
+  label:      { fontFamily: FontFamily.syneBold, fontSize: 24, lineHeight: 29, color: '#fff', letterSpacing: -0.8, marginTop: 6 },
+  line:       { marginTop: 'auto', fontFamily: FontFamily.monoMedium, fontSize: 11.5, lineHeight: 16, color: 'rgba(255,255,255,0.85)', textAlign: 'center' },
   hero:       { flexDirection: 'row', alignItems: 'center', gap: 16 },
   heroCover:  { borderRadius: 14, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
   cap:        { fontFamily: FontFamily.mono, fontSize: 9.5, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.65)', marginBottom: 6 },

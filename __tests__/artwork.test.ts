@@ -84,12 +84,12 @@ describe('artwork cache (useArtwork)', () => {
     renderHook(() => a.useArtwork('track', 'Obscure', 'Nobody'))
     await waitFor(() => expect((global.fetch as jest.Mock)).toHaveBeenCalled())
     await new Promise(r => setTimeout(r, 0))
-    expect(storage.getAllKeys().some((k: string) => k.startsWith('artmiss:'))).toBe(false)
+    expect(storage.getAllKeys().some((k: string) => k.startsWith('artmiss2:'))).toBe(false)
 
     global.fetch = itunes([]) as any                         // a real "no match"
     const b = load()
     renderHook(() => b.useArtwork('track', 'Obscure', 'Nobody'))
-    await waitFor(() => expect(storage.getAllKeys().some((k: string) => k.startsWith('artmiss:'))).toBe(true))
+    await waitFor(() => expect(storage.getAllKeys().some((k: string) => k.startsWith('artmiss2:'))).toBe(true))
 
     global.fetch = itunes([]) as any
     const c = load()                                         // next launch: no lookup at all
@@ -107,5 +107,21 @@ describe('artwork cache (useArtwork)', () => {
     expect(storage.getString('artov:track:x:y')).toBe('http://pick')
     expect(storage.getAllKeys()).not.toContain('artmiss:art:track:z:')
     expect(storage.getAllKeys()).not.toContain('something_else')
+  })
+
+  it('a song iTunes doesn’t have gets its Spotify cover, found by the song’s URI in the play database', async () => {
+    const { insertPlays, _resetForTests } = require('@/utils/playDb')
+    _resetForTests()
+    insertPlays([{ ts: '2026-11-16T10:00:00Z', ms_played: 1, spotify_track_uri: 'spotify:track:ABC123',
+      master_metadata_track_name: 'God Only Knows', master_metadata_album_artist_name: 'bitbreaker', master_metadata_album_album_name: 'X' }], 'recent')
+    global.fetch = jest.fn((url: string) => Promise.resolve(url.includes('oembed')
+      ? { ok: true, status: 200, json: () => Promise.resolve({ thumbnail_url: 'https://i.scdn.co/image/abc' }) }
+      : { ok: true, status: 200, json: () => Promise.resolve({ results: [] }) })) as any
+    const m = load()
+    const r = renderHook(() => m.useArtwork('track', 'God Only Knows', 'bitbreaker'))
+    await waitFor(() => expect(r.result.current).toBe('https://i.scdn.co/image/abc'))
+    const calls = (global.fetch as jest.Mock).mock.calls.map((c: unknown[]) => String(c[0]))
+    expect(calls[0]).toContain('open.spotify.com%2Ftrack%2FABC123')
+    expect(calls.some(u => u.includes('itunes'))).toBe(false)          // no need to ask iTunes
   })
 })

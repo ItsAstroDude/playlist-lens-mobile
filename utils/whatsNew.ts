@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.16',
+    name:    'Covers for everything',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Covers now come straight from Spotify for every song you’ve played, so smaller artists and releases get their pictures too. Ones that were blank before are fetched again.',
+          'Share card: a line about you at the bottom (night owl, your biggest day, new artists), colours from your top song’s cover (tap “Cover colours” to switch), and the month or week always fits.',
+          'Stories show the song that’s playing at the bottom of the screen.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.15',
     name:    'Stories with sound',
     date:    '2026-11-21',
