@@ -34,7 +34,10 @@ export const CHANGELOG: PatchEntry[] = [
       },
       {
         label: 'Improved',
-        items: ['The story intro fills the screen with your top songs’ covers.'],
+        items: [
+          'The story intro fills the screen with your top songs’ covers.',
+          'Share card: the three numbers line up, and long song titles no longer break in the middle of a word.',
+        ],
       },
     ],
   },

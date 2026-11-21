@@ -42,7 +42,7 @@ export const ShareCard = forwardRef<View, { s: PeriodSummary; all: boolean; pale
             <View style={styles.heroCover}><ArtThumb kind="track" name={top.name} artist={top.sub} size={128} /></View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.cap}>On repeat</Text>
-              <Text style={styles.heroName} numberOfLines={3}>{top.name}</Text>
+              <Text style={[styles.heroName, heroSize(top.name)]} numberOfLines={3}>{top.name}</Text>
               {top.sub ? <Text style={styles.meta} numberOfLines={1}>{top.sub}</Text> : null}
               <Text style={styles.meta}>{top.plays.toLocaleString()} plays</Text>
             </View>
@@ -56,7 +56,11 @@ export const ShareCard = forwardRef<View, { s: PeriodSummary; all: boolean; pale
             { v: s.artists.toLocaleString(), l: 'artists' },
           ].map(t => (
             <View key={t.l} style={styles.tile}>
-              <Text style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit>{t.v}</Text>
+              {/* Values share a bottom line: a long one ("12h 23m") is set smaller, not
+                  shrunk-to-fit, which would leave it floating higher than its neighbours. */}
+              <View style={styles.tileValueBox}>
+                <Text style={[styles.tileValue, { fontSize: t.v.length > 5 ? 15 : 19 }]} numberOfLines={1}>{t.v}</Text>
+              </View>
               <Text style={styles.tileLabel}>{t.l}</Text>
             </View>
           ))}
@@ -96,6 +100,17 @@ export const ShareCard = forwardRef<View, { s: PeriodSummary; all: boolean; pale
   },
 )
 
+/**
+ * The hero title's size: as big as 21 pt, but small enough that its longest word fits
+ * the column (~170 pt) — the display face is wide, and a long word was being broken
+ * mid-word ("(BIR / DBRAIN)").
+ */
+function heroSize(name: string): { fontSize: number; lineHeight: number } {
+  const longest = Math.max(...name.split(/\s+/).map(w => w.length), 1)
+  const fs = Math.max(13, Math.min(21, Math.floor(170 / (longest * 0.8))))
+  return { fontSize: fs, lineHeight: Math.round(fs * 1.2) }
+}
+
 const styles = StyleSheet.create({
   card:       { width: CARD_W, height: CARD_H, paddingHorizontal: 24, paddingVertical: 26, gap: 18, overflow: 'hidden', backgroundColor: '#0d0b14' },
   veil:       { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,14,0.3)' },
@@ -110,7 +125,8 @@ const styles = StyleSheet.create({
   meta:       { fontFamily: FontFamily.mono, fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   tiles:      { flexDirection: 'row', gap: 8 },
   tile:       { flex: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 10, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
-  tileValue:  { fontFamily: FontFamily.syneBold, fontSize: 19, color: '#fff', letterSpacing: -0.5 },
+  tileValueBox: { height: 26, flexDirection: 'row', alignItems: 'flex-end' },
+  tileValue:  { fontFamily: FontFamily.syneBold, fontSize: 19, color: '#fff', letterSpacing: -0.5, includeFontPadding: false },
   tileLabel:  { fontFamily: FontFamily.mono, fontSize: 10, color: 'rgba(255,255,255,0.75)' },
   artists:    { flexDirection: 'row', justifyContent: 'space-between' },
   artist:     { width: 58, alignItems: 'center', gap: 4 },
