@@ -30,7 +30,7 @@ import { periodStatsJob, type PeriodStats } from '@/utils/stats'
 import { fmtHours } from '@/utils/wrapped'
 
 const SECTIONS = ['now playing', 'this week', 'more'] as const
-const HINT_KEY = 'cover.hintSeen'
+const HINT_KEY = 'cover.hintSeen.v2'
 /** Keep swipes off the system's back-gesture edges. */
 const EDGE = 28
 
@@ -89,22 +89,25 @@ export function CoverApp() {
 
   const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -x.value * W }] }))
 
-  // ── first-time hint: a nudge left, twice ──
+  // ── first-time hint: a pill in the empty top-right, its arrows sliding side to side.
+  //    Goes on the first swipe, on tap, or after 8 s. ──
   const [showHint, setShowHint] = useState(() => !storage.getBoolean(HINT_KEY))
-  const nudge = useSharedValue(0)
+  const slide = useSharedValue(0)
   useEffect(() => {
-    if (!showHint || reduced) return
-    nudge.value = withDelay(900, withRepeat(withSequence(withTiming(-0.12, { duration: 380 }), withSpring(0, Spring.bouncy)), 2))
-    const t = setTimeout(() => setShowHint(false), 5200)
+    if (!showHint) return
+    if (!reduced) slide.value = withDelay(600, withRepeat(withSequence(withTiming(-6, { duration: 320 }), withSpring(6, Spring.bouncy), withSpring(0, Spring.snappy)), 4))
+    const t = setTimeout(() => { setShowHint(false); storage.set(HINT_KEY, true) }, 8000)
     return () => clearTimeout(t)
   }, [showHint, reduced])
   useEffect(() => { if (page > 0) setShowHint(false) }, [page])
-  const hintStyle = useAnimatedStyle(() => ({ transform: [{ translateX: nudge.value * W }] }))
+  const arrowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slide.value }] }))
 
   const contentBottom = Math.max(ringTop - 8, H * 0.55)
 
   return (
     <View style={StyleSheet.absoluteFill}>
+      {/* Opaque: the normal app stays mounted underneath and must not show through. */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }]} />
       <LinearGradient colors={bg} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 1 }} style={StyleSheet.absoluteFill} />
       <CameraRing outline={outline} progress={progress} playing={!!track?.playing} colors={ringColors} />
 
@@ -119,10 +122,9 @@ export function CoverApp() {
               </Pressable>
             ))}
             <Text style={styles.sectionName}>{SECTIONS[page]}</Text>
-            {showHint && <Text style={styles.hint}>· swipe for more</Text>}
           </View>
 
-          <Animated.View style={[styles.fill, hintStyle]}>
+          <Animated.View style={styles.fill}>
             <Animated.View style={[styles.row, { width: W * SECTIONS.length }, rowStyle]}>
               <View style={[styles.page, { width: W, maxHeight: contentBottom }]}>
                 <NowPlayingSection np={np} art={art} />
@@ -135,6 +137,15 @@ export function CoverApp() {
               </View>
             </Animated.View>
           </Animated.View>
+
+          {showHint && (
+            <Pressable onPress={() => { setShowHint(false); storage.set(HINT_KEY, true) }}
+              style={[styles.hintPill, { top: insets.top + 40 }]} accessibilityRole="button"
+              accessibilityLabel="Swipe left and right between sections. Tap to dismiss.">
+              <Animated.View style={arrowStyle}><Icon name="swap-horizontal" size={18} color="#000" /></Animated.View>
+              <Text style={styles.hintText}>Swipe for This week{'\n'}and more</Text>
+            </Pressable>
+          )}
 
         </View>
       </GestureDetector>
@@ -313,6 +324,8 @@ const styles = StyleSheet.create({
   pill:        { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingHorizontal: 14, height: 40, borderRadius: 20,
                  backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', marginTop: Spacing.sm },
   pillText:    { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: OnDark.text },
-  tiny:        { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: OnDark.textDim, marginTop: Spacing.md },
-  hint:        { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.greenPrimary },
+  tiny:        { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: OnDark.textMuted, marginTop: Spacing.md },
+  hintPill:    { position: 'absolute', right: Spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8,
+                 paddingHorizontal: 14, paddingVertical: 10, borderRadius: 22, backgroundColor: '#fff' },
+  hintText:    { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: '#000' },
 })
