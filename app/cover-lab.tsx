@@ -24,7 +24,28 @@ const DEMO_MS = 24_000
 
 /** The cover view is always black, so it always uses dark-theme ink (light theme too). */
 const THEME_INK = { text: Colors.text, muted: Colors.textMuted, dim: Colors.textDim, glass: Colors.glass, border: Colors.glassBorder }
-const COVER_INK = { text: OnDark.text, muted: OnDark.textMuted, dim: OnDark.textDim, glass: 'rgba(255,255,255,0.075)', border: 'rgba(255,255,255,0.15)' }
+const COVER_INK = { text: OnDark.text, muted: OnDark.textMuted, dim: OnDark.textDim, glass: 'rgba(0,0,0,0.28)', border: 'rgba(255,255,255,0.2)' }
+const LIGHT_INK = { text: '#121316', muted: '#43474f', dim: '#6b7079', glass: 'rgba(255,255,255,0.45)', border: 'rgba(0,0,0,0.18)' }
+
+/** Backgrounds to check the ring against (the Background button cycles them). */
+const BACKGROUNDS: { name: string; color: string }[] = [
+  { name: 'black', color: '#000000' },
+  { name: 'charcoal', color: '#1c1d22' },
+  { name: 'red', color: '#e8401c' },
+  { name: 'blue', color: '#2459d6' },
+  { name: 'green', color: '#1f9e55' },
+  { name: 'purple', color: '#6a2bd9' },
+  { name: 'light', color: '#f2efe9' },
+]
+
+/** Relative luminance of a #rrggbb colour, 0–1. */
+function luminance(hex: string): number {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return 0
+  const n = parseInt(m[1], 16)
+  const lin = (c: number) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+  return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255)
+}
 const Ink = createContext(THEME_INK)
 
 /**
@@ -96,7 +117,12 @@ export default function CoverLab() {
   const title = showingDemo ? 'Demo song' : np?.item?.name ?? ''
   const sub = showingDemo ? `${live ? 'live music available' : 'nothing playing on Spotify'}` : np?.item?.artists?.join(', ') ?? ''
 
-  const ink = onCover ? COVER_INK : THEME_INK
+  // ── background: cycles the presets, plus the cover's colour when a song is playing ──
+  const bgs = pal ? [...BACKGROUNDS, { name: 'cover art', color: pal.background }] : BACKGROUNDS
+  const [bgIdx, setBgIdx] = useState(0)
+  const bg = bgs[bgIdx % bgs.length]
+  const bgInk = luminance(bg.color) > 0.4 ? LIGHT_INK : COVER_INK
+  const ink = onCover ? bgInk : THEME_INK
   const controls = (
     <Ink.Provider value={ink}><View style={styles.controls}>
       <Text style={[styles.track, { color: ink.text }]} numberOfLines={1}>{title}</Text>
@@ -108,6 +134,7 @@ export default function CoverLab() {
         </>}
         {!!live && <Pill label={showingDemo ? 'Use live' : 'Use demo'} onPress={() => { haptic.light(); setUseDemo(d => !d) }} />}
         <Pill label={tuning ? 'Done' : 'Tune'} active={tuning} onPress={() => { haptic.light(); setTuning(v => !v) }} />
+        <Pill label={`Background: ${bg.name}`} onPress={() => { haptic.light(); setBgIdx(i => (i + 1) % bgs.length) }} />
       </View>
       {tuning && (
         <View style={styles.tune}>
@@ -135,10 +162,11 @@ export default function CoverLab() {
   if (onCover) {
     return (
       <GestureDetector gesture={drag}>
-        <View style={styles.cover}>
+        <View style={[styles.cover, { backgroundColor: bg.color }]}>
           {ring}
           <View style={[styles.coverTop, { paddingTop: insets.top + Spacing.sm }]}>
-            <BackButton />
+            {/* dark pill so the light arrow reads on every background */}
+            <BackButton style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderColor: 'rgba(255,255,255,0.2)' }} />
           </View>
           <View style={styles.coverBody}>{controls}</View>
         </View>
@@ -159,7 +187,7 @@ export default function CoverLab() {
       </View>
       <ScrollView contentContainerStyle={{ alignItems: 'center', paddingBottom: insets.bottom + Spacing.xl }}>
         <View style={{ width: COVER_W * s, height: COVER_H * s, marginVertical: Spacing.md }}>
-          <View style={[styles.sim, {
+          <View style={[styles.sim, { backgroundColor: bg.color,
             transform: [{ scale: s }],
             left: -(COVER_W * (1 - s)) / 2, top: -(COVER_H * (1 - s)) / 2,
           }]}>
