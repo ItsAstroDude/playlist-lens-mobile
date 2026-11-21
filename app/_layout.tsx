@@ -246,6 +246,7 @@ export default function RootLayout() {
             <Stack.Screen name="cover-lab" options={{ animation: 'fade' }} />
             <Stack.Screen name="labs"      options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="wrapped"   options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="covers-check" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="story"     options={{ animation: 'fade', gestureEnabled: false }} />
           </>
         ) : (

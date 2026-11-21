@@ -31,6 +31,9 @@ export default function Labs() {
       <Section label="testing">
         <ListRow icon="git-commit-outline" tint="amber" label="Update details"
           value={upd.running} hint={upd.detail} />
+        <ListRow icon="image-outline" tint="sky" label="Covers check"
+          hint="Why song and artist covers aren't showing, step by step"
+          onPress={go('/covers-check')} />
         <ListRow icon="timer-outline" tint="amber" label="Load times"
           hint="How fast each screen opens on this phone"
           onPress={go('/load-times')} />
