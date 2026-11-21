@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { View, Text, StyleSheet, Pressable, useWindowDimensions, ScrollView, PixelRatio } from 'react-native'
+import { View, Text, StyleSheet, Pressable, PixelRatio } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { Ionicons } from '@expo/vector-icons'
@@ -10,20 +10,14 @@ import { CameraRing } from '@/components/cover/CameraRing'
 import { FLIP7_OUTLINE, toDp, type CameraOutline } from '@/components/cover/outline'
 import { useRingProgress, type RingTrack } from '@/components/cover/useRingProgress'
 import { useMotionReduced } from '@/components/motion/reduced'
-import { useCoverScreen } from '@/hooks/useCoverScreen'
+import { useScreen } from '@/hooks/useScreen'
 import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { usePalette } from '@/hooks/usePalette'
 import { getCameraOutline, setCameraOutline } from '@/utils/settings'
 
-/** The cover window the simulator draws on the main screen: Flip 7 apps get the
- *  948×1048 px panel at 2.0 px/dp. */
-const SIM_RATIO = 2
-const COVER_W = 948 / SIM_RATIO
-const COVER_H = 1048 / SIM_RATIO
 const DEMO_MS = 24_000
 
-/** The cover view is always black, so it always uses dark-theme ink (light theme too). */
-const THEME_INK = { text: Colors.text, muted: Colors.textMuted, dim: Colors.textDim, glass: Colors.glass, border: Colors.glassBorder }
+/** Ink follows the lab's own background (never the app theme). */
 const COVER_INK = { text: OnDark.text, muted: OnDark.textMuted, dim: OnDark.textDim, glass: 'rgba(0,0,0,0.28)', border: 'rgba(255,255,255,0.2)' }
 const LIGHT_INK = { text: '#121316', muted: '#43474f', dim: '#6b7079', glass: 'rgba(255,255,255,0.45)', border: 'rgba(0,0,0,0.18)' }
 
@@ -46,27 +40,24 @@ function luminance(hex: string): number {
   const lin = (c: number) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
   return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255)
 }
-const Ink = createContext(THEME_INK)
+type InkSet = { text: string; muted: string; dim: string; glass: string; border: string }
+const Ink = createContext<InkSet>(COVER_INK)
 
 /**
  * Settings › About › Cover screen lab — PROTOTYPE of the camera ring.
  *
- * On the cover screen it draws round the real cameras; tune the outline until the
- * red guide sits on the lens edges (drag to move, buttons for size and spacing).
- * On the main screen it shows a simulated cover screen instead.
+ * Always drawn at the real camera positions (no simulator): open it on the cover
+ * screen. Tune the outline until the red guide sits on the lens edges (drag to move,
+ * buttons for size and spacing). The readout says which screen the app thinks it's on.
  */
 export default function CoverLab() {
-  const detected = useCoverScreen()
-  // Escape hatch when detection misses the cover screen: draw at real coordinates anyway.
-  const [forced, setForced] = useState(false)
-  const onCover = detected || forced
+  const screen = useScreen()
+  const onCover = screen.kind === 'cover'
   const reduced = useMotionReduced()
   const insets = useSafeAreaInsets()
-  const { width, height } = useWindowDimensions()
-  const dims = `${Math.round(width)}×${Math.round(height)} dp · ×${PixelRatio.get()} · ${detected ? 'cover detected' : 'not detected'}`
 
   // ── outline, in cover-panel px (saved on every change) ──
-  const ratio = onCover ? PixelRatio.get() : SIM_RATIO
+  const ratio = PixelRatio.get()
   const [outline, setOutline] = useState<CameraOutline>(getCameraOutline)
   useEffect(() => { setCameraOutline(outline) }, [outline])
   const [guide, setGuide] = useState(true)
@@ -79,7 +70,7 @@ export default function CoverLab() {
       return { cx1: nm - nh, cx2: nm + nh, cy: o.cy + (d.y ?? 0), r: Math.max(8, o.r + (d.r ?? 0)) }
     })
   }
-  const drag = Gesture.Pan().runOnJS(true).enabled(onCover && tuning).minDistance(4)
+  const drag = Gesture.Pan().runOnJS(true).enabled(tuning).minDistance(4)
     .onChange(e => setOutline(o => ({ ...o, cx1: o.cx1 + e.changeX * ratio, cx2: o.cx2 + e.changeX * ratio, cy: o.cy + e.changeY * ratio })))
 
   // ── source: live Spotify, else a demo song ──
@@ -125,8 +116,8 @@ export default function CoverLab() {
   const bgs = pal ? [...BACKGROUNDS, { name: 'cover art', color: pal.background }] : BACKGROUNDS
   const [bgIdx, setBgIdx] = useState(0)
   const bg = bgs[bgIdx % bgs.length]
-  const bgInk = luminance(bg.color) > 0.4 ? LIGHT_INK : COVER_INK
-  const ink = onCover ? bgInk : THEME_INK
+  const bgInk: InkSet = luminance(bg.color) > 0.4 ? LIGHT_INK : COVER_INK
+  const ink = bgInk
   const controls = (
     <Ink.Provider value={ink}><View style={styles.controls}>
       <Text style={[styles.track, { color: ink.text }]} numberOfLines={1}>{title}</Text>
@@ -138,7 +129,6 @@ export default function CoverLab() {
         </>}
         {!!live && <Pill label={showingDemo ? 'Use live' : 'Use demo'} onPress={() => { haptic.light(); setUseDemo(d => !d) }} />}
         <Pill label={tuning ? 'Done' : 'Tune'} active={tuning} onPress={() => { haptic.light(); setTuning(v => !v) }} />
-        {forced && <Pill label="Simulator" onPress={() => { haptic.light(); setForced(false) }} />}
         <Pill label={`Background: ${bg.name}`} onPress={() => { haptic.light(); setBgIdx(i => (i + 1) % bgs.length) }} />
       </View>
       {tuning && (
@@ -152,9 +142,9 @@ export default function CoverLab() {
             <Pill label="Reset" onPress={() => { haptic.medium(); setOutline({ ...FLIP7_OUTLINE }) }} />
           </View>
           <Text style={[styles.values, { color: ink.muted }]} selectable>
-            {`px  cx1 ${outline.cx1.toFixed(0)} · cx2 ${outline.cx2.toFixed(0)} · cy ${outline.cy.toFixed(0)} · r ${outline.r.toFixed(0)}\n${dims}`}
+            {`px  cx1 ${outline.cx1.toFixed(0)} · cx2 ${outline.cx2.toFixed(0)} · cy ${outline.cy.toFixed(0)} · r ${outline.r.toFixed(0)}`}
           </Text>
-          {onCover && <Text style={[styles.hint, { color: ink.dim }]}>Drag anywhere to move the ring.</Text>}
+          <Text style={[styles.hint, { color: ink.dim }]}>Drag anywhere to move the ring.</Text>
         </View>
       )}
     </View></Ink.Provider>
@@ -163,61 +153,24 @@ export default function CoverLab() {
   const ringOutline = toDp(outline, ratio)
   const ring = <CameraRing outline={ringOutline} progress={progress} playing={!!track?.playing} colors={colors} guide={tuning && guide} />
 
-  // ── on the cover screen: the real thing ──
-  if (onCover) {
-    return (
-      <GestureDetector gesture={drag}>
-        <View style={[styles.cover, { backgroundColor: bg.color }]}>
-          {ring}
-          <View style={[styles.coverTop, { paddingTop: insets.top + Spacing.sm }]}>
-            {/* dark pill so the light arrow reads on every background */}
-            <BackButton style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderColor: 'rgba(255,255,255,0.2)' }} />
-          </View>
-          <View style={styles.coverBody}>{controls}</View>
-        </View>
-      </GestureDetector>
-    )
-  }
-
-  // ── on the main screen: a simulated cover screen ──
-  const s = Math.min(1, (width - Spacing.lg * 2) / COVER_W)
   return (
-    <View style={[styles.main, { paddingTop: insets.top + Spacing.sm }]}>
-      <View style={styles.mainHead}>
-        <BackButton />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.h1}>cover screen lab</Text>
-          <Text style={styles.sub}>Prototype. Close the phone to see it round the real cameras.</Text>
-          <Text style={[styles.sub, { color: Colors.textDim }]}>{dims}</Text>
-        </View>
-      </View>
-      <ScrollView contentContainerStyle={{ alignItems: 'center', paddingBottom: insets.bottom + Spacing.xl }}>
-        <View style={{ width: COVER_W * s, height: COVER_H * s, marginVertical: Spacing.md }}>
-          <View style={[styles.sim, { backgroundColor: bg.color,
-            transform: [{ scale: s }],
-            left: -(COVER_W * (1 - s)) / 2, top: -(COVER_H * (1 - s)) / 2,
-          }]}>
-            <FakeCameras o={ringOutline} />
-            {ring}
+    <GestureDetector gesture={drag}>
+      <View style={[styles.cover, { backgroundColor: bg.color }]}>
+        {ring}
+        <View style={[styles.coverTop, { paddingTop: insets.top + Spacing.sm }]}>
+          {/* dark pill so the light arrow reads on every background */}
+          <BackButton style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderColor: 'rgba(255,255,255,0.2)' }} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.screen, { color: onCover ? ink.text : '#ffb347' }]} numberOfLines={1}>
+              {onCover ? 'cover screen' : 'main screen: close the phone to use this'}
+            </Text>
+            <Text style={[styles.values, { color: ink.muted }]} numberOfLines={2} selectable>{screen.detail}</Text>
           </View>
         </View>
-        {controls}
-        <View style={[styles.row, { alignSelf: 'stretch', marginTop: Spacing.md }]}>
-          <Pill label="On the cover screen but seeing this? Use real screen" onPress={() => { haptic.light(); setForced(true) }} />
-        </View>
-      </ScrollView>
-    </View>
+        <View style={styles.coverBody}>{controls}</View>
+      </View>
+    </GestureDetector>
   )
-}
-
-/** Simulator only: lenses drawn where the outline says the cameras are. */
-function FakeCameras({ o }: { o: CameraOutline }) {
-  const lens = (cx: number) => (
-    <View key={cx} style={[styles.lens, { left: cx - o.r, top: o.cy - o.r, width: o.r * 2, height: o.r * 2, borderRadius: o.r }]}>
-      <View style={[styles.glass, { width: o.r * 1.1, height: o.r * 1.1, borderRadius: o.r }]} />
-    </View>
-  )
-  return <>{lens(o.cx1)}{lens(o.cx2)}</>
 }
 
 function RoundBtn({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
@@ -253,15 +206,10 @@ function Stepper({ label, onMinus, onPlus }: { label: string; onMinus: () => voi
 
 const styles = StyleSheet.create({
   cover:     { flex: 1, backgroundColor: '#000' },
-  coverTop:  { paddingHorizontal: Spacing.md, flexDirection: 'row' },
+  coverTop:  { paddingHorizontal: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  screen:    { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs },
   // Upper area: the cameras are bottom-right, Samsung's "open on main screen" button bottom-centre.
-  coverBody: { position: 'absolute', top: 64, right: Spacing.lg, left: Spacing.lg },
-  main:      { flex: 1, backgroundColor: Colors.background, paddingHorizontal: Spacing.lg },
-  mainHead:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  h1:        { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -0.5 },
-  sim:       { position: 'absolute', width: COVER_W, height: COVER_H, backgroundColor: '#000', borderRadius: 28, overflow: 'hidden' },
-  lens:      { position: 'absolute', backgroundColor: '#15161a', borderWidth: 2, borderColor: '#2a2c33', alignItems: 'center', justifyContent: 'center' },
-  glass:     { backgroundColor: '#050608', borderWidth: 1, borderColor: '#1c2030' },
+  coverBody: { position: 'absolute', top: 76, right: Spacing.lg, left: Spacing.lg },
   controls:  { gap: 6, alignSelf: 'stretch' },
   track:     { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, color: Colors.text },
   sub:       { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
