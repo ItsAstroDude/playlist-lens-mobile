@@ -48,29 +48,75 @@ export function StoryBars({ bars, height }: { bars: NonNullable<StorySlide['bars
   )
 }
 
-/** A grid of covers or artist photos, three across. */
+/** A grid of covers, three across — as many rows as fit the space (measured). */
 export function StoryMosaic({ items }: { items: NonNullable<StorySlide['mosaic']> }) {
   const cols = 3
   const gap = Spacing.sm
   const size = Math.floor((INNER - gap * (cols - 1)) / cols)
+  const [boxH, setBoxH] = useState(0)
+  const rows = boxH ? Math.max(1, Math.floor((boxH + gap) / (size + gap))) : 0
   return (
-    <View style={[styles.mosaic, { gap }]}>
-      {items.map((m, k) => (
-        <RackFocus key={m.name + k} index={k + 1} step={70}>
-          <ArtThumb kind={m.kind} name={m.name} artist={m.artist} size={size} />
+    <View style={styles.mosaicBox} onLayout={e => setBoxH(e.nativeEvent.layout.height)}>
+      <View style={[styles.mosaic, { gap }]}>
+        {items.slice(0, rows * cols).map((m, k) => (
+          <RackFocus key={m.name + k} index={k + 1} step={60}>
+            <ArtThumb kind={m.kind} name={m.name} artist={m.artist} size={size} />
+          </RackFocus>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+/** A few songs under a title — what you play at your peak hour. */
+export function StorySongs({ songs, start = 2 }: { songs: NonNullable<StorySlide['songs']>; start?: number }) {
+  return (
+    <View style={styles.songs}>
+      <Text style={styles.songsTitle}>{songs.title}</Text>
+      {songs.items.map((t, k) => (
+        <RackFocus key={t.name + k} index={start + k} step={90}>
+          <View style={styles.songRow}>
+            <ArtThumb kind="track" name={t.name} artist={t.artist} size={48} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.rowName} numberOfLines={1}>{t.name}</Text>
+              <Text style={styles.rowSub} numberOfLines={1}>{t.artist}</Text>
+            </View>
+            <Text style={styles.rowValue}>{t.plays}×</Text>
+          </View>
         </RackFocus>
       ))}
     </View>
   )
 }
 
+/** Three covers side by side with names — a day's soundtrack, compact. */
+function SongStrip({ songs }: { songs: NonNullable<StorySlide['songs']> }) {
+  const size = Math.min(72, Math.floor((INNER - Spacing.md * 2) / 3) - 40)
+  return (
+    <RackFocus index={4} step={140}>
+      <Text style={styles.songsTitle}>{songs.title}</Text>
+      <View style={styles.strip}>
+        {songs.items.slice(0, 3).map((t, k) => (
+          <View key={t.name + k} style={styles.stripItem}>
+            <ArtThumb kind="track" name={t.name} artist={t.artist} size={size} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.stripName} numberOfLines={2}>{t.name}</Text>
+              <Text style={styles.rowSub} numberOfLines={1}>{t.plays}×</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </RackFocus>
+  )
+}
+
 /** The listening clock, big: 24 bars with hour marks. */
-export function StoryClock({ clock }: { clock: number[] }) {
+export function StoryClock({ clock, compact }: { clock: number[]; compact?: boolean }) {
   const max = Math.max(...clock, 1)
   const peak = clock.indexOf(max)
   return (
     <RackFocus index={1} step={120}>
-      <View style={styles.clockRow}>
+      <View style={[styles.clockRow, compact && { height: Math.min(170, SH * 0.19) }]}>
         {clock.map((v, h) => (
           <View key={h} style={styles.barCol}>
             <View style={[styles.bar, { height: `${Math.max(3, (v / max) * 100)}%`, opacity: h === peak ? 1 : 0.38, borderRadius: 3 }]} />
@@ -105,7 +151,7 @@ export function StoryCardPreview({ s, all, palette, maxHeight }: { s: PeriodSumm
 export function StoryTime({ slide }: { slide: StorySlide }) {
   return (
     <View style={styles.timeStack}>
-      {slide.bars ? <StoryBars bars={slide.bars} height={Math.min(200, SH * 0.22)} /> : null}
+      {slide.bars ? <StoryBars bars={slide.bars} height={slide.songs ? Math.min(150, SH * 0.17) : Math.min(200, SH * 0.22)} /> : null}
       {slide.compare ? (
         <RackFocus index={2} step={140} style={styles.slimCompare}>
           {[
@@ -137,6 +183,7 @@ export function StoryTime({ slide }: { slide: StorySlide }) {
           ))}
         </RackFocus>
       ) : null}
+      {slide.songs ? <SongStrip songs={slide.songs} /> : null}
     </View>
   )
 }
@@ -214,7 +261,7 @@ export function StoryPyramid({ items }: { items: NonNullable<StorySlide['pyramid
 export const PREVIEW_MAX_H = Math.round(SH * 0.46)
 
 const styles = StyleSheet.create({
-  timeStack:    { gap: Spacing.lg },
+  timeStack:    { gap: Spacing.md },
   peakCaption:  { fontFamily: FontFamily.monoMedium, fontSize: 13, color: '#fff', marginBottom: 8 },
   slimCompare:  { gap: Spacing.sm },
   slimRow:      { gap: 5 },
@@ -256,6 +303,13 @@ const styles = StyleSheet.create({
   barLabelPeak: { color: '#fff', fontFamily: FontFamily.monoMedium },
   clockMark:    { fontFamily: FontFamily.mono, fontSize: 11, color: 'rgba(255,255,255,0.6)' },
   mosaic:       { flexDirection: 'row', flexWrap: 'wrap' },
+  mosaicBox:    { flex: 1, justifyContent: 'center' },
+  songs:        { gap: 6, marginTop: Spacing.lg },
+  songsTitle:   { fontFamily: FontFamily.monoMedium, fontSize: 13, color: '#fff', marginBottom: 6 },
+  songRow:      { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, height: 56 },
+  strip:        { flexDirection: 'row', gap: Spacing.md },
+  stripItem:    { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stripName:    { fontFamily: FontFamily.syneBold, fontSize: 12, lineHeight: 15, color: '#fff' },
   preview:      {
     borderRadius: 18, overflow: 'hidden',
     shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 24, shadowOffset: { width: 0, height: 14 }, elevation: 16,

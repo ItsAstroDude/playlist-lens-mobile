@@ -34,6 +34,8 @@ export interface StorySlide {
   chips?:  { value: string; label: string }[]
   /** Artists in rows of 1, 2, 3, 4 — biggest first — with their names. */
   pyramid?: { name: string; value: string }[]
+  /** A few songs with a title over them ("Tuesday's soundtrack", "At 22:00 you play"). */
+  songs?:  { title: string; items: { name: string; artist: string; plays: number }[] }
 }
 
 export interface StoryOpts {
@@ -43,6 +45,9 @@ export interface StoryOpts {
   past?:       boolean
   /** Artists first heard in the period, when known. */
   newArtists?: number | null
+  /** Most played in the peak hour / on the biggest day (storyData). */
+  hourTracks?: { name: string; artist: string; uri: string | null; plays: number }[]
+  dayTracks?:  { name: string; artist: string; uri: string | null; plays: number }[]
 }
 
 const PALETTES: Palette[] = [
@@ -107,7 +112,8 @@ export function buildStory(c: PeriodComparison, opts: StoryOpts = {}): StorySlid
   slides.push(opts.all
     ? { id: 'intro', kicker: 'Everything you’ve played', big: 'All time', sub: `Since ${since} · tap to skip ahead · hold to pause`, palette: pal(0) }
     : { id: 'intro', kicker: `Your ${w} in music`, big: periodTitle(s), sub: 'Tap to skip ahead · hold to pause', palette: pal(0) })
-  if (s.topTracks.length >= 3) slides[0].mosaic = s.topTracks.slice(0, 6).map(x => ({ kind: 'track' as const, name: x.name, artist: x.sub }))
+  // Up to 12: the screen shows as many rows as fit.
+  if (s.topTracks.length >= 3) slides[0].mosaic = s.topTracks.slice(0, 12).map(x => ({ kind: 'track' as const, name: x.name, artist: x.sub }))
 
   // ── Time: how long, across the period (biggest day picked out), vs before, in numbers ──
   const vs = opts.past ? `the ${w} before` : `last ${w}`
@@ -134,6 +140,7 @@ export function buildStory(c: PeriodComparison, opts: StoryOpts = {}): StorySlid
       },
     } : {}),
     chips,
+    ...(opts.dayTracks?.length ? { songs: { title: `${peakName}’s soundtrack`, items: opts.dayTracks } } : {}),
   })
 
   // ── Top artists: #1 big, the rest under it ──
@@ -161,7 +168,10 @@ export function buildStory(c: PeriodComparison, opts: StoryOpts = {}): StorySlid
   // ── When in the day ──
   if (s.clock && s.clock.some(v => v > 0)) {
     const h = s.clock.indexOf(Math.max(...s.clock))
-    slides.push({ id: 'clock', kicker: 'You’re', big: clockPersona(h), sub: `Most of your listening: ${two(h)}–${two((h + 1) % 24)}`, palette: pal(5), clock: s.clock })
+    slides.push({
+      id: 'clock', kicker: 'You’re', big: clockPersona(h), sub: `Most of your listening: ${two(h)}–${two((h + 1) % 24)}`, palette: pal(5), clock: s.clock,
+      ...(opts.hourTracks?.length ? { songs: { title: `At ${two(h)} you play`, items: opts.hourTracks } } : {}),
+    })
   }
 
   // ── Range: how many, and the biggest ones, biggest first ──
@@ -177,4 +187,35 @@ export function buildStory(c: PeriodComparison, opts: StoryOpts = {}): StorySlid
     ? { id: 'outro', kicker: 'That’s all of it, so far', big: 'Keep listening', sub: 'Share your card, or tap to close.', palette: pal(0), share: true }
     : { id: 'outro', kicker: opts.past ? `That was your ${w}` : `That’s your ${w}`, big: opts.past ? 'Nice one' : 'See you next one', sub: 'Share your card, or tap to close.', palette: pal(0), share: true })
   return slides
+}
+
+// ─── music ────────────────────────────────────────────────────────────────────
+export interface SlideSong { name: string; artist?: string; uri?: string | null }
+
+/**
+ * The song under each slide: the top-songs slide plays your #1, the top-artists slide
+ * that artist's most-played song, every other slide a different one of your top songs,
+ * shuffled (the same order every time for the same period). Null when there are no songs.
+ */
+export function slideSongs(slides: StorySlide[], tracks: { name: string; sub?: string; uri?: string }[], seed = 0): (SlideSong | null)[] {
+  if (!tracks.length) return slides.map(() => null)
+  const song = (t: { name: string; sub?: string; uri?: string }): SlideSong => ({ name: t.name, artist: t.sub, uri: t.uri })
+  const top = tracks[0]
+  const artistSlide = slides.find(s => s.id === 'artists')?.hero?.name
+  const byArtist = artistSlide ? tracks.find(t => t.sub === artistSlide) ?? top : top
+  // A seeded shuffle of the rest, so the same story always sounds the same.
+  const pool = tracks.slice(1).filter(t => t !== byArtist)
+  let x = (seed >>> 0) || 1
+  for (let i = pool.length - 1; i > 0; i--) {
+    x = (x * 1103515245 + 12345) >>> 0
+    const j = x % (i + 1)
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  let k = 0
+  return slides.map(s => {
+    if (s.id === 'tracks') return song(top)
+    if (s.id === 'artists') return song(byArtist)
+    if (!pool.length) return song(top)
+    return song(pool[k++ % pool.length])
+  })
 }

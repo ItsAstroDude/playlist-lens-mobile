@@ -107,7 +107,7 @@ describe('story pictures (2.0.13)', () => {
     expect(by('time').compare).toMatchObject({ nowLabel: 'This week so far', beforeLabel: 'Last week, same point' })
     expect(by('time').chips!.map(c => c.label)).toEqual(['plays', 'days with music', 'per listening day'])
     expect(by('time').chips![1].value).toBe('3')                       // Mon, Tue, Wed
-    expect(by('intro').mosaic).toHaveLength(6)
+    expect(by('intro').mosaic).toHaveLength(9)                          // up to 12; the screen shows what fits
     expect(by('range').pyramid).toHaveLength(9)
     expect(by('artists').list).toHaveLength(8)                          // #2..#9 under the hero
   })
@@ -117,5 +117,44 @@ describe('story pictures (2.0.13)', () => {
     const m = barLabels('month', 30, false)
     expect(m[0]).toBe('1'); expect(m[7]).toBe('8'); expect(m[1]).toBe('')
     expect(barLabels('year', 3, true, ['2024', '2025', '2026'])).toEqual(["'24", "'25", "'26"])
+  })
+})
+
+describe('story music + "what you played then" (2.0.15)', () => {
+  const { slideSongs } = require('@/utils/story')
+
+  it('songs: #1 on the songs slide, the top artist’s own song on the artists slide, the rest shuffled and stable', () => {
+    const tracks = [
+      { name: 'One', sub: 'X', uri: 'u1' }, { name: 'Two', sub: 'Top Artist', uri: 'u2' },
+      { name: 'Three', sub: 'Y', uri: 'u3' }, { name: 'Four', sub: 'Z', uri: 'u4' }, { name: 'Five', sub: 'W', uri: 'u5' },
+      { name: 'Six', sub: 'V', uri: 'u6' }, { name: 'Seven', sub: 'U', uri: 'u7' },
+    ]
+    const slides = [
+      { id: 'intro' }, { id: 'time' }, { id: 'artists', hero: { name: 'Top Artist' } }, { id: 'tracks' }, { id: 'clock' }, { id: 'range' }, { id: 'outro' },
+    ] as any
+    const a = slideSongs(slides, tracks, 42)
+    expect(a[3]).toMatchObject({ name: 'One', uri: 'u1' })
+    expect(a[2]).toMatchObject({ name: 'Two', artist: 'Top Artist' })
+    const others = [a[0], a[1], a[4], a[5], a[6]].map((x: any) => x.name)
+    expect(new Set(others).size).toBe(5)                      // no repeats while the pool lasts
+    expect(others).not.toContain('One')
+    expect(slideSongs(slides, tracks, 42)).toEqual(a)        // same story, same order
+    expect(slideSongs(slides, [], 1).every((x: unknown) => x === null)).toBe(true)
+  })
+
+  it('the songs you played most in your peak hour, and on your biggest day', () => {
+    insertPlays([
+      row('2026-11-17T22:05:00Z', 'Late', 'A'), row('2026-11-17T22:30:00Z', 'Late', 'A'), row('2026-11-16T22:10:00Z', 'Night', 'B'),
+      row('2026-11-17T09:00:00Z', 'Morning', 'C'),
+      row('2026-11-16T10:00:00Z', 'Monday', 'D'),
+    ], 'recent')
+    const d = runSync(storyJob('week', 0, NOW, UTC))
+    expect(d.hourTracks.map(t => [t.name, t.plays])).toEqual([['Late', 2], ['Night', 1]])
+    expect(d.dayTracks[0]).toMatchObject({ name: 'Late', plays: 2 })                  // Tuesday was biggest
+    expect(d.dayTracks.map(t => t.name)).toEqual(expect.arrayContaining(['Late', 'Morning']))
+    expect(d.dayTracks.map(t => t.name)).not.toContain('Monday')
+    const slides = buildStory(d.comparison, { hourTracks: d.hourTracks, dayTracks: d.dayTracks })
+    expect(slides.find(s => s.id === 'clock')?.songs?.title).toBe('At 22:00 you play')
+    expect(slides.find(s => s.id === 'time')?.songs?.title).toBe('Tuesday’s soundtrack')
   })
 })

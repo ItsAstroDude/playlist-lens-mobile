@@ -19,6 +19,26 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.15',
+    name:    'Stories with sound',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Stories play music: your number one song on the top songs slide, your top artist’s own song on theirs, and your other favourites shuffled under the rest. Tap the speaker to mute.',
+          'A new share card: your top song’s cover, your numbers, your top artists’ photos and your top songs.',
+          'Save the card: pick a folder once (like Pictures) and every card after goes straight there.',
+          'The listening-clock slide shows what you play at your peak hour, and the time slide shows your biggest day’s soundtrack.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: ['The story intro fills the screen with your top songs’ covers.'],
+      },
+    ],
+  },
+  {
     version: '2.0.14',
     name:    'Tighter stories',
     date:    '2026-11-21',

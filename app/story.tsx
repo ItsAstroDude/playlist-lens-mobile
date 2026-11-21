@@ -13,14 +13,16 @@ import { KineticText } from '@/components/motion/KineticText'
 import { ArtThumb } from '@/components/ui'
 import { ShareCard, CARD_W, CARD_H } from '@/components/story/ShareCard'
 import { FitHeadline } from '@/components/story/FitHeadline'
-import { StoryMosaic, StoryClock, StoryCardPreview, StoryTime, StoryHero, StoryPyramid, PREVIEW_MAX_H } from '@/components/story/Visuals'
+import { StoryMosaic, StoryClock, StorySongs, StoryCardPreview, StoryTime, StoryHero, StoryPyramid, PREVIEW_MAX_H } from '@/components/story/Visuals'
 import { useArtwork } from '@/hooks/useArtwork'
 import { usePalette } from '@/hooks/usePalette'
-import { buildStory, type Palette } from '@/utils/story'
+import { buildStory, slideSongs, type Palette } from '@/utils/story'
 import { storyAsync, type StoryData, type StoryKind } from '@/utils/storyData'
 import { showToast } from '@/utils/dialog'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
+import { saveImageToFolder } from '@/utils/saveImage'
+import { useStoryMusic } from '@/hooks/useStoryMusic'
 
 const SLIDE_MS = 5200
 const { width: SW } = Dimensions.get('window')
@@ -51,7 +53,7 @@ export default function StoryScreen() {
     return () => { alive = false }
   }, [kind, back])
   const slides = useMemo(
-    () => (data ? buildStory(data.comparison, { all: data.all, past: data.past, newArtists: data.newArtists }) : null),
+    () => (data ? buildStory(data.comparison, { all: data.all, past: data.past, newArtists: data.newArtists, hourTracks: data.hourTracks, dayTracks: data.dayTracks }) : null),
     [data],
   )
 
@@ -85,8 +87,8 @@ export default function StoryScreen() {
     run(SLIDE_MS)
   }, [i, reduced, slides])
 
-  const pause = () => { if (reduced) return; cancelAnimation(prog); remaining.current = SLIDE_MS * (1 - prog.value); setPaused(true) }
-  const resume = () => { if (!paused) return; setPaused(false); run(remaining.current) }
+  const pause = () => { if (reduced) return; cancelAnimation(prog); remaining.current = SLIDE_MS * (1 - prog.value); setPaused(true); music.pause() }
+  const resume = () => { if (!paused) return; setPaused(false); run(remaining.current); music.resume() }
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => { close(); return true })
@@ -95,22 +97,32 @@ export default function StoryScreen() {
 
   // ── Share card ──
   const card = useRef<View>(null)
-  const [sharing, setSharing] = useState(false)
-  const share = useCallback(async () => {
+  const [sharing, setSharing] = useState<null | 'share' | 'save'>(null)
+  /** Make the card image, then share it or save it to the user's folder. */
+  const cardAction = useCallback(async (action: 'share' | 'save') => {
     if (sharing || !data) return
     haptic.medium()
-    // Hold the slide timer while the share sheet is up; carry on after.
+    // Hold the slide timer (and the music) while a sheet or folder picker is up.
     cancelAnimation(prog)
     remaining.current = SLIDE_MS * (1 - prog.value)
-    setSharing(true)
+    music.pause()
+    setSharing(action)
     try {
-      if (!(await Sharing.isAvailableAsync())) { showToast('Sharing isn’t available on this phone', 'alert-circle-outline'); return }
       const uri = await captureRef(card, { format: 'png', quality: 1, width: CARD_W * 3, height: CARD_H * 3 })
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share your story' })
+      if (action === 'share') {
+        if (!(await Sharing.isAvailableAsync())) { showToast('Sharing isn’t available on this phone', 'alert-circle-outline'); return }
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share your story' })
+      } else {
+        const name = `playlist-lens-${data.all ? 'all-time' : data.comparison.current.kind}-${new Date().toISOString().slice(0, 10)}`
+        const r = await saveImageToFolder(uri, name)
+        if (r === 'saved') { haptic.success(); showToast('Card saved', 'checkmark-circle') }
+        else if (r === 'unsupported') await Sharing.shareAsync(uri, { mimeType: 'image/png' })
+      }
     } catch {
-      showToast('Couldn’t make the card — try again', 'alert-circle-outline')
+      showToast(action === 'save' ? 'Couldn’t save the card — try again' : 'Couldn’t make the card — try again', 'alert-circle-outline')
     } finally {
-      setSharing(false)
+      setSharing(null)
+      music.resume()
       if (!reduced) run(Math.max(remaining.current, 1500))
     }
   }, [sharing, data, reduced, run])
@@ -123,6 +135,13 @@ export default function StoryScreen() {
   useEffect(() => { if (palKey && coverUrl) extract(palKey, coverUrl) }, [palKey])
   const pal = palKey ? palettes[palKey] : undefined
   const coverPalette: Palette | null = artSlide && pal ? [pal.primary, pal.secondary, pal.detail, pal.background] : null
+
+  // ── Music: a 30-second preview under every slide (see slideSongs) ──
+  const music = useStoryMusic(slides && data ? slideSongs(
+    slides,
+    data.comparison.current.topTracks,
+    Math.floor(data.comparison.current.start / 86_400_000),
+  ) : null, i)
 
   if (!slides || !data) {
     return (
@@ -164,9 +183,15 @@ export default function StoryScreen() {
         </View>
         <View style={styles.topRow} pointerEvents="box-none">
           <Text style={styles.brand}>playlist<Text style={{ color: '#fff' }}>.</Text>lens</Text>
-          <Pressable onPress={close} hitSlop={12} style={styles.close} accessibilityRole="button" accessibilityLabel="Close story">
-            <Icon name="close" size={22} color="#fff" />
-          </Pressable>
+          <View style={styles.topBtns}>
+            <Pressable onPress={music.toggle} hitSlop={10} style={styles.close} accessibilityRole="button"
+              accessibilityLabel={music.on ? 'Mute the music' : 'Play music'}>
+              <Icon name={music.on ? 'volume-high' : 'volume-mute'} size={21} color="#fff" />
+            </Pressable>
+            <Pressable onPress={close} hitSlop={12} style={styles.close} accessibilityRole="button" accessibilityLabel="Close story">
+              <Icon name="close" size={22} color="#fff" />
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -198,7 +223,12 @@ export default function StoryScreen() {
               : (s.bars || s.compare || s.chips) ? <StoryTime slide={s} />
               : s.mosaic ? <StoryMosaic items={s.mosaic} />
               : s.pyramid ? <StoryPyramid items={s.pyramid} />
-              : s.clock ? <StoryClock clock={s.clock} />
+              : s.clock ? (
+                <View>
+                  <StoryClock clock={s.clock} compact={!!s.songs} />
+                  {s.songs ? <StorySongs songs={s.songs} /> : null}
+                </View>
+              )
               : s.share ? <StoryCardPreview s={data.comparison.current} all={data.all} palette={s.palette} maxHeight={PREVIEW_MAX_H} />
               : null}
           </View>
@@ -206,14 +236,24 @@ export default function StoryScreen() {
       </View>
 
       {s.share && (
-        <Pressable
-          onPress={share} disabled={sharing}
-          style={[styles.shareBtn, { bottom: insets.bottom + 64 }]}
-          accessibilityRole="button" accessibilityLabel="Share your story card"
-        >
-          {sharing ? <ActivityIndicator color="#0d0b14" /> : <Icon name="share-outline" size={18} color="#0d0b14" />}
-          <Text style={styles.shareText}>Share card</Text>
-        </Pressable>
+        <View style={[styles.cardBtns, { bottom: insets.bottom + 56 }]}>
+          <Pressable
+            onPress={() => cardAction('save')} disabled={!!sharing}
+            style={[styles.shareBtn, styles.saveBtn]}
+            accessibilityRole="button" accessibilityLabel="Save your story card to a folder"
+          >
+            {sharing === 'save' ? <ActivityIndicator color="#fff" /> : <Icon name="download-outline" size={18} color="#fff" />}
+            <Text style={[styles.shareText, { color: '#fff' }]}>Save</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => cardAction('share')} disabled={!!sharing}
+            style={styles.shareBtn}
+            accessibilityRole="button" accessibilityLabel="Share your story card"
+          >
+            {sharing === 'share' ? <ActivityIndicator color="#0d0b14" /> : <Icon name="share-outline" size={18} color="#0d0b14" />}
+            <Text style={styles.shareText}>Share</Text>
+          </Pressable>
+        </View>
       )}
       {/* Off-screen, captured on Share. */}
       {s.share && (
@@ -257,10 +297,13 @@ const styles = StyleSheet.create({
   sub:     { fontFamily: FontFamily.mono, fontSize: 14, lineHeight: 21, color: 'rgba(255,255,255,0.86)' },
   paused:  { position: 'absolute', alignSelf: 'center', fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
+  cardBtns:  { position: 'absolute', alignSelf: 'center', flexDirection: 'row', gap: Spacing.md },
   shareBtn:  {
-    position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 20, height: 46, borderRadius: 23, backgroundColor: '#fff',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 22, height: 46, borderRadius: 23, backgroundColor: '#fff',
   },
+  saveBtn:   { backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)' },
+  topBtns:   { flexDirection: 'row', alignItems: 'center' },
   shareText: { fontFamily: FontFamily.monoMedium, fontSize: 14, color: '#0d0b14' },
   offscreen: { position: 'absolute', left: -CARD_W * 3, top: 0 },
 })
