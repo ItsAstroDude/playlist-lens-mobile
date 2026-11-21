@@ -88,3 +88,32 @@ describe('story slides (Phase 4)', () => {
     expect(bucketName('month', start, 0)).not.toMatch(/31/)
   })
 })
+
+describe('story pictures (2.0.13)', () => {
+  const { barLabels } = require('@/utils/story')
+
+  it('peak slide carries the period bars; time slide the comparison; intro and range the mosaics', () => {
+    const rows: StreamRow[] = []
+    // this week: 9 artists, a peak on Tuesday; last week up to the same point: less
+    const days = ['16', '17', '17', '17', '18']
+    for (let a = 0; a < 9; a++) rows.push(row(`2026-11-${days[a % days.length]}T0${a}:00:00Z`, `t${a}`, `A${a}`))
+    rows.push(row('2026-11-10T08:00:00Z', 'old', 'Z'))
+    insertPlays(rows, 'recent')
+    const d = runSync(storyJob('week', 0, NOW, UTC))
+    const slides = buildStory(d.comparison)
+    const by = (id: string) => slides.find(s => s.id === id)!
+    expect(by('peak').bars).toMatchObject({ peak: 1, labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'] })
+    expect(by('peak').bars!.values).toHaveLength(7)
+    expect(by('time').compare).toMatchObject({ nowLabel: 'This week so far', beforeLabel: 'Last week, same point' })
+    expect(by('intro').mosaic).toHaveLength(6)
+    expect(by('range').mosaic).toHaveLength(9)
+    expect(by('range').mosaic![0].kind).toBe('artist')
+  })
+
+  it('bar labels per period', () => {
+    expect(barLabels('year', 12, false)).toHaveLength(12)
+    const m = barLabels('month', 30, false)
+    expect(m[0]).toBe('1'); expect(m[7]).toBe('8'); expect(m[1]).toBe('')
+    expect(barLabels('year', 3, true, ['2024', '2025', '2026'])).toEqual(["'24", "'25", "'26"])
+  })
+})

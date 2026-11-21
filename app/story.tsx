@@ -13,6 +13,7 @@ import { KineticText } from '@/components/motion/KineticText'
 import { ArtThumb } from '@/components/ui'
 import { ShareCard, CARD_W, CARD_H } from '@/components/story/ShareCard'
 import { FitHeadline } from '@/components/story/FitHeadline'
+import { StoryBars, StoryCompare, StoryMosaic, StoryClock, StoryCardPreview, PREVIEW_MAX_H } from '@/components/story/Visuals'
 import { useArtwork } from '@/hooks/useArtwork'
 import { usePalette } from '@/hooks/usePalette'
 import { buildStory, type Palette } from '@/utils/story'
@@ -144,6 +145,7 @@ export default function StoryScreen() {
   }
 
   const s = slides[i]
+  const hasVisual = !!(s.list || s.bars || s.compare || s.mosaic || s.clock || s.share)
   return (
     <View style={styles.root}>
       <Aurora colors={coverPalette ?? s.palette} style={StyleSheet.absoluteFill} dim={0.34} />
@@ -168,7 +170,16 @@ export default function StoryScreen() {
         </View>
       </View>
 
-      <View style={[styles.body, s.art && styles.bodyArt]} pointerEvents="none" key={s.id} accessibilityLiveRegion="polite">
+      {/* Slides with a picture: the words up top, the picture filling the space below.
+          Cover slides keep the cover-and-words centred; the rest stay centred too. */}
+      <View
+        style={[
+          styles.body,
+          s.art && styles.bodyArt,
+          hasVisual && !s.art && [styles.bodySplit, { paddingTop: insets.top + 92, paddingBottom: insets.bottom + (s.share ? 128 : 44) }],
+        ]}
+        pointerEvents="none" key={s.id} accessibilityLiveRegion="polite"
+      >
         {s.art ? (
           // Cover slides: the cover big and centred, the words centred under it.
           <RackFocus index={0} style={styles.artWrap}>
@@ -176,27 +187,37 @@ export default function StoryScreen() {
           </RackFocus>
         ) : null}
         <KineticText text={s.kicker} style={styles.kicker} stagger={60} containerStyle={s.art ? styles.center : undefined} />
-        {s.list ? (
-          <View style={styles.list}>
-            {s.list.map((r, k) => (
-              <RackFocus key={r.name + k} index={k + 1} step={110}>
-                <View style={styles.listRow}>
-                  <Text style={styles.listRank}>{k + 1}</Text>
-                  {s.listKind ? <ArtThumb kind={s.listKind} name={r.name} artist={r.sub} size={40} /> : null}
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.listName} numberOfLines={1}>{r.name}</Text>
-                    {r.sub ? <Text style={styles.listSub} numberOfLines={1}>{r.sub}</Text> : null}
-                  </View>
-                  <Text style={styles.listValue}>{r.value}</Text>
-                </View>
-              </RackFocus>
-            ))}
-          </View>
-        ) : s.roll
+        {s.list ? null : s.roll
           ? <RollingNumber value={s.big} style={styles.big} unitStyle={styles.bigUnit} stagger={90} />
           : <FitHeadline text={s.big} style={styles.big} delay={260} stagger={110} containerStyle={s.art ? styles.center : undefined} />}
-        {s.clock ? <MiniClock clock={s.clock} /> : null}
         {s.sub ? <KineticText text={s.sub} style={styles.sub} delay={700} stagger={40} containerStyle={s.art ? styles.center : undefined} /> : null}
+
+        {hasVisual && !s.art ? (
+          <View style={styles.visual}>
+            {s.list ? (
+              <View style={styles.list}>
+                {s.list.map((r, k) => (
+                  <RackFocus key={r.name + k} index={k + 1} step={110}>
+                    <View style={styles.listRow}>
+                      <Text style={styles.listRank}>{k + 1}</Text>
+                      {s.listKind ? <ArtThumb kind={s.listKind} name={r.name} artist={r.sub} size={58} /> : null}
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.listName} numberOfLines={2}>{r.name}</Text>
+                        {r.sub ? <Text style={styles.listSub} numberOfLines={1}>{r.sub}</Text> : null}
+                      </View>
+                      <Text style={styles.listValue}>{r.value}</Text>
+                    </View>
+                  </RackFocus>
+                ))}
+              </View>
+            ) : s.bars ? <StoryBars bars={s.bars} />
+              : s.compare ? <StoryCompare c={s.compare} />
+              : s.mosaic ? <StoryMosaic items={s.mosaic} />
+              : s.clock ? <StoryClock clock={s.clock} />
+              : s.share ? <StoryCardPreview s={data.comparison.current} all={data.all} palette={s.palette} maxHeight={PREVIEW_MAX_H} />
+              : null}
+          </View>
+        ) : null}
       </View>
 
       {s.share && (
@@ -222,21 +243,6 @@ export default function StoryScreen() {
   )
 }
 
-/** 24 thin bars: when in the day you listen. */
-function MiniClock({ clock }: { clock: number[] }) {
-  const max = Math.max(...clock, 1)
-  const peak = clock.indexOf(max)
-  return (
-    <View style={styles.clock}>
-      {clock.map((v, h) => (
-        <View key={h} style={styles.clockCol}>
-          <View style={[styles.clockBar, { height: `${Math.max(4, (v / max) * 100)}%`, opacity: h === peak ? 1 : 0.45 }]} />
-        </View>
-      ))}
-    </View>
-  )
-}
-
 function Bar({ k, idx, prog }: { k: number; idx: SharedValue<number>; prog: SharedValue<number> }) {
   const a = useAnimatedStyle(() => ({ width: `${(k < idx.value ? 1 : k === idx.value ? prog.value : 0) * 100}%` }))
   return <View style={styles.bar}><Animated.View style={[styles.barFill, a]} /></View>
@@ -253,6 +259,8 @@ const styles = StyleSheet.create({
   close:   { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   body:    { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.xl, gap: Spacing.md },
   bodyArt: { alignItems: 'center' },
+  bodySplit: { justifyContent: 'flex-start' },
+  visual:  { flex: 1, justifyContent: 'center', marginTop: Spacing.lg },
   artWrap: {
     marginBottom: Spacing.md, borderRadius: 24,
     shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 28, shadowOffset: { width: 0, height: 16 }, elevation: 18,
@@ -264,15 +272,12 @@ const styles = StyleSheet.create({
   sub:     { fontFamily: FontFamily.mono, fontSize: 14, lineHeight: 21, color: 'rgba(255,255,255,0.86)' },
   paused:  { position: 'absolute', alignSelf: 'center', fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
-  list:      { gap: 10, marginTop: Spacing.xs },
+  list:      { gap: 16 },
   listRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   listRank:  { fontFamily: FontFamily.syneBold, fontSize: 22, color: 'rgba(255,255,255,0.6)', width: 24 },
-  listName:  { fontFamily: FontFamily.syneBold, fontSize: 20, lineHeight: 24, color: '#fff', letterSpacing: -0.5 },
+  listName:  { fontFamily: FontFamily.syneBold, fontSize: 19, lineHeight: 23, color: '#fff', letterSpacing: -0.5 },
   listSub:   { fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.75)' },
   listValue: { fontFamily: FontFamily.mono, fontSize: 13, color: 'rgba(255,255,255,0.86)' },
-  clock:     { flexDirection: 'row', alignItems: 'flex-end', height: 72, gap: 3 },
-  clockCol:  { flex: 1, height: '100%', justifyContent: 'flex-end' },
-  clockBar:  { width: '100%', borderRadius: 2, backgroundColor: '#fff' },
   shareBtn:  {
     position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 20, height: 46, borderRadius: 23, backgroundColor: '#fff',

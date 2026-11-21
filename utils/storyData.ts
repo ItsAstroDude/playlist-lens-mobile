@@ -26,18 +26,18 @@ const DAY = 86_400
 
 export function* storyJob(kind: StoryKind, back: number, now: Date, offsetSec: number): Job<StoryData> {
   if (kind === 'all') {
-    const s: PeriodStats = yield* periodStatsJob('all', { now, offsetSec, topN: 5 })
+    const s: PeriodStats = yield* periodStatsJob('all', { now, offsetSec, topN: 9 })
     // Shaped as a "year" summary whose buckets are years (bucketLabels name them).
     const current = { ...toSummary({ ...s, kind: 'year' }), kind: 'year' as const }
     return { comparison: { current, previous: { ...current, ms: 0, plays: 0 }, deltaMs: null, deltaPlays: null }, all: true, past: false, newArtists: null }
   }
   let comparison: PeriodComparison
   if (back <= 0) {
-    comparison = toComparison(yield* comparePeriodJob(kind, { now, offsetSec, topN: 5 }))
+    comparison = toComparison(yield* comparePeriodJob(kind, { now, offsetSec, topN: 9 }))
   } else {
     // A finished period against the whole one before it.
-    const cur: PeriodStats  = yield* periodStatsJob(kind, { now, offsetSec, back, topN: 5 })
-    const prev: PeriodStats = yield* periodStatsJob(kind, { now, offsetSec, back: back + 1, topN: 5 })
+    const cur: PeriodStats  = yield* periodStatsJob(kind, { now, offsetSec, back, topN: 9 })
+    const prev: PeriodStats = yield* periodStatsJob(kind, { now, offsetSec, back: back + 1, topN: 9 })
     comparison = { current: toSummary(cur), previous: toSummary(prev), deltaMs: pct(cur.ms, prev.ms), deltaPlays: pct(cur.plays, prev.plays) }
   }
   const { start, end } = periodRange(kind, now, offsetSec, Math.max(0, back))
@@ -49,7 +49,8 @@ export function* storyJob(kind: StoryKind, back: number, now: Date, offsetSec: n
 export function storyAsync(kind: StoryKind, back = 0, now: Date = new Date()): Promise<StoryData> {
   const off = localOffsetSec(now)
   const hour = Math.floor(now.getTime() / 3_600_000)
-  return cachedAsync(`story.${kind}.${back}`, `${off}:${hour}`, () => storyJob(kind, back, now, off))
+  // v2: top 9 (2.0.13)
+  return cachedAsync(`story2.${kind}.${back}`, `${off}:${hour}`, () => storyJob(kind, back, now, off))
 }
 
 /**

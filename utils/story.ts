@@ -20,8 +20,14 @@ export interface StorySlide {
   listKind?: ArtKind
   /** 24 hourly values: a little listening clock. */
   clock?:  number[]
-  /** The last slide: offers the share card. */
+  /** The last slide: offers the share card (and shows a preview of it). */
   share?:  boolean
+  /** A bar chart of the period with one bar picked out (the biggest day / month / year). */
+  bars?:   { values: number[]; labels: string[]; peak: number }
+  /** This period against the one before, as two bars. */
+  compare?: { now: number; before: number; nowLabel: string; beforeLabel: string }
+  /** A grid of covers / photos (top songs on the intro, top artists on "you heard"). */
+  mosaic?: { kind: ArtKind; name: string; artist?: string }[]
 }
 
 export interface StoryOpts {
@@ -73,6 +79,14 @@ export function clockPersona(hour: number): string {
 
 const two = (h: number) => `${String(h).padStart(2, '0')}:00`
 
+/** Short labels under a period's bars (sparse where there are many). */
+export function barLabels(kind: SummaryKind, n: number, all: boolean, yearLabels?: string[]): string[] {
+  if (all) return (yearLabels ?? []).map((y, i, a) => (a.length <= 8 || i % 2 === 0 || i === a.length - 1 ? `'${y.slice(-2)}` : ''))
+  if (kind === 'week') return ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+  if (kind === 'year') return ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
+  return Array.from({ length: n }, (_, i) => (i % 7 === 0 ? String(i + 1) : ''))
+}
+
 export function buildStory(c: PeriodComparison, opts: StoryOpts = {}): StorySlide[] {
   const s = c.current, kind = s.kind
   const w = opts.all ? 'all time' : WORD[kind]
@@ -85,10 +99,19 @@ export function buildStory(c: PeriodComparison, opts: StoryOpts = {}): StorySlid
   slides.push(opts.all
     ? { id: 'intro', kicker: 'Everything you’ve played', big: 'All time', sub: `Since ${since} · tap to skip ahead · hold to pause`, palette: pal(0) }
     : { id: 'intro', kicker: `Your ${w} in music`, big: periodTitle(s), sub: 'Tap to skip ahead · hold to pause', palette: pal(0) })
+  // The intro opens on a wall of what you played.
+  if (s.topTracks.length >= 3) slides[0].mosaic = s.topTracks.slice(0, 6).map(x => ({ kind: 'track' as const, name: x.name, artist: x.sub }))
   const vs = opts.past ? `the ${w} before` : `last ${w}`
   slides.push({
     id: 'time', kicker: 'You listened for', big: fmtListen(s.ms), roll: true, palette: pal(1),
     sub: c.deltaMs === null ? `${s.plays.toLocaleString()} plays` : `${c.deltaMs >= 0 ? 'Up' : 'Down'} ${Math.abs(c.deltaMs)}% on ${vs} · ${s.plays.toLocaleString()} plays`,
+    ...(c.deltaMs !== null && c.previous.ms > 0 ? {
+      compare: {
+        now: s.ms, before: c.previous.ms,
+        nowLabel: opts.past ? `That ${w}` : `This ${w}${opts.past ? '' : ' so far'}`,
+        beforeLabel: opts.past ? `The ${w} before` : `Last ${w}, same point`,
+      },
+    } : {}),
   })
   const a = s.topArtists[0]
   if (a) slides.push({ id: 'artist', kicker: 'The artist you couldn’t stop playing', big: a.name, sub: `${fmtListen(a.ms)} · ${a.plays.toLocaleString()} plays`, palette: pal(2), art: { kind: 'artist', name: a.name } })
@@ -105,7 +128,10 @@ export function buildStory(c: PeriodComparison, opts: StoryOpts = {}): StorySlid
   const peak = s.buckets.reduce((best, v, i) => (v > s.buckets[best] ? i : best), 0)
   if (s.buckets[peak] > 0) {
     const name = opts.all ? (s.bucketLabels?.[peak] ?? '') : bucketName(kind, s.start, peak)
-    slides.push({ id: 'peak', kicker: `Your biggest ${opts.all ? 'year' : kind === 'year' ? 'month' : 'day'}`, big: name, sub: fmtListen(s.buckets[peak]), palette: pal(4) })
+    slides.push({
+      id: 'peak', kicker: `Your biggest ${opts.all ? 'year' : kind === 'year' ? 'month' : 'day'}`, big: name, sub: fmtListen(s.buckets[peak]), palette: pal(4),
+      bars: { values: s.buckets, labels: barLabels(kind, s.buckets.length, !!opts.all, s.bucketLabels), peak },
+    })
   }
   if (s.clock && s.clock.some(v => v > 0)) {
     const h = s.clock.indexOf(Math.max(...s.clock))
@@ -114,7 +140,10 @@ export function buildStory(c: PeriodComparison, opts: StoryOpts = {}): StorySlid
   const fresh = opts.newArtists && opts.newArtists > 0 ? ` · ${opts.newArtists.toLocaleString()} of them new to you` : ''
   // Just the number rolls (a rolling number can't wrap: "12,345 artists" in the display
   // face is wider than a phone), the unit goes in the line under it.
-  slides.push({ id: 'range', kicker: 'You heard', big: s.artists.toLocaleString(), roll: true, sub: `${s.artists === 1 ? 'artist' : 'artists'} and ${s.tracks.toLocaleString()} different songs${fresh}`, palette: pal(5) })
+  slides.push({
+    id: 'range', kicker: 'You heard', big: s.artists.toLocaleString(), roll: true, sub: `${s.artists === 1 ? 'artist' : 'artists'} and ${s.tracks.toLocaleString()} different songs${fresh}`, palette: pal(5),
+    ...(s.topArtists.length >= 4 ? { mosaic: s.topArtists.slice(0, 9).map(x => ({ kind: 'artist' as const, name: x.name })) } : {}),
+  })
   slides.push(opts.all
     ? { id: 'outro', kicker: 'That’s all of it, so far', big: 'Keep listening', sub: 'Share your card, or tap to close.', palette: pal(0), share: true }
     : { id: 'outro', kicker: opts.past ? `That was your ${w}` : `That’s your ${w}`, big: opts.past ? 'Nice one' : 'See you next one', sub: 'Share your card, or tap to close.', palette: pal(0), share: true })
