@@ -17,7 +17,8 @@ import { newToYouAsync, onThisDay, streaksAsync, milestonesAsync, type NewToYou,
 import { NewToYouCard, OnThisDayCard, StreaksCard, MilestonesCard } from '@/components/stats/Highlights'
 import { CalendarHeatmap } from '@/components/stats/CalendarHeatmap'
 import { trackingEnrolled } from '@/utils/tracking'
-import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow, IconButton, ArtThumb } from '@/components/ui'
+import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow, IconButton, ArtThumb, BackButton } from '@/components/ui'
+import { LiquidBackground } from '@/components/motion/LiquidBackground'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
@@ -476,6 +477,8 @@ export default function WrappedTab() {
 
   return (
     <View style={styles.container}>
+      {/* Its own page now (Labs › Wrapped), so it brings the background the tabs share. */}
+      <LiquidBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
         <TabHeader
@@ -483,6 +486,7 @@ export default function WrappedTab() {
           subtitle={subtitle}
           titleRight={
             <>
+              <BackButton />
               <IconButton icon="time-outline" label="History: every play, searchable, by day" onPress={() => router.push('/history')} />
               <IconButton icon="albums-outline" label="Recaps: past weeks, months, seasons and years" onPress={() => router.push('/recaps')} />
             </>

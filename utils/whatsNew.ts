@@ -19,6 +19,25 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.20',
+    name:    'More or less',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Play: a new tab with More or less, a game on your own listening. Did you play this song (or artist) more or less than that one? Keep going until you get one wrong, and beat your best.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Wrapped is being rebuilt to scroll smoothly. Until then it lives in Settings › About › Labs, and stories, recaps and history keep working as before.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.19',
     name:    'Two screens',
     date:    '2026-11-21',

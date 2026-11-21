@@ -17,6 +17,9 @@ export default function Labs() {
       <ScreenHeader title="labs" subtitle="Prototypes and testing tools. Things here may change or go away." />
 
       <Section label="prototypes">
+        <ListRow icon="disc-outline" tint="violet" label="Wrapped (work in progress)"
+          hint="Being rebuilt to scroll smoothly. Its tab is the Play minigame for now"
+          onPress={go('/wrapped')} />
         <ListRow icon="phone-portrait-outline" tint="sky" label="Cover screen lab"
           hint="A ring round the cameras on the Flip's cover screen"
           onPress={go('/cover-lab')} />

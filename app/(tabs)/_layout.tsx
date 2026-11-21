@@ -86,7 +86,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="index"   options={{ title: 'lenses'  }} />
       <Tabs.Screen name="queue"   options={{ title: 'queue'   }} />
-      <Tabs.Screen name="wrapped" options={{ title: 'wrapped' }} />
+      <Tabs.Screen name="play"    options={{ title: 'play'    }} />
       <Tabs.Screen name="swipe"   options={{ title: 'swipe'   }} />
     </Tabs>
   )

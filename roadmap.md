@@ -331,6 +331,20 @@ The tracker's per-user play store is the foundation, so nothing in 2.0 blocks it
 
 ---
 
+# Wrapped behind the wall (decided 2026-11-21)
+Wrapped Year / All time still dropped ~30% of frames after two rounds of fixes (the UI
+thread is fixed; the RenderThread/GPU drawing of the aurora + many glass cards is the limit),
+and as a tab it stayed mounted and slowed the other tabs. So until it's fixed:
+- Wrapped is its own page, `/wrapped` (Settings › About › Labs › Wrapped). It mounts only
+  while open. Stories, Recaps, History and notifications are unchanged.
+- Its tab is **Play**: a construction wall linking to Labs, and **More or less**, a game on
+  your own listening (`utils/game.ts`, `app/(tabs)/play.tsx`): did you play this song /
+  artist more or less than that one? Chains until a wrong answer; best score saved. Cheap to
+  draw on purpose (two cards, no endless motion).
+- [ ] Profile Wrapped's drawing (lag session), fix, then decide: back as a tab, or stay a page.
+
+---
+
 # Cover screen — Galaxy Z Flip 7 (started 2026-11-21)
 A compact playlist.lens for the Flip's cover screen, built around the cameras the way
 Samsung's own cover UI is. One UI 9 lets almost any app run there.

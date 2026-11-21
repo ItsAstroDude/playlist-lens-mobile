@@ -23,7 +23,7 @@ const GOO = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 22, -9]
 const TAB_ICONS: Record<string, [IconName, IconName]> = {
   index:   ['aperture', 'aperture-outline'],
   queue:   ['list',     'list-outline'],
-  wrapped: ['disc',     'disc-outline'],
+  play:    ['game-controller', 'game-controller-outline'],
   swipe:   ['layers',   'layers-outline'],
 }
 
