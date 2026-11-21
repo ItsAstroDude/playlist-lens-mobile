@@ -1,3 +1,5 @@
+import { setTabBarHidden } from '@/utils/tabBar'
+import { useIsCover } from '@/hooks/useScreen'
 import React, { useEffect, useRef, useState } from 'react'
 import {
   View,
@@ -5,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Dimensions,
+  useWindowDimensions,
   Pressable,
 } from 'react-native'
 import { Image } from 'expo-image'
@@ -35,7 +38,8 @@ import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/Wr
 import { withMemorialMark } from '@/utils/tribute'
 import type { SpotifyPlaylist, PlaylistAnalysis, PlaylistPalette } from '@/types'
 
-const { width: SW, height: SH } = Dimensions.get('window')
+// Sizes come from the live window (the Flip's cover screen is a different shape from
+// the main screen), never from the one the app launched on.
 const HERO_H = 260
 const SHEET_MAX = 0.9
 const COVER = 132
@@ -43,6 +47,7 @@ const COVER = 132
 /** Where the sheet's hero cover sits once open (window coordinates) — the target for
  *  the Lenses "card opens into the lens" flight. Sheet top + its grab area + margin. */
 export function detailCoverRect() {
+  const { width: SW, height: SH } = Dimensions.get('window')
   const grab = Spacing.sm + 4 + Spacing.md + Spacing.sm
   return { x: (SW - COVER) / 2, y: SH * (1 - SHEET_MAX) + grab + Spacing.xl, w: COVER, h: COVER }
 }
@@ -65,6 +70,14 @@ export function DetailSheet({ playlist, palette, onClose, onGone, coverHidden = 
   const insets = useSafeAreaInsets()
   const gutter = useNowPlayingGutter()
   const isOpen = playlist !== null
+  // Flip cover screen: the tab strip steps aside while the lens is open, and the
+  // content gets room to scroll clear of the cameras (bottom-right).
+  const cover = useIsCover()
+  useEffect(() => {
+    if (!cover) return
+    setTabBarHidden(isOpen)
+    return () => { if (isOpen) setTabBarHidden(false) }
+  }, [cover, isOpen])
   const { status, data, error, analyze, reset } = useAnalysis()
   // Tap a top artist → expand the same item sheet Wrapped uses (mounted beside the
   // sheet, not inside the ScrollView, so it anchors to the screen).
@@ -101,7 +114,7 @@ export function DetailSheet({ playlist, palette, onClose, onGone, coverHidden = 
         <View style={{ flex: 1 }}>
         <Animated.ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 96 + gutter }}
+          contentContainerStyle={{ paddingBottom: cover ? 150 : insets.bottom + 96 + gutter }}
           bounces
           onScroll={cc.onScroll}
           scrollEventThrottle={16}
@@ -426,6 +439,7 @@ function BarRow({ label, count, max, color, valueLabel, delay, onPress }: {
 }) {
   const barW = useSharedValue(0)
   const pct  = max > 0 ? count / max : 0
+  const { width: SW } = useWindowDimensions()
   const BAR_FULL = SW - Spacing.lg * 2 - Spacing['2xl'] * 2 - 130
 
   useEffect(() => {
@@ -448,6 +462,7 @@ function BarRow({ label, count, max, color, valueLabel, delay, onPress }: {
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
 function AnalysisSkeleton({ accent }: { accent: string }) {
+  const { width: SW } = useWindowDimensions()
   return (
     <View style={styles.content}>
       <Skeleton height={32} width="45%" borderRadius={Radius.full} style={{ marginBottom: Spacing.lg }} />
@@ -476,7 +491,7 @@ const styles = StyleSheet.create({
   // ── Hero ──
   hero: {
     height:   HERO_H,
-    width:    SW,
+    width:    '100%',
     overflow: 'hidden',
   },
   heroCoverWrap: {

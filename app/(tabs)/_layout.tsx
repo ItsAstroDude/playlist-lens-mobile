@@ -3,7 +3,8 @@ import { Tabs } from 'expo-router'
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import { runOnJS } from 'react-native-reanimated'
+import Animated, { runOnJS, useAnimatedStyle, withTiming } from 'react-native-reanimated'
+import { tabBarHidden } from '@/utils/tabBar'
 import { Colors } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { getNavbarStyle } from '@/utils/settings'
@@ -64,8 +65,14 @@ function CoverTabs({ state, navigation, navRef, onTab }: TabBarProps & TabBarExt
   const maxWidth = FLIP7_FLASH_ZONE_LEFT * panelScale(W) - STRIP_LEFT
   navRef.current = { index: state.index, routes: state.routes, navigate: navigation.navigate }
   useEffect(() => { onTab(state.routes[state.index]?.name ?? '') }, [state.index])
+  // Same hide signal as the main tab bar (scrolling Lenses, an open lens sheet).
+  useEffect(() => { tabBarHidden.value = withTiming(0, { duration: 200 }) }, [state.index])
+  const hide = useAnimatedStyle(() => ({
+    opacity: 1 - tabBarHidden.value,
+    transform: [{ translateY: tabBarHidden.value * (STRIP_BOTTOM + 60) }],
+  }))
   return (
-    <View style={[styles.coverStrip, { left: STRIP_LEFT, bottom: STRIP_BOTTOM, maxWidth }]}>
+    <Animated.View style={[styles.coverStrip, { left: STRIP_LEFT, bottom: STRIP_BOTTOM, maxWidth }, hide]}>
       {state.routes.map((route, i) => {
         const on = i === state.index
         const [filled, outline] = TAB_ICONS[route.name] ?? ['ellipse', 'ellipse-outline']
@@ -81,7 +88,7 @@ function CoverTabs({ state, navigation, navRef, onTab }: TabBarProps & TabBarExt
           </Pressable>
         )
       })}
-    </View>
+    </Animated.View>
   )
 }
 
