@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
-import { Canvas, Circle, Group, Rect, Blur } from '@shopify/react-native-skia'
-import {
-  useSharedValue, useDerivedValue, withTiming, interpolateColor, Easing,
+import { Canvas, Circle, Blur } from '@shopify/react-native-skia'
+import Animated, {
+  useSharedValue, useAnimatedStyle, withTiming, Easing, runOnJS, type SharedValue,
 } from 'react-native-reanimated'
 import { useMotionReduced } from './reduced'
 import { useMotionClock } from './clock'
@@ -12,7 +12,20 @@ import { useMotionClock } from './clock'
  * behind everything and cross-fade (1 s) whenever `colors` changes.
  *
  *   <Aurora colors={palette /* 4 hex colours from the cover *\/} style={StyleSheet.absoluteFill} />
+ *
+ * 2.0.17 — same paths, sizes, blur and "screen" blend, far less work. It used to redraw
+ * a full-screen blur of all four circles on every frame (60×/s), which with a story's
+ * music decoding alongside made the background stutter. Now each blob is drawn once
+ * (small, then scaled up — a blur scales up looking the same) and only moved and scaled
+ * on the UI thread; a colour change fades the new drawing in over the old one.
  */
+
+/** Blobs are drawn at a quarter of their on-screen size and scaled ×4. */
+const K = 0.25
+/** Base radius and blur, as shares of the box's longer side (as before). */
+const R0 = 0.32
+const SIGMA = 0.16
+
 export function Aurora({ colors, base = '#0d0b14', dim = 0.38, style }: {
   colors: [string, string, string, string]
   base?: string
@@ -24,41 +37,76 @@ export function Aurora({ colors, base = '#0d0b14', dim = 0.38, style }: {
   const [box, setBox] = useState({ w: 0, h: 0 })
   const t = useMotionClock(!reduced)
 
-  const from = useSharedValue<string[]>(colors)
-  const to = useSharedValue<string[]>(colors)
-  const mix = useSharedValue(1)
+  // Colour change: the old drawing stays under, the new one fades in over it.
+  const key = colors.join(',')
+  const [layers, setLayers] = useState({ under: colors, over: colors })
+  const fade = useSharedValue(1)
   useEffect(() => {
-    // Start the fade from wherever the previous one had got to.
-    const m = mix.value
-    from.value = from.value.map((c, i) => interpolateColor(m, [0, 1], [c, to.value[i]]) as string)
-    to.value = colors
-    mix.value = 0
-    mix.value = withTiming(1, { duration: reduced ? 0 : 1000, easing: Easing.inOut(Easing.ease) })
-  }, [colors.join(',')])
+    if (key === layers.over.join(',')) return
+    if (reduced) { setLayers({ under: colors, over: colors }); return }
+    setLayers({ under: layers.over, over: colors })
+    fade.value = 0
+    fade.value = withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }, done => {
+      if (done) runOnJS(setLayers)({ under: colors, over: colors })
+    })
+  }, [key])
 
-  const blob = (i: number) => {
-    const color = useDerivedValue(() => interpolateColor(mix.value, [0, 1], [from.value[i], to.value[i]]))
-    const cx = useDerivedValue(() => box.w * (0.5 + 0.42 * Math.sin(t.value * 0.00027 * (1 + i * 0.33) + i * 1.9)))
-    const cy = useDerivedValue(() => box.h * (0.45 + 0.4 * Math.cos(t.value * 0.00021 * (1 + i * 0.27) + i * 2.4)))
-    const r = useDerivedValue(() => Math.max(box.w, box.h) * (0.32 + 0.05 * Math.sin(t.value * 0.0005 + i)))
-    return { color, cx, cy, r }
-  }
-  const b = [blob(0), blob(1), blob(2), blob(3)]
-
+  const side = Math.max(box.w, box.h)
   return (
-    <View style={[styles.fill, style]} pointerEvents="none" onLayout={e => setBox({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
-      {box.w > 0 && (
-        <Canvas style={StyleSheet.absoluteFill}>
-          <Rect x={0} y={0} width={box.w} height={box.h} color={base} />
-          <Group blendMode="screen" opacity={0.85}>
-            {b.map((x, i) => <Circle key={i} cx={x.cx} cy={x.cy} r={x.r} color={x.color} />)}
-            <Blur blur={Math.max(box.w, box.h) * 0.16} />
-          </Group>
-          <Rect x={0} y={0} width={box.w} height={box.h} color={`rgba(8,6,14,${dim})`} />
-        </Canvas>
-      )}
+    <View
+      style={[styles.fill, { backgroundColor: base }, style]}
+      pointerEvents="none"
+      onLayout={e => setBox({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+    >
+      {box.w > 0 && [0, 1, 2, 3].map(i => (
+        <Blob key={i} i={i} t={t} box={box} side={side} under={layers.under[i]} over={layers.over[i]} fade={fade} />
+      ))}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(8,6,14,${dim})` }]} />
     </View>
   )
 }
 
-const styles = StyleSheet.create({ fill: { overflow: 'hidden' } })
+function Blob({ i, t, box, side, under, over, fade }: {
+  i: number; t: SharedValue<number>; box: { w: number; h: number }; side: number
+  under: string; over: string; fade: SharedValue<number>
+}) {
+  // The drawing: base radius plus 3σ of blur on each side, at a quarter size.
+  const c = Math.ceil((R0 + 0.05 + 3 * SIGMA) * side * 2 * K)
+  const r0 = side * R0
+  const move = useAnimatedStyle(() => {
+    // The same paths as before: centre, and a radius that breathes ±0.05.
+    const cx = box.w * (0.5 + 0.42 * Math.sin(t.value * 0.00027 * (1 + i * 0.33) + i * 1.9))
+    const cy = box.h * (0.45 + 0.4 * Math.cos(t.value * 0.00021 * (1 + i * 0.27) + i * 2.4))
+    const r = side * (R0 + 0.05 * Math.sin(t.value * 0.0005 + i))
+    return { transform: [{ translateX: cx - c / 2 }, { translateY: cy - c / 2 }, { scale: (r / r0) / K }] }
+  })
+  const fadeIn = useAnimatedStyle(() => ({ opacity: fade.value }))
+  return (
+    <Animated.View style={[styles.blob, { width: c, height: c }, move]}>
+      <BlobCanvas size={c} r={r0 * K} sigma={side * SIGMA * K} color={under} />
+      {over !== under && (
+        <Animated.View style={[StyleSheet.absoluteFill, fadeIn]}>
+          <BlobCanvas size={c} r={r0 * K} sigma={side * SIGMA * K} color={over} />
+        </Animated.View>
+      )}
+    </Animated.View>
+  )
+}
+
+/** One blurred circle, drawn once per colour (memoised: moving it never redraws it). */
+const BlobCanvas = React.memo(function BlobCanvas({ size, r, sigma, color }: { size: number; r: number; sigma: number; color: string }) {
+  return (
+    <Canvas style={{ width: size, height: size, position: 'absolute' }}>
+      <Circle cx={size / 2} cy={size / 2} r={r} color={color}>
+        <Blur blur={sigma} />
+      </Circle>
+    </Canvas>
+  )
+})
+
+const styles = StyleSheet.create({
+  // isolate: the blobs "screen"-blend with each other and the base, not with what's
+  // behind the aurora.
+  fill: { overflow: 'hidden', isolation: 'isolate' },
+  blob: { position: 'absolute', left: 0, top: 0, opacity: 0.85, mixBlendMode: 'screen' },
+})

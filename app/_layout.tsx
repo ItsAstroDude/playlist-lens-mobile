@@ -21,7 +21,7 @@ import {
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono'
 import { Manrope_500Medium, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope'
 import { Outfit_500Medium, Outfit_700Bold } from '@expo-google-fonts/outfit'
-import { useNowPlaying } from '@/hooks/useNowPlaying'
+import { useNowPlayingSelect } from '@/hooks/useNowPlaying'
 import { usePalette } from '@/hooks/usePalette'
 import { setTint, toHex, fallbackTint, type Tint } from '@/utils/liquidTint'
 import { ensureReadable } from '@/utils/color'
@@ -74,10 +74,10 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
  * aurora background floats in. Keeps the last song's colours when playback stops.
  */
 function LiquidTintFeeder() {
-  const { np } = useNowPlaying()
+  // Only the song (id + cover) — not progress, which changes every poll.
+  const song = useNowPlayingSelect(np => (np?.item ? `${np.item.id ?? ''}\u0000${np.item.album?.images?.[0]?.url ?? ''}` : null))
   const { extract } = usePalette()
-  const id = np?.item?.id ?? null
-  const art = np?.item?.album?.images?.[0]?.url ?? null
+  const [id, art] = song ? song.split('\u0000') : [null, null]
   useEffect(() => {
     if (!id || !art) return
     let alive = true
