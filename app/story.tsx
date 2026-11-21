@@ -218,7 +218,7 @@ export default function StoryScreen() {
         {s.sub ? <KineticText text={s.sub} style={styles.sub} delay={700} stagger={40} containerStyle={s.art ? styles.center : undefined} /> : null}
 
         {hasVisual && !s.art ? (
-          <View style={styles.visual}>
+          <View style={[styles.visual, (s.bars || s.compare || s.chips) && styles.visualTop]}>
             {s.hero ? <StoryHero slide={s} />
               : (s.bars || s.compare || s.chips) ? <StoryTime slide={s} />
               : s.mosaic ? <StoryMosaic items={s.mosaic} />
@@ -286,6 +286,7 @@ const styles = StyleSheet.create({
   bodyArt: { alignItems: 'center' },
   bodySplit: { justifyContent: 'flex-start' },
   visual:  { flex: 1, justifyContent: 'center', marginTop: Spacing.lg },
+  visualTop: { justifyContent: 'flex-start', marginTop: Spacing.xl },
   artWrap: {
     marginBottom: Spacing.md, borderRadius: 24,
     shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 28, shadowOffset: { width: 0, height: 16 }, elevation: 18,

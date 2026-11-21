@@ -37,6 +37,7 @@ export const CHANGELOG: PatchEntry[] = [
         items: [
           'The story intro fills the screen with your top songs’ covers.',
           'Share card: the three numbers line up, and long song titles no longer break in the middle of a word.',
+          'The time slide sits higher, so your biggest day’s songs show their full names; a month’s day numbers no longer turn into “…”.',
         ],
       },
     ],

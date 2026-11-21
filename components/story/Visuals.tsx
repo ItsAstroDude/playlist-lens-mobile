@@ -39,10 +39,16 @@ export function StoryBars({ bars, height }: { bars: NonNullable<StorySlide['bars
           </View>
         ))}
       </View>
-      <View style={styles.barLabels}>
-        {bars.labels.map((l, i) => (
-          <Text key={i} style={[styles.barLabel, i === bars.peak && styles.barLabelPeak]} numberOfLines={1}>{l}</Text>
-        ))}
+      {/* Each label centred under its own bar, 32 pt wide — a month's 30 thin bars
+          can't each hold "29" in their own width (it showed as "…"). */}
+      <View style={styles.barLabelRow}>
+        {bars.labels.map((l, i) => (l ? (
+          <Text
+            key={i}
+            style={[styles.barLabelAbs, { left: `${((i + 0.5) / bars.labels.length) * 100}%` }, i === bars.peak && styles.barLabelPeak]}
+            numberOfLines={1}
+          >{l}</Text>
+        ) : null))}
       </View>
     </RackFocus>
   )
@@ -89,23 +95,21 @@ export function StorySongs({ songs, start = 2 }: { songs: NonNullable<StorySlide
   )
 }
 
-/** Three covers side by side with names — a day's soundtrack, compact. */
+/** A day's soundtrack: three compact rows — cover, the whole name, artist, plays. */
 function SongStrip({ songs }: { songs: NonNullable<StorySlide['songs']> }) {
-  const size = Math.min(72, Math.floor((INNER - Spacing.md * 2) / 3) - 40)
   return (
     <RackFocus index={4} step={140}>
       <Text style={styles.songsTitle}>{songs.title}</Text>
-      <View style={styles.strip}>
-        {songs.items.slice(0, 3).map((t, k) => (
-          <View key={t.name + k} style={styles.stripItem}>
-            <ArtThumb kind="track" name={t.name} artist={t.artist} size={size} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.stripName} numberOfLines={2}>{t.name}</Text>
-              <Text style={styles.rowSub} numberOfLines={1}>{t.plays}×</Text>
-            </View>
+      {songs.items.slice(0, 3).map((t, k) => (
+        <View key={t.name + k} style={styles.compactRow}>
+          <ArtThumb kind="track" name={t.name} artist={t.artist} size={40} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.compactName} numberOfLines={1}>{t.name}</Text>
+            <Text style={styles.rowSub} numberOfLines={1}>{t.artist}</Text>
           </View>
-        ))}
-      </View>
+          <Text style={styles.rowValue}>{t.plays}×</Text>
+        </View>
+      ))}
     </RackFocus>
   )
 }
@@ -151,7 +155,7 @@ export function StoryCardPreview({ s, all, palette, maxHeight }: { s: PeriodSumm
 export function StoryTime({ slide }: { slide: StorySlide }) {
   return (
     <View style={styles.timeStack}>
-      {slide.bars ? <StoryBars bars={slide.bars} height={slide.songs ? Math.min(150, SH * 0.17) : Math.min(200, SH * 0.22)} /> : null}
+      {slide.bars ? <StoryBars bars={slide.bars} height={slide.songs ? Math.min(130, SH * 0.15) : Math.min(200, SH * 0.22)} /> : null}
       {slide.compare ? (
         <RackFocus index={2} step={140} style={styles.slimCompare}>
           {[
@@ -271,8 +275,8 @@ const styles = StyleSheet.create({
   slimTrack:    { height: 14, borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden' },
   slimFill:     { height: '100%', borderRadius: 7, backgroundColor: '#fff' },
   chips:        { flexDirection: 'row', gap: Spacing.sm },
-  chip:         { flex: 1, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
-  chipValue:    { fontFamily: FontFamily.syneBold, fontSize: 22, color: '#fff', letterSpacing: -0.5 },
+  chip:         { flex: 1, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
+  chipValue:    { fontFamily: FontFamily.syneBold, fontSize: 20, color: '#fff', letterSpacing: -0.5 },
   chipLabel:    { fontFamily: FontFamily.mono, fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   heroWrap:     { flex: 1, alignItems: 'center' },
   heroCover:    {
@@ -299,6 +303,10 @@ const styles = StyleSheet.create({
   bar:          { width: '100%', backgroundColor: '#fff' },
   peakTag:      { position: 'absolute', bottom: '100%', left: '50%', width: 80, marginLeft: -40, marginBottom: 6, textAlign: 'center', fontFamily: FontFamily.monoMedium, fontSize: 12, color: '#fff' },
   barLabels:    { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  barLabelRow:  { height: 16, marginTop: 6 },
+  barLabelAbs:  { position: 'absolute', top: 0, width: 32, marginLeft: -16, textAlign: 'center', fontFamily: FontFamily.mono, fontSize: 11, color: 'rgba(255,255,255,0.6)' },
+  compactRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, height: 48 },
+  compactName:  { fontFamily: FontFamily.syneBold, fontSize: 15, lineHeight: 19, color: '#fff', letterSpacing: -0.3 },
   barLabel:     { flex: 1, textAlign: 'center', fontFamily: FontFamily.mono, fontSize: 11, color: 'rgba(255,255,255,0.6)' },
   barLabelPeak: { color: '#fff', fontFamily: FontFamily.monoMedium },
   clockMark:    { fontFamily: FontFamily.mono, fontSize: 11, color: 'rgba(255,255,255,0.6)' },
@@ -307,9 +315,6 @@ const styles = StyleSheet.create({
   songs:        { gap: 6, marginTop: Spacing.lg },
   songsTitle:   { fontFamily: FontFamily.monoMedium, fontSize: 13, color: '#fff', marginBottom: 6 },
   songRow:      { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, height: 56 },
-  strip:        { flexDirection: 'row', gap: Spacing.md },
-  stripItem:    { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stripName:    { fontFamily: FontFamily.syneBold, fontSize: 12, lineHeight: 15, color: '#fff' },
   preview:      {
     borderRadius: 18, overflow: 'hidden',
     shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 24, shadowOffset: { width: 0, height: 14 }, elevation: 16,
