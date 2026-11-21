@@ -355,7 +355,7 @@ Samsung's own cover UI is. One UI 9 lets almost any app run there.
   2026-11-21; confirmed on the phone: display 1 = cover). Older APKs fall back to window
   size (short + nearly square = cover).
 
-## Camera ring (motion, prototype in Settings › About › Cover screen lab)
+## Camera ring (motion, prototype in Settings › About › Labs › Cover screen lab)
 A ring hugging both lenses (`components/cover/`), in the cover art's colours:
 - **Progress:** fills clockwise from the top centre (right lens first) as the song plays,
   with a glowing white tip. A new song rewinds it on `Spring.bouncy`; seeks use `Spring.snappy`.

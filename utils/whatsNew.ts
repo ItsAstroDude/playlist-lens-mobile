@@ -28,7 +28,7 @@ export const CHANGELOG: PatchEntry[] = [
         items: [
           'The app now knows whether it is on the main screen or the Flip cover screen, by asking the phone directly. This is the groundwork for a cover screen version of the app.',
           'Cover screen lab: the camera ring now sits round the real cameras, with animated backgrounds in 20 colour sets to test it against.',
-          'Settings › About › Update details shows exactly which update the phone is running.',
+          'Labs (Settings › About): every prototype and testing tool in one place, including Update details, which shows exactly which update the phone is running.',
         ],
       },
       {

@@ -11,7 +11,7 @@
  * (`cy`), and the ring hugs their hull: a stadium (pill) `gap` dp outside the glass.
  *
  * PROTOTYPE: the Flip 7 numbers are a hardcoded estimate. Tune them on the phone in
- * Settings › About › Cover screen lab, which saves its own copy (see utils/settings).
+ * Settings › About › Labs › Cover screen lab, which saves its own copy (see utils/settings).
  */
 
 export interface CameraOutline {

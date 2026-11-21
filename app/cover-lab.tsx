@@ -62,7 +62,7 @@ type InkSet = { text: string; muted: string; dim: string; glass: string; border:
 const Ink = createContext<InkSet>(COVER_INK)
 
 /**
- * Settings › About › Cover screen lab — PROTOTYPE of the camera ring.
+ * Settings › About › Labs › Cover screen lab — PROTOTYPE of the camera ring.
  *
  * Always drawn at the real camera positions (no simulator): open it on the cover
  * screen. Tune the outline until the red guide sits on the lens edges (drag to move,

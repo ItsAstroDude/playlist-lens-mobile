@@ -31,7 +31,7 @@ import {
 import { notificationsEnabled, setNotificationsEnabled, sendTestNotification } from '@/utils/notifications'
 import { clearWrappedStats } from '@/hooks/useWrapped'
 import { loadArtReports } from '@/hooks/useArtwork'
-import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel, updateDetails, reloadApp } from '@/utils/updates'
+import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel, reloadApp } from '@/utils/updates'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { emitOpenTutorial, emitOpenWhatsNew } from '@/utils/overlayEvents'
 import { appVersion, nativeVersion } from '@/utils/version'
@@ -617,23 +617,9 @@ export default function SettingsScreen() {
               value={appVersion()} />
             <SettingRow icon="cloud-download-outline" tint="sky" label="Check for updates"
               value={updateMsg ?? undefined} valueTone={okMsg(updateMsg) ? 'ok' : undefined} onPress={onCheckUpdates} />
-            <SettingRow icon="git-commit-outline" tint="amber" label="Update details"
-              value={updateDetails().running} hint={updateDetails().detail} />
-            <SettingRow icon="color-palette-outline" label="Design system"
-              hint="Every colour, type style and component the app is built from"
-              onPress={() => { haptic.light(); router.push('/design') }} />
-            <SettingRow icon="sparkles-outline" tint="violet" label="Motion lab"
-              hint="Try the 2.0 animations"
-              onPress={() => { haptic.light(); router.push('/motion-lab') }} />
-            <SettingRow icon="phone-portrait-outline" tint="sky" label="Cover screen lab"
-              hint="Prototype: a ring round the cameras on the Flip's cover screen"
-              onPress={() => { haptic.light(); router.push('/cover-lab') }} />
-            <SettingRow icon="timer-outline" tint="amber" label="Load times"
-              hint="How fast each screen opens on this phone"
-              onPress={() => { haptic.light(); router.push('/load-times') }} />
-            <SettingRow icon="bug-outline" tint="pink" label="Errors"
-              hint="Crash and error reports, sent to your own server"
-              onPress={() => { haptic.light(); router.push('/errors') }} />
+            <SettingRow icon="flask-outline" tint="amber" label="Labs"
+              hint="Prototypes and testing tools: cover screen, motion, load times, errors, design system, update details"
+              onPress={() => { haptic.light(); router.push('/labs') }} />
             <SettingRow icon="shapes-outline" tint="pink" label="Icons" hint="Ionicons by Ionic — MIT licence"
               onPress={() => { Linking.openURL('https://ionic.io/ionicons').catch(() => {}) }} last />
           </Section>
