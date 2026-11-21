@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { View, Text, StyleSheet, Pressable, useWindowDimensions, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, Pressable, useWindowDimensions, ScrollView, PixelRatio } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { Ionicons } from '@expo/vector-icons'
@@ -7,7 +7,7 @@ import { BackButton } from '@/components/ui'
 import { Colors, OnDark, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { CameraRing } from '@/components/cover/CameraRing'
-import { FLIP7_OUTLINE, type CameraOutline } from '@/components/cover/outline'
+import { FLIP7_OUTLINE, toDp, type CameraOutline } from '@/components/cover/outline'
 import { useRingProgress, type RingTrack } from '@/components/cover/useRingProgress'
 import { useMotionReduced } from '@/components/motion/reduced'
 import { useCoverScreen } from '@/hooks/useCoverScreen'
@@ -15,9 +15,11 @@ import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { usePalette } from '@/hooks/usePalette'
 import { getCameraOutline, setCameraOutline } from '@/utils/settings'
 
-/** The cover window the simulator draws on the main screen (Flip 7, dp). */
-const COVER_W = 399
-const COVER_H = 441
+/** The cover window the simulator draws on the main screen: Flip 7 apps get the
+ *  948×1048 px panel at 2.0 px/dp. */
+const SIM_RATIO = 2
+const COVER_W = 948 / SIM_RATIO
+const COVER_H = 1048 / SIM_RATIO
 const DEMO_MS = 24_000
 
 /** The cover view is always black, so it always uses dark-theme ink (light theme too). */
@@ -38,7 +40,8 @@ export default function CoverLab() {
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
 
-  // ── outline (saved on every change) ──
+  // ── outline, in cover-panel px (saved on every change) ──
+  const ratio = onCover ? PixelRatio.get() : SIM_RATIO
   const [outline, setOutline] = useState<CameraOutline>(getCameraOutline)
   useEffect(() => { setCameraOutline(outline) }, [outline])
   const [guide, setGuide] = useState(true)
@@ -48,11 +51,11 @@ export default function CoverLab() {
     setOutline(o => {
       const half = (o.cx2 - o.cx1) / 2, mid = (o.cx1 + o.cx2) / 2
       const nh = Math.max(0, half + (d.gap ?? 0) / 2), nm = mid + (d.x ?? 0)
-      return { cx1: nm - nh, cx2: nm + nh, cy: o.cy + (d.y ?? 0), r: Math.max(4, o.r + (d.r ?? 0)) }
+      return { cx1: nm - nh, cx2: nm + nh, cy: o.cy + (d.y ?? 0), r: Math.max(8, o.r + (d.r ?? 0)) }
     })
   }
   const drag = Gesture.Pan().runOnJS(true).enabled(onCover && tuning).minDistance(4)
-    .onChange(e => setOutline(o => ({ ...o, cx1: o.cx1 + e.changeX, cx2: o.cx2 + e.changeX, cy: o.cy + e.changeY })))
+    .onChange(e => setOutline(o => ({ ...o, cx1: o.cx1 + e.changeX * ratio, cx2: o.cx2 + e.changeX * ratio, cy: o.cy + e.changeY * ratio })))
 
   // ── source: live Spotify, else a demo song ──
   const { np } = useNowPlaying()
@@ -108,16 +111,16 @@ export default function CoverLab() {
       </View>
       {tuning && (
         <View style={styles.tune}>
-          <Stepper label="left/right" onMinus={() => nudge({ x: -1 })} onPlus={() => nudge({ x: 1 })} />
-          <Stepper label="up/down" onMinus={() => nudge({ y: -1 })} onPlus={() => nudge({ y: 1 })} />
-          <Stepper label="lens size" onMinus={() => nudge({ r: -0.5 })} onPlus={() => nudge({ r: 0.5 })} />
-          <Stepper label="spacing" onMinus={() => nudge({ gap: -1 })} onPlus={() => nudge({ gap: 1 })} />
+          <Stepper label="left/right" onMinus={() => nudge({ x: -2 })} onPlus={() => nudge({ x: 2 })} />
+          <Stepper label="up/down" onMinus={() => nudge({ y: -2 })} onPlus={() => nudge({ y: 2 })} />
+          <Stepper label="lens size" onMinus={() => nudge({ r: -1 })} onPlus={() => nudge({ r: 1 })} />
+          <Stepper label="spacing" onMinus={() => nudge({ gap: -2 })} onPlus={() => nudge({ gap: 2 })} />
           <View style={styles.row}>
             <Pill label={guide ? 'Hide guide' : 'Show guide'} onPress={() => setGuide(g => !g)} />
             <Pill label="Reset" onPress={() => { haptic.medium(); setOutline({ ...FLIP7_OUTLINE }) }} />
           </View>
           <Text style={[styles.values, { color: ink.muted }]} selectable>
-            {`cx1 ${outline.cx1.toFixed(1)} · cx2 ${outline.cx2.toFixed(1)} · cy ${outline.cy.toFixed(1)} · r ${outline.r.toFixed(1)}`}
+            {`px  cx1 ${outline.cx1.toFixed(0)} · cx2 ${outline.cx2.toFixed(0)} · cy ${outline.cy.toFixed(0)} · r ${outline.r.toFixed(0)}  (×${PixelRatio.get()})`}
           </Text>
           {onCover && <Text style={[styles.hint, { color: ink.dim }]}>Drag anywhere to move the ring.</Text>}
         </View>
@@ -125,7 +128,8 @@ export default function CoverLab() {
     </View></Ink.Provider>
   )
 
-  const ring = <CameraRing outline={outline} progress={progress} playing={!!track?.playing} colors={colors} guide={tuning && guide} />
+  const ringOutline = toDp(outline, ratio)
+  const ring = <CameraRing outline={ringOutline} progress={progress} playing={!!track?.playing} colors={colors} guide={tuning && guide} />
 
   // ── on the cover screen: the real thing ──
   if (onCover) {
@@ -159,7 +163,7 @@ export default function CoverLab() {
             transform: [{ scale: s }],
             left: -(COVER_W * (1 - s)) / 2, top: -(COVER_H * (1 - s)) / 2,
           }]}>
-            <FakeCameras o={outline} />
+            <FakeCameras o={ringOutline} />
             {ring}
           </View>
         </View>
@@ -213,8 +217,8 @@ function Stepper({ label, onMinus, onPlus }: { label: string; onMinus: () => voi
 const styles = StyleSheet.create({
   cover:     { flex: 1, backgroundColor: '#000' },
   coverTop:  { paddingHorizontal: Spacing.md, flexDirection: 'row' },
-  // Keep the controls clear of the cameras (bottom-left).
-  coverBody: { position: 'absolute', top: 64, right: Spacing.md, left: 150, bottom: 24 },
+  // Upper area: the cameras are bottom-right, Samsung's "open on main screen" button bottom-centre.
+  coverBody: { position: 'absolute', top: 64, right: Spacing.lg, left: Spacing.lg },
   main:      { flex: 1, backgroundColor: Colors.background, paddingHorizontal: Spacing.lg },
   mainHead:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   h1:        { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, letterSpacing: -0.5 },

@@ -1,7 +1,10 @@
 /**
  * Cover-screen camera outline: where the two rear cameras sit on the Flip's cover
- * screen, in dp of the cover window. Pure maths, no Skia, so it's testable and
- * usable from worklets.
+ * screen. Stored in the cover panel's PHYSICAL PIXELS (Flip 7: 948×1048, cameras
+ * bottom-right, flash to their left), because the app's dp scale on the cover screen
+ * isn't the panel's: One UI runs apps there at 2.0 px/dp (≈474×524 dp), not the
+ * panel's 380 dpi. `toDp` converts with the live PixelRatio. Pure maths, no Skia, so
+ * it's testable and usable from worklets.
  *
  * The cameras are modelled as two lenses of radius `r` side by side on one row
  * (`cy`), and the ring hugs their hull: a stadium (pill) `gap` dp outside the glass.
@@ -21,8 +24,14 @@ export interface CameraOutline {
   r: number
 }
 
-/** Galaxy Z Flip 7 cover screen (948×1048 px @ 380 dpi ≈ 399×441 dp). Estimate. */
-export const FLIP7_OUTLINE: CameraOutline = { cx1: 52, cx2: 128, cy: 391, r: 34 }
+/** Galaxy Z Flip 7 cover screen, in panel px. Estimated from a photo of the phone. */
+export const FLIP7_OUTLINE: CameraOutline = { cx1: 649, cx2: 836, cy: 935, r: 85 }
+
+/** Panel px → the window's dp (the window fills the cover panel). */
+export function toDp(o: CameraOutline, pixelRatio: number): CameraOutline {
+  const k = pixelRatio > 0 ? pixelRatio : 1
+  return { cx1: o.cx1 / k, cx2: o.cx2 / k, cy: o.cy / k, r: o.r / k }
+}
 
 /** The ring's stadium for a given outline and gap: its box and corner radius. */
 export function stadium(o: CameraOutline, gap: number) {
@@ -80,6 +89,6 @@ export function cleanOutline(v: unknown, fallback: CameraOutline = FLIP7_OUTLINE
     cx1: num(o.cx1, fallback.cx1),
     cx2: num(o.cx2, fallback.cx2),
     cy:  num(o.cy, fallback.cy),
-    r:   Math.min(120, Math.max(4, num(o.r, fallback.r))),
+    r:   Math.min(300, Math.max(8, num(o.r, fallback.r))),
   }
 }

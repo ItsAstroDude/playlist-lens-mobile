@@ -1,4 +1,4 @@
-import { pointAt, perimeter, stadium, cleanOutline, FLIP7_OUTLINE, type CameraOutline } from '@/components/cover/outline'
+import { pointAt, perimeter, stadium, cleanOutline, toDp, FLIP7_OUTLINE, type CameraOutline } from '@/components/cover/outline'
 import { isCoverWindow } from '@/hooks/useCoverScreen'
 import { liveFraction } from '@/components/cover/useRingProgress'
 
@@ -45,12 +45,22 @@ describe('camera ring geometry', () => {
 
   it('cleans stored outlines', () => {
     expect(cleanOutline(null)).toEqual(FLIP7_OUTLINE)
-    expect(cleanOutline({ cx1: 'x', cx2: 100, cy: NaN, r: 900 })).toEqual({ cx1: FLIP7_OUTLINE.cx1, cx2: 100, cy: FLIP7_OUTLINE.cy, r: 120 })
+    expect(cleanOutline({ cx1: 'x', cx2: 100, cy: NaN, r: 900 })).toEqual({ cx1: FLIP7_OUTLINE.cx1, cx2: 100, cy: FLIP7_OUTLINE.cy, r: 300 })
+  })
+
+  it('converts panel px to dp, and the Flip 7 cameras sit bottom-right on the panel', () => {
+    expect(toDp({ cx1: 600, cx2: 800, cy: 900, r: 80 }, 2)).toEqual({ cx1: 300, cx2: 400, cy: 450, r: 40 })
+    const s = stadium(FLIP7_OUTLINE, 0)
+    expect(s.left).toBeGreaterThan(948 / 2)
+    expect(s.left + s.width).toBeLessThan(948)
+    expect(s.top).toBeGreaterThan(1048 / 2)
+    expect(s.top + s.height).toBeLessThan(1048)
   })
 })
 
 describe('cover screen detection', () => {
   it('Flip 7 cover window is the cover; the main screen is not', () => {
+    expect(isCoverWindow(474, 524)).toBe(true)         // Flip 7 cover, as apps get it
     expect(isCoverWindow(399.2, 441.3)).toBe(true)
     expect(isCoverWindow(360, 840)).toBe(false)
     expect(isCoverWindow(840, 360)).toBe(false)        // main screen, landscape

@@ -17,7 +17,7 @@ const KEYS = {
   navbarStyle:  'settings.navbarStyle',
   nowPlayingPos: 'settings.nowPlayingPos',
   tribute:       'settings.tribute',
-  cameraOutline: 'settings.cameraOutline',
+  cameraOutline: 'settings.cameraOutlinePx',   // panel px (the old dp key is ignored)
 } as const
 
 // ── Haptics (default ON) ──
