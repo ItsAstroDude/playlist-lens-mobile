@@ -28,6 +28,8 @@ export interface PeriodSummary {
   weekdays?:   number[]
   /** Names for `buckets` when they aren't the usual ones (all time: years). */
   bucketLabels?: string[]
+  /** Days in the period with any music (from the stats engine). */
+  activeDays?: number
 }
 
 export interface PeriodComparison {

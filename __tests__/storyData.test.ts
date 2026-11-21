@@ -59,7 +59,7 @@ describe('storyJob', () => {
     expect(d.all).toBe(true)
     const slides = buildStory(d.comparison, { all: true })
     expect(slides[0]).toMatchObject({ id: 'intro', big: 'All time' })
-    expect(slides.find(s => s.id === 'peak')).toMatchObject({ kicker: 'Your biggest year', big: '2026' })
+    expect(slides.find(s => s.id === 'time')?.bars?.peakText).toMatch(/^Biggest year: 2026 · /)
   })
 })
 
@@ -71,8 +71,8 @@ describe('story slides (Phase 4)', () => {
     const slides = buildStory(d.comparison)
     const ids = slides.map(s => s.id)
     expect(ids).toEqual(expect.arrayContaining(['artists', 'tracks', 'clock']))
-    expect(slides.find(s => s.id === 'artist')?.art).toEqual({ kind: 'artist', name: expect.any(String) })
-    expect(slides.find(s => s.id === 'artists')?.list).toHaveLength(3)
+    expect(slides.find(s => s.id === 'artists')?.hero).toMatchObject({ kind: 'artist', name: expect.any(String) })
+    expect(slides.find(s => s.id === 'artists')?.list).toHaveLength(2)          // #2 and #3 under the hero
     expect(slides.find(s => s.id === 'clock')).toMatchObject({ big: 'A night owl', sub: 'Most of your listening: 22:00–23:00' })
   })
 
@@ -92,7 +92,7 @@ describe('story slides (Phase 4)', () => {
 describe('story pictures (2.0.13)', () => {
   const { barLabels } = require('@/utils/story')
 
-  it('peak slide carries the period bars; time slide the comparison; intro and range the mosaics', () => {
+  it('time slide carries the bars, comparison and numbers; intro a mosaic; range a pyramid', () => {
     const rows: StreamRow[] = []
     // this week: 9 artists, a peak on Tuesday; last week up to the same point: less
     const days = ['16', '17', '17', '17', '18']
@@ -102,12 +102,14 @@ describe('story pictures (2.0.13)', () => {
     const d = runSync(storyJob('week', 0, NOW, UTC))
     const slides = buildStory(d.comparison)
     const by = (id: string) => slides.find(s => s.id === id)!
-    expect(by('peak').bars).toMatchObject({ peak: 1, labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'] })
-    expect(by('peak').bars!.values).toHaveLength(7)
+    expect(by('time').bars).toMatchObject({ peak: 1, labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'] })
+    expect(by('time').bars!.values).toHaveLength(7)
     expect(by('time').compare).toMatchObject({ nowLabel: 'This week so far', beforeLabel: 'Last week, same point' })
+    expect(by('time').chips!.map(c => c.label)).toEqual(['plays', 'days with music', 'per listening day'])
+    expect(by('time').chips![1].value).toBe('3')                       // Mon, Tue, Wed
     expect(by('intro').mosaic).toHaveLength(6)
-    expect(by('range').mosaic).toHaveLength(9)
-    expect(by('range').mosaic![0].kind).toBe('artist')
+    expect(by('range').pyramid).toHaveLength(9)
+    expect(by('artists').list).toHaveLength(8)                          // #2..#9 under the hero
   })
 
   it('bar labels per period', () => {

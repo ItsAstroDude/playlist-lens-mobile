@@ -23,11 +23,17 @@ export interface StorySlide {
   /** The last slide: offers the share card (and shows a preview of it). */
   share?:  boolean
   /** A bar chart of the period with one bar picked out (the biggest day / month / year). */
-  bars?:   { values: number[]; labels: string[]; peak: number }
+  bars?:   { values: number[]; labels: string[]; peak: number; peakText?: string }
   /** This period against the one before, as two bars. */
   compare?: { now: number; before: number; nowLabel: string; beforeLabel: string }
-  /** A grid of covers / photos (top songs on the intro, top artists on "you heard"). */
+  /** A grid of covers / photos (top songs on the intro). */
   mosaic?: { kind: ArtKind; name: string; artist?: string }[]
+  /** #1 big (cover, name, numbers), with `list` as the runners-up under it. */
+  hero?:   { kind: ArtKind; name: string; artist?: string; meta: string }
+  /** Small numbers in a row (plays, days, per day). */
+  chips?:  { value: string; label: string }[]
+  /** Artists in rows of 1, 2, 3, 4 — biggest first — with their names. */
+  pyramid?: { name: string; value: string }[]
 }
 
 export interface StoryOpts {
@@ -96,54 +102,77 @@ export function buildStory(c: PeriodComparison, opts: StoryOpts = {}): StorySlid
   }
   const slides: StorySlide[] = []
   const since = new Date(s.start).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+
+  // ── Intro: the period, over a wall of what you played ──
   slides.push(opts.all
     ? { id: 'intro', kicker: 'Everything you’ve played', big: 'All time', sub: `Since ${since} · tap to skip ahead · hold to pause`, palette: pal(0) }
     : { id: 'intro', kicker: `Your ${w} in music`, big: periodTitle(s), sub: 'Tap to skip ahead · hold to pause', palette: pal(0) })
-  // The intro opens on a wall of what you played.
   if (s.topTracks.length >= 3) slides[0].mosaic = s.topTracks.slice(0, 6).map(x => ({ kind: 'track' as const, name: x.name, artist: x.sub }))
+
+  // ── Time: how long, across the period (biggest day picked out), vs before, in numbers ──
   const vs = opts.past ? `the ${w} before` : `last ${w}`
+  const peak = s.buckets.reduce((best, v, i) => (v > s.buckets[best] ? i : best), 0)
+  const peakName = opts.all ? (s.bucketLabels?.[peak] ?? '') : bucketName(kind, s.start, peak)
+  const peakWord = opts.all ? 'year' : kind === 'year' ? 'month' : 'day'
+  const days = s.activeDays ?? 0
+  const chips: { value: string; label: string }[] = [{ value: s.plays.toLocaleString(), label: s.plays === 1 ? 'play' : 'plays' }]
+  if (days > 0) {
+    chips.push({ value: days.toLocaleString(), label: days === 1 ? 'day with music' : 'days with music' })
+    chips.push({ value: fmtListen(Math.round(s.ms / days)), label: 'per listening day' })
+  }
   slides.push({
     id: 'time', kicker: 'You listened for', big: fmtListen(s.ms), roll: true, palette: pal(1),
-    sub: c.deltaMs === null ? `${s.plays.toLocaleString()} plays` : `${c.deltaMs >= 0 ? 'Up' : 'Down'} ${Math.abs(c.deltaMs)}% on ${vs} · ${s.plays.toLocaleString()} plays`,
+    sub: c.deltaMs === null ? undefined : `${c.deltaMs >= 0 ? 'Up' : 'Down'} ${Math.abs(c.deltaMs)}% on ${vs}`,
+    ...(s.buckets[peak] > 0 ? {
+      bars: { values: s.buckets, labels: barLabels(kind, s.buckets.length, !!opts.all, s.bucketLabels), peak, peakText: `Biggest ${peakWord}: ${peakName} · ${fmtListen(s.buckets[peak])}` },
+    } : {}),
     ...(c.deltaMs !== null && c.previous.ms > 0 ? {
       compare: {
         now: s.ms, before: c.previous.ms,
-        nowLabel: opts.past ? `That ${w}` : `This ${w}${opts.past ? '' : ' so far'}`,
+        nowLabel: opts.past ? `That ${w}` : `This ${w} so far`,
         beforeLabel: opts.past ? `The ${w} before` : `Last ${w}, same point`,
       },
     } : {}),
+    chips,
   })
+
+  // ── Top artists: #1 big, the rest under it ──
   const a = s.topArtists[0]
-  if (a) slides.push({ id: 'artist', kicker: 'The artist you couldn’t stop playing', big: a.name, sub: `${fmtListen(a.ms)} · ${a.plays.toLocaleString()} plays`, palette: pal(2), art: { kind: 'artist', name: a.name } })
-  if (s.topArtists.length >= 3) {
-    slides.push({ id: 'artists', kicker: 'Your top artists', big: '', palette: pal(2), listKind: 'artist',
-      list: s.topArtists.slice(0, 5).map(x => ({ name: x.name, value: fmtListen(x.ms) })) })
-  }
-  const t = s.topTracks[0]
-  if (t) slides.push({ id: 'track', kicker: 'On repeat', big: t.name, sub: `${t.sub ? t.sub + ' · ' : ''}${t.plays.toLocaleString()} plays`, palette: pal(3), art: { kind: 'track', name: t.name, artist: t.sub } })
-  if (s.topTracks.length >= 3) {
-    slides.push({ id: 'tracks', kicker: 'Your top songs', big: '', palette: pal(3), listKind: 'track',
-      list: s.topTracks.slice(0, 5).map(x => ({ name: x.name, sub: x.sub, value: `${x.plays}×` })) })
-  }
-  const peak = s.buckets.reduce((best, v, i) => (v > s.buckets[best] ? i : best), 0)
-  if (s.buckets[peak] > 0) {
-    const name = opts.all ? (s.bucketLabels?.[peak] ?? '') : bucketName(kind, s.start, peak)
+  if (a) {
     slides.push({
-      id: 'peak', kicker: `Your biggest ${opts.all ? 'year' : kind === 'year' ? 'month' : 'day'}`, big: name, sub: fmtListen(s.buckets[peak]), palette: pal(4),
-      bars: { values: s.buckets, labels: barLabels(kind, s.buckets.length, !!opts.all, s.bucketLabels), peak },
+      id: 'artists', kicker: 'The artist you couldn’t stop playing', big: '', palette: pal(2),
+      hero: { kind: 'artist', name: a.name, meta: `${fmtListen(a.ms)} · ${a.plays.toLocaleString()} plays` },
+      listKind: 'artist',
+      list: s.topArtists.slice(1, 12).map(x => ({ name: x.name, value: fmtListen(x.ms) })),
     })
   }
+
+  // ── Top songs: #1 big, the rest under it ──
+  const t = s.topTracks[0]
+  if (t) {
+    slides.push({
+      id: 'tracks', kicker: 'On repeat', big: '', palette: pal(3),
+      hero: { kind: 'track', name: t.name, artist: t.sub, meta: `${t.sub ? t.sub + ' · ' : ''}${t.plays.toLocaleString()} plays` },
+      listKind: 'track',
+      list: s.topTracks.slice(1, 12).map(x => ({ name: x.name, sub: x.sub, value: `${x.plays}×` })),
+    })
+  }
+
+  // ── When in the day ──
   if (s.clock && s.clock.some(v => v > 0)) {
     const h = s.clock.indexOf(Math.max(...s.clock))
     slides.push({ id: 'clock', kicker: 'You’re', big: clockPersona(h), sub: `Most of your listening: ${two(h)}–${two((h + 1) % 24)}`, palette: pal(5), clock: s.clock })
   }
+
+  // ── Range: how many, and the biggest ones, biggest first ──
   const fresh = opts.newArtists && opts.newArtists > 0 ? ` · ${opts.newArtists.toLocaleString()} of them new to you` : ''
   // Just the number rolls (a rolling number can't wrap: "12,345 artists" in the display
   // face is wider than a phone), the unit goes in the line under it.
   slides.push({
     id: 'range', kicker: 'You heard', big: s.artists.toLocaleString(), roll: true, sub: `${s.artists === 1 ? 'artist' : 'artists'} and ${s.tracks.toLocaleString()} different songs${fresh}`, palette: pal(5),
-    ...(s.topArtists.length >= 4 ? { mosaic: s.topArtists.slice(0, 9).map(x => ({ kind: 'artist' as const, name: x.name })) } : {}),
+    ...(s.topArtists.length >= 3 ? { pyramid: s.topArtists.slice(0, 10).map(x => ({ name: x.name, value: fmtListen(x.ms) })) } : {}),
   })
+
   slides.push(opts.all
     ? { id: 'outro', kicker: 'That’s all of it, so far', big: 'Keep listening', sub: 'Share your card, or tap to close.', palette: pal(0), share: true }
     : { id: 'outro', kicker: opts.past ? `That was your ${w}` : `That’s your ${w}`, big: opts.past ? 'Nice one' : 'See you next one', sub: 'Share your card, or tap to close.', palette: pal(0), share: true })

@@ -329,7 +329,7 @@ export function toSummary(s: PeriodStats): PeriodSummary {
     ms: s.ms, plays: s.plays, artists: s.artists, tracks: s.tracks,
     buckets: s.buckets,
     topArtists: s.topArtists, topTracks: s.topTracks, topAlbums: s.topAlbums.slice(0, 3),
-    clock: s.clock, weekdays: s.weekdays, bucketLabels: s.bucketLabels,
+    clock: s.clock, weekdays: s.weekdays, bucketLabels: s.bucketLabels, activeDays: s.activeDays,
   }
 }
 

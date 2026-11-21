@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.14',
+    name:    'Tighter stories',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Time listened and your biggest day are one slide now: the bars with your biggest day picked out, this period against the last, and your plays, days with music and time per listening day.',
+          'Your top artist and top artists are one slide: number one big, with the rest under it. Same for songs, with as many as fit your screen.',
+          '“You heard” lines up your top artists biggest first, from one big photo down to small ones, each with its name.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.13',
     name:    'Fuller stories',
     date:    '2026-11-21',

@@ -13,7 +13,7 @@ import { KineticText } from '@/components/motion/KineticText'
 import { ArtThumb } from '@/components/ui'
 import { ShareCard, CARD_W, CARD_H } from '@/components/story/ShareCard'
 import { FitHeadline } from '@/components/story/FitHeadline'
-import { StoryBars, StoryCompare, StoryMosaic, StoryClock, StoryCardPreview, PREVIEW_MAX_H } from '@/components/story/Visuals'
+import { StoryMosaic, StoryClock, StoryCardPreview, StoryTime, StoryHero, StoryPyramid, PREVIEW_MAX_H } from '@/components/story/Visuals'
 import { useArtwork } from '@/hooks/useArtwork'
 import { usePalette } from '@/hooks/usePalette'
 import { buildStory, type Palette } from '@/utils/story'
@@ -116,7 +116,7 @@ export default function StoryScreen() {
   }, [sharing, data, reduced, run])
 
   // Cover slides take their colours from the cover (like the Now Playing sheet).
-  const artSlide = slides?.[i]?.art
+  const artSlide = slides?.[i]?.art ?? slides?.[i]?.hero
   const coverUrl = useArtwork(artSlide?.kind ?? null, artSlide?.name, artSlide?.artist)
   const { palettes, extract } = usePalette()
   const palKey = coverUrl ? `story-${coverUrl}` : null
@@ -145,7 +145,7 @@ export default function StoryScreen() {
   }
 
   const s = slides[i]
-  const hasVisual = !!(s.list || s.bars || s.compare || s.mosaic || s.clock || s.share)
+  const hasVisual = !!(s.hero || s.list || s.bars || s.compare || s.chips || s.mosaic || s.pyramid || s.clock || s.share)
   return (
     <View style={styles.root}>
       <Aurora colors={coverPalette ?? s.palette} style={StyleSheet.absoluteFill} dim={0.34} />
@@ -187,32 +187,17 @@ export default function StoryScreen() {
           </RackFocus>
         ) : null}
         <KineticText text={s.kicker} style={styles.kicker} stagger={60} containerStyle={s.art ? styles.center : undefined} />
-        {s.list ? null : s.roll
+        {!s.big ? null : s.roll
           ? <RollingNumber value={s.big} style={styles.big} unitStyle={styles.bigUnit} stagger={90} />
           : <FitHeadline text={s.big} style={styles.big} delay={260} stagger={110} containerStyle={s.art ? styles.center : undefined} />}
         {s.sub ? <KineticText text={s.sub} style={styles.sub} delay={700} stagger={40} containerStyle={s.art ? styles.center : undefined} /> : null}
 
         {hasVisual && !s.art ? (
           <View style={styles.visual}>
-            {s.list ? (
-              <View style={styles.list}>
-                {s.list.map((r, k) => (
-                  <RackFocus key={r.name + k} index={k + 1} step={110}>
-                    <View style={styles.listRow}>
-                      <Text style={styles.listRank}>{k + 1}</Text>
-                      {s.listKind ? <ArtThumb kind={s.listKind} name={r.name} artist={r.sub} size={58} /> : null}
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={styles.listName} numberOfLines={2}>{r.name}</Text>
-                        {r.sub ? <Text style={styles.listSub} numberOfLines={1}>{r.sub}</Text> : null}
-                      </View>
-                      <Text style={styles.listValue}>{r.value}</Text>
-                    </View>
-                  </RackFocus>
-                ))}
-              </View>
-            ) : s.bars ? <StoryBars bars={s.bars} />
-              : s.compare ? <StoryCompare c={s.compare} />
+            {s.hero ? <StoryHero slide={s} />
+              : (s.bars || s.compare || s.chips) ? <StoryTime slide={s} />
               : s.mosaic ? <StoryMosaic items={s.mosaic} />
+              : s.pyramid ? <StoryPyramid items={s.pyramid} />
               : s.clock ? <StoryClock clock={s.clock} />
               : s.share ? <StoryCardPreview s={data.comparison.current} all={data.all} palette={s.palette} maxHeight={PREVIEW_MAX_H} />
               : null}
@@ -272,12 +257,6 @@ const styles = StyleSheet.create({
   sub:     { fontFamily: FontFamily.mono, fontSize: 14, lineHeight: 21, color: 'rgba(255,255,255,0.86)' },
   paused:  { position: 'absolute', alignSelf: 'center', fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
-  list:      { gap: 16 },
-  listRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  listRank:  { fontFamily: FontFamily.syneBold, fontSize: 22, color: 'rgba(255,255,255,0.6)', width: 24 },
-  listName:  { fontFamily: FontFamily.syneBold, fontSize: 19, lineHeight: 23, color: '#fff', letterSpacing: -0.5 },
-  listSub:   { fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.75)' },
-  listValue: { fontFamily: FontFamily.mono, fontSize: 13, color: 'rgba(255,255,255,0.86)' },
   shareBtn:  {
     position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 20, height: 46, borderRadius: 23, backgroundColor: '#fff',

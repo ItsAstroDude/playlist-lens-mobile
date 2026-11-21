@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { View, Text, StyleSheet, Dimensions } from 'react-native'
+import { FitHeadline } from './FitHeadline'
 import { FontFamily, Spacing } from '@/constants/theme'
 import { RackFocus } from '@/components/motion'
 import { ArtThumb } from '@/components/ui'
@@ -18,12 +19,13 @@ const PAD = Spacing.xl
 const INNER = SW - PAD * 2
 
 /** The period's bars, the biggest one solid and labelled. */
-export function StoryBars({ bars }: { bars: NonNullable<StorySlide['bars']> }) {
+export function StoryBars({ bars, height }: { bars: NonNullable<StorySlide['bars']>; height?: number }) {
   const max = Math.max(...bars.values, 1)
   const many = bars.values.length > 14
   return (
     <RackFocus index={1} step={120}>
-      <View style={styles.barsRow} accessible accessibilityLabel="Listening across the period; the biggest is highlighted">
+      {bars.peakText ? <Text style={styles.peakCaption}>{bars.peakText}</Text> : null}
+      <View style={[styles.barsRow, height ? { height } : null]} accessible accessibilityLabel={bars.peakText ?? 'Listening across the period; the biggest is highlighted'}>
         {bars.values.map((v, i) => (
           <View key={i} style={styles.barCol}>
             <View style={[styles.bar, {
@@ -31,8 +33,8 @@ export function StoryBars({ bars }: { bars: NonNullable<StorySlide['bars']> }) {
               opacity: i === bars.peak ? 1 : 0.38,
               borderRadius: many ? 2 : 6,
             }]}>
-              {/* the peak's value sits right on top of its bar */}
-              {i === bars.peak && <Text style={styles.peakTag} numberOfLines={1}>{fmtListen(v)}</Text>}
+              {/* the peak's value sits right on top of its bar (unless the caption says it) */}
+              {i === bars.peak && !bars.peakText && <Text style={styles.peakTag} numberOfLines={1}>{fmtListen(v)}</Text>}
             </View>
           </View>
         ))}
@@ -43,28 +45,6 @@ export function StoryBars({ bars }: { bars: NonNullable<StorySlide['bars']> }) {
         ))}
       </View>
     </RackFocus>
-  )
-}
-
-/** Two big bars: this period and the one before. */
-export function StoryCompare({ c }: { c: NonNullable<StorySlide['compare']> }) {
-  const max = Math.max(c.now, c.before, 1)
-  const rows = [
-    { label: c.nowLabel, ms: c.now, strong: true },
-    { label: c.beforeLabel, ms: c.before, strong: false },
-  ]
-  return (
-    <View style={styles.compare}>
-      {rows.map((r, k) => (
-        <RackFocus key={k} index={k + 1} step={140}>
-          <Text style={styles.compareLabel}>{r.label}</Text>
-          <View style={styles.compareTrack}>
-            <View style={[styles.compareFill, { width: `${Math.max(4, (r.ms / max) * 100)}%`, opacity: r.strong ? 1 : 0.42 }]} />
-          </View>
-          <Text style={styles.compareValue}>{fmtListen(r.ms)}</Text>
-        </RackFocus>
-      ))}
-    </View>
   )
 }
 
@@ -118,10 +98,154 @@ export function StoryCardPreview({ s, all, palette, maxHeight }: { s: PeriodSumm
   )
 }
 
+/**
+ * The time slide's lower half: the period's bars (biggest picked out), this vs before
+ * as two slim bars, and a row of small numbers.
+ */
+export function StoryTime({ slide }: { slide: StorySlide }) {
+  return (
+    <View style={styles.timeStack}>
+      {slide.bars ? <StoryBars bars={slide.bars} height={Math.min(200, SH * 0.22)} /> : null}
+      {slide.compare ? (
+        <RackFocus index={2} step={140} style={styles.slimCompare}>
+          {[
+            { label: slide.compare.nowLabel, ms: slide.compare.now, strong: true },
+            { label: slide.compare.beforeLabel, ms: slide.compare.before, strong: false },
+          ].map((r, k, arr) => {
+            const max = Math.max(arr[0].ms, arr[1].ms, 1)
+            return (
+              <View key={k} style={styles.slimRow}>
+                <View style={styles.slimHead}>
+                  <Text style={styles.slimLabel} numberOfLines={1}>{r.label}</Text>
+                  <Text style={styles.slimValue}>{fmtListen(r.ms)}</Text>
+                </View>
+                <View style={styles.slimTrack}>
+                  <View style={[styles.slimFill, { width: `${Math.max(3, (r.ms / max) * 100)}%`, opacity: r.strong ? 1 : 0.42 }]} />
+                </View>
+              </View>
+            )
+          })}
+        </RackFocus>
+      ) : null}
+      {slide.chips?.length ? (
+        <RackFocus index={3} step={140} style={styles.chips}>
+          {slide.chips.map(c => (
+            <View key={c.label} style={styles.chip}>
+              <Text style={styles.chipValue} numberOfLines={1} adjustsFontSizeToFit>{c.value}</Text>
+              <Text style={styles.chipLabel} numberOfLines={2}>{c.label}</Text>
+            </View>
+          ))}
+        </RackFocus>
+      ) : null}
+    </View>
+  )
+}
+
+const ROW_H = 58
+
+/**
+ * #1 big — cover, name, numbers — then the runners-up as rows, as many as fit the
+ * space that's left (measured), so a tall phone shows more.
+ */
+export function StoryHero({ slide }: { slide: StorySlide }) {
+  const h = slide.hero!
+  const [listH, setListH] = useState(0)
+  const rows = (slide.list ?? []).slice(0, listH ? Math.max(0, Math.floor(listH / ROW_H)) : 0)
+  const size = Math.min(Math.round(SW * 0.44), 184)
+  return (
+    <View style={styles.heroWrap}>
+      <RackFocus index={0} style={styles.heroCover}>
+        <ArtThumb kind={h.kind} name={h.name} artist={h.artist} size={size} />
+      </RackFocus>
+      <FitHeadline text={h.name} style={styles.heroName} maxLines={2} delay={200} stagger={90} containerStyle={styles.centerRow} />
+      <Text style={styles.heroMeta} numberOfLines={1}>{h.meta}</Text>
+      <View style={styles.heroList} onLayout={e => setListH(e.nativeEvent.layout.height)}>
+        {rows.map((r, k) => (
+          <RackFocus key={r.name + k} index={k + 2} step={80}>
+            <View style={styles.row}>
+              <Text style={styles.rowRank}>{k + 2}</Text>
+              {slide.listKind ? <ArtThumb kind={slide.listKind} name={r.name} artist={r.sub} size={44} /> : null}
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.rowName} numberOfLines={1}>{r.name}</Text>
+                {r.sub ? <Text style={styles.rowSub} numberOfLines={1}>{r.sub}</Text> : null}
+              </View>
+              <Text style={styles.rowValue}>{r.value}</Text>
+            </View>
+          </RackFocus>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+const PYRAMID = [1, 2, 3, 4]
+const PYRAMID_SIZE = [128, 92, 74, 62]
+
+/** Artists in rows of 1, 2, 3, 4 — biggest first — each with its name; scaled to fit. */
+export function StoryPyramid({ items }: { items: NonNullable<StorySlide['pyramid']> }) {
+  const [boxH, setBoxH] = useState(0)
+  const rows: { name: string; value: string }[][] = []
+  let i = 0
+  for (const n of PYRAMID) { if (i >= items.length) break; rows.push(items.slice(i, i + n)); i += n }
+  // Natural height: circles + a name line (+ time on the first row) + gaps.
+  const natural = rows.reduce((a, r, k) => a + PYRAMID_SIZE[k] + (k === 0 ? 40 : 22), 0) + (rows.length - 1) * Spacing.md
+  const scale = boxH ? Math.min(1, boxH / natural) : 1
+  return (
+    <View style={styles.pyramidBox} onLayout={e => setBoxH(e.nativeEvent.layout.height)}>
+      {boxH > 0 && rows.map((row, k) => {
+        const size = Math.floor(Math.min(PYRAMID_SIZE[k] * scale, (INNER - Spacing.md * (row.length - 1)) / row.length))
+        return (
+          <View key={k} style={[styles.pyramidRow, { gap: Spacing.md }]}>
+            {row.map((a, j) => (
+              <RackFocus key={a.name} index={k * 2 + j} step={70} style={{ width: Math.max(size, 64), alignItems: 'center' }}>
+                <ArtThumb kind="artist" name={a.name} size={size} />
+                <Text style={[styles.pyrName, k === 0 && styles.pyrNameTop]} numberOfLines={1}>{a.name}</Text>
+                {k === 0 ? <Text style={styles.pyrValue}>{a.value}</Text> : null}
+              </RackFocus>
+            ))}
+          </View>
+        )
+      })}
+    </View>
+  )
+}
+
 /** Room for a card preview between the words and the Share button. */
 export const PREVIEW_MAX_H = Math.round(SH * 0.46)
 
 const styles = StyleSheet.create({
+  timeStack:    { gap: Spacing.lg },
+  peakCaption:  { fontFamily: FontFamily.monoMedium, fontSize: 13, color: '#fff', marginBottom: 8 },
+  slimCompare:  { gap: Spacing.sm },
+  slimRow:      { gap: 5 },
+  slimHead:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  slimLabel:    { fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.8)', flexShrink: 1 },
+  slimValue:    { fontFamily: FontFamily.syneBold, fontSize: 15, color: '#fff' },
+  slimTrack:    { height: 14, borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden' },
+  slimFill:     { height: '100%', borderRadius: 7, backgroundColor: '#fff' },
+  chips:        { flexDirection: 'row', gap: Spacing.sm },
+  chip:         { flex: 1, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
+  chipValue:    { fontFamily: FontFamily.syneBold, fontSize: 22, color: '#fff', letterSpacing: -0.5 },
+  chipLabel:    { fontFamily: FontFamily.mono, fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  heroWrap:     { flex: 1, alignItems: 'center' },
+  heroCover:    {
+    marginBottom: Spacing.md, borderRadius: 24,
+    shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 24, shadowOffset: { width: 0, height: 14 }, elevation: 16,
+  },
+  heroName:     { fontFamily: FontFamily.syneBold, fontSize: 34, lineHeight: 39, color: '#fff', letterSpacing: -1, textAlign: 'center' },
+  heroMeta:     { fontFamily: FontFamily.mono, fontSize: 13, color: 'rgba(255,255,255,0.86)', marginTop: 4 },
+  centerRow:    { justifyContent: 'center' },
+  heroList:     { flex: 1, alignSelf: 'stretch', marginTop: Spacing.lg, overflow: 'hidden' },
+  row:          { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, height: ROW_H },
+  rowRank:      { fontFamily: FontFamily.syneBold, fontSize: 18, color: 'rgba(255,255,255,0.6)', width: 26 },
+  rowName:      { fontFamily: FontFamily.syneBold, fontSize: 17, lineHeight: 21, color: '#fff', letterSpacing: -0.4 },
+  rowSub:       { fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.75)' },
+  rowValue:     { fontFamily: FontFamily.mono, fontSize: 13, color: 'rgba(255,255,255,0.86)' },
+  pyramidBox:   { flex: 1, justifyContent: 'center', gap: Spacing.md },
+  pyramidRow:   { flexDirection: 'row', justifyContent: 'center' },
+  pyrName:      { fontFamily: FontFamily.monoMedium, fontSize: 11, color: '#fff', marginTop: 6, maxWidth: 110, textAlign: 'center' },
+  pyrNameTop:   { fontFamily: FontFamily.syneBold, fontSize: 17, letterSpacing: -0.4, maxWidth: INNER },
+  pyrValue:     { fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.8)' },
   barsRow:      { flexDirection: 'row', alignItems: 'flex-end', height: Math.min(280, SH * 0.32), gap: 3 },
   clockRow:     { flexDirection: 'row', alignItems: 'flex-end', height: Math.min(240, SH * 0.28), gap: 3 },
   barCol:       { flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center' },
@@ -131,11 +255,6 @@ const styles = StyleSheet.create({
   barLabel:     { flex: 1, textAlign: 'center', fontFamily: FontFamily.mono, fontSize: 11, color: 'rgba(255,255,255,0.6)' },
   barLabelPeak: { color: '#fff', fontFamily: FontFamily.monoMedium },
   clockMark:    { fontFamily: FontFamily.mono, fontSize: 11, color: 'rgba(255,255,255,0.6)' },
-  compare:      { gap: Spacing.xl },
-  compareLabel: { fontFamily: FontFamily.mono, fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 8 },
-  compareTrack: { height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden' },
-  compareFill:  { height: '100%', borderRadius: 12, backgroundColor: '#fff' },
-  compareValue: { fontFamily: FontFamily.syneBold, fontSize: 22, color: '#fff', marginTop: 8, letterSpacing: -0.5 },
   mosaic:       { flexDirection: 'row', flexWrap: 'wrap' },
   preview:      {
     borderRadius: 18, overflow: 'hidden',
