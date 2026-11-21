@@ -1,4 +1,5 @@
 // First import: starts the JS-side load-time clock (utils/perf).
+import { CoverHost } from '@/components/cover/CoverHost'
 import '@/utils/perf'
 import React, { useEffect, useRef, useState } from 'react'
 import { Stack, router, usePathname, type ErrorBoundaryProps } from 'expo-router'
@@ -272,6 +273,8 @@ export default function RootLayout() {
         onConfirm={() => { setShowUpdate(false); applyUpdate() }}
         onCancel={() => setShowUpdate(false)}
       />
+      {/* Flip cover screen: the compact app, over the normal one (which stays mounted) */}
+      {isAuthenticated && <CoverHost />}
       {/* showDialog() / showToast() from anywhere — kept last so it sits on top */}
       <ServerWakeBanner />
       <DialogHost />

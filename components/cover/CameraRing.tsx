@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
+import { PixelRatio, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import { Canvas, Path, Circle, RoundedRect, BlurMask, Group, Skia } from '@shopify/react-native-skia'
-import { useDerivedValue, type SharedValue } from 'react-native-reanimated'
+import { useAnimatedReaction, useDerivedValue, useSharedValue, type SharedValue } from 'react-native-reanimated'
 import { useMotionReduced } from '@/components/motion/reduced'
 import { useMotionClock } from '@/components/motion/clock'
-import { pointAt, stadium, type CameraOutline } from './outline'
+import { perimeter, pointAt, stadium, type CameraOutline } from './outline'
 
 /** How far outside the glass the ring runs, and how far the pulses travel (dp). */
 const GAP = 7
@@ -65,7 +65,16 @@ export function CameraRing({ outline, progress, playing, colors, guide = false, 
   const path = useMemo(() => ringPath(o, GAP), [o])
   const guidePath = useMemo(() => ringPath(o, 0), [o])
 
-  const end = useDerivedValue(() => Math.min(1, Math.max(0, progress.value)))
+  // Progress moves a fraction of a pixel per frame over a whole song. Hand Skia a new
+  // value only when the tip moves a whole physical pixel, so a playing song costs a
+  // redraw a few times a second, not every frame (same idea as ProgressFill).
+  const steps = Math.max(1, Math.round(perimeter(o, GAP) * PixelRatio.get()))
+  const end = useSharedValue(0)
+  useAnimatedReaction(
+    () => Math.round(Math.min(1, Math.max(0, progress.value)) * steps) / steps,
+    (cur, prev) => { if (cur !== prev) end.value = cur },
+    [steps],
+  )
   const tipX = useDerivedValue(() => pointAt(o, GAP, end.value).x)
   const tipY = useDerivedValue(() => pointAt(o, GAP, end.value).y)
   const tipR = useDerivedValue(() => (end.value > 0.002 ? STROKE * 1.35 : 0))
@@ -86,9 +95,15 @@ export function CameraRing({ outline, progress, playing, colors, guide = false, 
   }
   const pulses = [pulse(0), pulse(1), pulse(2)]
 
+  // Draw only in a box round the cameras (pulses + glow included), not the whole screen.
+  const box = stadium(o, GAP + 2 + PULSE_SPREAD)
+  const PAD = 12
+  const cv = { left: Math.floor(box.left - PAD), top: Math.floor(box.top - PAD), width: Math.ceil(box.width + PAD * 2), height: Math.ceil(box.height + PAD * 2) }
+
   return (
     <View style={[StyleSheet.absoluteFill, style]} pointerEvents="none">
-      <Canvas style={StyleSheet.absoluteFill}>
+      <Canvas style={{ position: 'absolute', ...cv }}>
+        <Group transform={[{ translateX: -cv.left }, { translateY: -cv.top }]}>
         {pulses.map((q, i) => (
           <RoundedRect key={i} x={q.x} y={q.y} width={q.w} height={q.h} r={q.r}
             style="stroke" strokeWidth={2} color={colors[1]} opacity={q.opacity} />
@@ -111,6 +126,7 @@ export function CameraRing({ outline, progress, playing, colors, guide = false, 
         </Circle>
 
         {guide && <Path path={guidePath} style="stroke" strokeWidth={1} color="#ff3b3b" />}
+        </Group>
       </Canvas>
     </View>
   )

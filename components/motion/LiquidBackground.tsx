@@ -1,3 +1,4 @@
+import { useCoverActive } from '@/utils/coverMode'
 import React, { useCallback, useEffect, useState } from 'react'
 import { StyleSheet, View, useWindowDimensions } from 'react-native'
 import { useFocusEffect } from 'expo-router'
@@ -30,6 +31,8 @@ export function LiquidBackground() {
   const tint = useTint()
   const reduced = useMotionReduced()
   const [focused, setFocused] = useState(true)
+  // Hidden under the cover-screen app: hold still.
+  const coverOn = useCoverActive()
   useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false) }, []))
   const { width: W, height: H } = useWindowDimensions()
   const light = activeThemeMode() === 'light'
@@ -39,7 +42,7 @@ export function LiquidBackground() {
   useFrameCallback(() => {
     const now = Date.now() % 10_000_000
     if (Math.abs(now - t.value) >= 50) t.value = now
-  }, focused && !reduced)
+  }, focused && !reduced && !coverOn)
 
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.background }]} pointerEvents="none">

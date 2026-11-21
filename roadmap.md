@@ -386,12 +386,13 @@ A ring hugging both lenses (`components/cover/`), in the cover art's colours:
 ## Plan (decided 2026-11-21)
 - [x] Measure the screen; find the cameras; camera ring prototype + lab — OTA on 2.0.18
 - [x] Native "which screen" flag (`DisplayInfo`) — APK
-- [ ] Ring without per-frame redraws, then out of the lab
-- [ ] Cover shell: detects the cover screen and swaps the whole app to a compact layout
+- [x] Ring without per-frame redraws (draws only round the cameras; progress steps whole pixels), then out of the lab — 2.0.21
+- [x] Cover shell (`CoverHost` → `CoverApp`): over the normal app, which stays mounted and whose background pauses; "Use the full app" escape — 2.0.21
+- [x] First sections: Now playing (tap art = play/pause, hold = open in Spotify, prev/next) and This week — 2.0.21
 - [ ] Gesture-only navigation: swipe left/right between sections, swipe up for a section
       picker that springs out of the cameras; tap = play/pause, long-press = actions.
       Avoid the system's edges (top = quick panel, sides = back) and the bottom-centre button
-- [ ] A first-time animated hint showing the gestures
+- [x] A first-time hint (the pager nudges, "swipe for more") — 2.0.21; [ ] swipe-up section picker from the cameras
 - [ ] Compact screens, in order: Now Playing, Home/stats, Swipe, Queue, then Wrapped and
       stories; dev/settings screens say "open on the main screen"
 - [ ] More camera moments: a new song's cover flies out from behind the lenses; toasts and

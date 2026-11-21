@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.21',
+    name:    'Cover screen',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Galaxy Z Flip: close the phone and playlist.lens switches to a compact app made for the cover screen. A ring round the cameras fills as your song plays.',
+          'Swipe between Now playing (tap the cover to play or pause, hold it to open Spotify) and This week (time listened, top artist, top song).',
+          'Open the phone and you are right where you left off. Want the full app on the cover screen instead? Swipe to More.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.20',
     name:    'More or less',
     date:    '2026-11-21',
