@@ -1,4 +1,4 @@
-import { pointAt, perimeter, stadium, cleanOutline, toDp, panelScale, FLIP7_OUTLINE, type CameraOutline } from '@/components/cover/outline'
+import { pointAt, perimeter, stadium, cleanOutline, toDp, panelScale, FLIP7_OUTLINE, FLIP7_FLASH, FLIP7_FLASH_ZONE_LEFT, type CameraOutline } from '@/components/cover/outline'
 import { isCoverWindow } from '@/hooks/useCoverScreen'
 import { liveFraction } from '@/components/cover/useRingProgress'
 
@@ -78,5 +78,15 @@ describe('ring progress', () => {
     near(liveFraction({ ...t, playing: false }, 11_000), 0.1)
     expect(liveFraction(t, 1e9)).toBe(1)
     expect(liveFraction({ ...t, durationMs: 0 })).toBe(0)
+  })
+})
+
+describe('flash zone', () => {
+  it('sits left of the flash, which sits left of the lenses', () => {
+    expect(FLIP7_FLASH_ZONE_LEFT).toBeLessThan(FLIP7_FLASH.cx - FLIP7_FLASH.r)
+    expect(FLIP7_FLASH.cx + FLIP7_FLASH.r).toBeLessThan(FLIP7_OUTLINE.cx1 - FLIP7_OUTLINE.r)
+  })
+  it('leaves room for the 4-icon tab strip (≈174 dp from 12 dp in)', () => {
+    expect(FLIP7_FLASH_ZONE_LEFT * panelScale(474) - 12).toBeGreaterThanOrEqual(174)
   })
 })

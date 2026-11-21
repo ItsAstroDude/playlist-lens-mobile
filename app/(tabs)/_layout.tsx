@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Tabs } from 'expo-router'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
@@ -11,6 +11,7 @@ import { NowPlayingBar } from '@/components/nowplaying/NowPlayingBar'
 import { LiquidTabBar, TAB_ICONS } from '@/components/motion/LiquidTabBar'
 import { Icon } from '@/components/ui/Icon'
 import { useIsCover } from '@/hooks/useScreen'
+import { FLIP7_FLASH_ZONE_LEFT, panelScale } from '@/components/cover/outline'
 import { LiquidBackground } from '@/components/motion/LiquidBackground'
 
 // Minimal structural type for the navigator props we actually use (avoids a
@@ -53,12 +54,18 @@ function GestureDots({ state, navigation, navRef, onTab }: TabBarProps & TabBarE
 // The cover screen (≈474×524 dp) has the cameras bottom-right and Samsung's "open on
 // main screen" button bottom-centre, so the tab bar shrinks to a strip of icons in
 // the free bottom-left corner. Swiping anywhere (away from the edges) switches tabs.
+const STRIP_LEFT = 12
+const STRIP_BOTTOM = 12
+
 function CoverTabs({ state, navigation, navRef, onTab }: TabBarProps & TabBarExtra) {
-  const insets = useSafeAreaInsets()
+  // Low in the corner (the system's bottom inset is ~100 dp here and holds nothing on
+  // the left), and never right of the flash zone.
+  const { width: W } = useWindowDimensions()
+  const maxWidth = FLIP7_FLASH_ZONE_LEFT * panelScale(W) - STRIP_LEFT
   navRef.current = { index: state.index, routes: state.routes, navigate: navigation.navigate }
   useEffect(() => { onTab(state.routes[state.index]?.name ?? '') }, [state.index])
   return (
-    <View style={[styles.coverStrip, { bottom: Math.max(insets.bottom, 10) }]}>
+    <View style={[styles.coverStrip, { left: STRIP_LEFT, bottom: STRIP_BOTTOM, maxWidth }]}>
       {state.routes.map((route, i) => {
         const on = i === state.index
         const [filled, outline] = TAB_ICONS[route.name] ?? ['ellipse', 'ellipse-outline']
@@ -154,8 +161,8 @@ const styles = StyleSheet.create({
   dotsRow:     { flexDirection: 'row', alignItems: 'center', gap: 7 },
   dot:         { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.28)' },
   dotActive:   { width: 18, backgroundColor: Colors.greenPrimary },
-  coverStrip:  { position: 'absolute', left: 12, flexDirection: 'row', gap: 4, padding: 4, borderRadius: 24,
+  coverStrip:  { position: 'absolute', flexDirection: 'row', gap: 4, padding: 4, borderRadius: 24,
                  backgroundColor: 'rgba(12,12,16,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
-  coverItem:   { width: 38, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  coverItem:   { flexShrink: 1, width: 38, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   coverItemOn: { backgroundColor: '#fff' },
 })

@@ -28,6 +28,12 @@ export interface CameraOutline {
 /** Galaxy Z Flip 7 cover screen, in panel px. Estimated from a photo of the phone. */
 export const FLIP7_OUTLINE: CameraOutline = { cx1: 649, cx2: 836, cy: 935, r: 85 }
 
+/** The Flip 7 flash (left of the lenses), panel px, from the same photo. */
+export const FLIP7_FLASH = { cx: 500, cy: 932, r: 33 }
+/** Nothing along the bottom edge may reach right of this (panel px): the flash zone
+ *  starts here. Marked on the phone (2026-11-21), a little left of the flash itself. */
+export const FLIP7_FLASH_ZONE_LEFT = 410
+
 /** The Flip 7 cover panel, physical px. */
 export const FLIP7_PANEL = { width: 948, height: 1048 }
 
