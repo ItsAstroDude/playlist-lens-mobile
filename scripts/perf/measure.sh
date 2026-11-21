@@ -28,5 +28,5 @@ for s in $SCEN; do case $s in
          for i in 1 2 3 4 5 6 7 8; do "$ADB" shell input swipe 540 700 540 2000 250; sleep 0.9; done; grab $s
          "$ADB" shell input tap 114 533; sleep 1;;
   idle)  tab 0; sleep 2; reset; "$ADB" shell top -b -H -d 2 -n 5 -p $("$ADB" shell pidof $PKG) > "$OUT/idle.top.txt"; grab idle
-         awk '/^(Tasks|Threads)/{n++}/^ *[0-9]+ u0_/{c+=$9; th[$13]+=$9}END{printf "idle     avg CPU %.1f%% (%d samples)  top threads:",c/n,n; for(k in th) if(th[k]/n>1.5) printf " %s=%.1f",k,th[k]/n; print ""}' "$OUT/idle.top.txt" | tee -a "$OUT/summary.txt";;
+         awk '/^(Tasks|Threads)/{n++}/^ *[0-9]+ u0_/{c+=$9; th[$12]+=$9}END{printf "idle     avg CPU %.1f%% (%d samples)  top threads:",c/n,n; for(k in th) if(th[k]/n>1.5) printf " %s=%.1f",k,th[k]/n; print ""}' "$OUT/idle.top.txt" | tee -a "$OUT/summary.txt";;
 esac; done

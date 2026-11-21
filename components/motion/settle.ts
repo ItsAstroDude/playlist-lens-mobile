@@ -3,19 +3,6 @@ import { runOnJS } from 'react-native-reanimated'
 
 const NONE = Symbol('unsettled')
 
-// TEMP perf diagnostic (perf/wrapped-settle): proves on a release build, via logcat
-// (`adb logcat -s ReactNativeJS`), that settles fire. Remove once verified.
-const perfCounts = { begun: 0, settled: 0, cancelled: 0, unfinished: 0 }
-let perfTimer: ReturnType<typeof setTimeout> | null = null
-function perfNote(k: keyof typeof perfCounts) {
-  perfCounts[k]++
-  if (perfTimer) return
-  perfTimer = setTimeout(() => {
-    perfTimer = null
-    console.log(`[perf] settle begun=${perfCounts.begun} settled=${perfCounts.settled} cancelled=${perfCounts.cancelled} unfinished=${perfCounts.unfinished}`)
-  }, 1500)
-}
-
 /**
  * For one-shot entrances (ripple, rack focus, rolling digits): once the animation has
  * landed, the component re-renders as a plain View with the identical end-state style.
@@ -44,20 +31,17 @@ export function useSettle(key: unknown) {
   const keyAt = useRef<unknown>(NONE)
 
   const done = useCallback((g: number) => {
-    if (g === gen.current) { perfNote('settled'); setSettledKey(keyAt.current) }
-    else perfNote('cancelled')
+    if (g === gen.current) setSettledKey(keyAt.current)
   }, [])
 
   /** Call when starting the animation; pass the result as its completion callback. */
   const begin = useCallback(() => {
     const g = ++gen.current
-    perfNote('begun')
     keyAt.current = keyRef.current
     // Only a landed animation settles: one cancelled by a replay reports finished = false.
     return (finished?: boolean) => {
       'worklet'
       if (finished) runOnJS(done)(g)
-      else runOnJS(perfNote)('unfinished')
     }
   }, [done])
 
