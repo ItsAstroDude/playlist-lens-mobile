@@ -1,3 +1,4 @@
+import { useIsCover } from '@/hooks/useScreen'
 import React, { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, Pressable } from 'react-native'
 import { router } from 'expo-router'
@@ -32,6 +33,7 @@ export function TabHeader({ title, subtitle, actions, titleRight, children, sett
   settings?:   boolean
 }) {
   const still = reduceMotionEnabled()
+  const cover = useIsCover()
   const y = useSharedValue(still ? 0 : 12)
   const o = useSharedValue(still ? 1 : 0)
   useEffect(() => {
@@ -64,6 +66,24 @@ export function TabHeader({ title, subtitle, actions, titleRight, children, sett
     const r = tapLine()
     if (r.rock) setRock(true)
     setSaid({ line: r.line, n: Date.now() })
+  }
+
+  // Flip cover screen (≈474×524 dp): one row, title + buttons; no wordmark, greeting
+  // or subtitle. Filters (children) stay.
+  if (cover) {
+    return (
+      <Animated.View style={[styles.wrapCover, enter]}>
+        <View style={styles.titleRow}>
+          <Text style={styles.titleCover} accessibilityRole="header" numberOfLines={1}>{title.charAt(0).toUpperCase() + title.slice(1)}</Text>
+          <View style={styles.actions}>
+            {titleRight}
+            {actions}
+            {settings && <IconButton icon="settings-outline" label="Settings" onPress={() => router.push('/settings')} />}
+          </View>
+        </View>
+        {children}
+      </Animated.View>
+    )
   }
 
   return (
@@ -121,4 +141,6 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
   title:    { ...Type.title, fontSize: 30, lineHeight: 36, letterSpacing: -1.2, flexShrink: 1 },
   sub:      { ...Type.caption, fontSize: 11 },
+  wrapCover:  { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.sm, gap: 6 },
+  titleCover: { ...Type.title, fontSize: 24, lineHeight: 30, letterSpacing: -1, flexShrink: 1 },
 })

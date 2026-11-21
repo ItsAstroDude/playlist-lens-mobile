@@ -1,10 +1,13 @@
 import React, { useEffect } from 'react'
 import { useScreen } from '@/hooks/useScreen'
 import { setCoverActive, setCoverFullApp, useCoverFullApp } from '@/utils/coverMode'
+import { usePathname } from 'expo-router'
 import { CoverApp } from './CoverApp'
+import { CoverRing } from './CoverRing'
 
 /**
- * Shows the compact cover-screen app over the normal one while the app is on the
+ * On the Flip's cover screen: the camera ring over the app (CoverRing). The separate
+ * mini-app (CoverApp) is switched off; when on, it showed the compact cover-screen app over the normal one while the app is on the
  * Flip's cover screen (unless the user chose the full app there). The normal app
  * stays mounted underneath, so opening the phone continues where you were.
  */
@@ -23,5 +26,8 @@ export function CoverHost() {
   useEffect(() => { if (!onCover && fullApp) setCoverFullApp(false) }, [onCover, fullApp])
   useEffect(() => () => setCoverActive(false), [])
 
-  return show ? <CoverApp /> : null
+  // The real app on the cover screen: the camera ring over it (the lab draws its own).
+  const path = usePathname()
+  if (show) return <CoverApp />
+  return onCover && path !== '/cover-lab' ? <CoverRing /> : null
 }

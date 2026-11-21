@@ -20,7 +20,7 @@ const PAD = 6
 // Alpha threshold after the blur: the two pills melt into one blob where they overlap.
 const GOO = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 22, -9]
 
-const TAB_ICONS: Record<string, [IconName, IconName]> = {
+export const TAB_ICONS: Record<string, [IconName, IconName]> = {
   index:   ['aperture', 'aperture-outline'],
   queue:   ['list',     'list-outline'],
   play:    ['game-controller', 'game-controller-outline'],

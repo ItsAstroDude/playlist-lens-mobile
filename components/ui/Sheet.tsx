@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect } from 'react'
-import { View, Text, StyleSheet, Pressable, Dimensions, BackHandler, type StyleProp, type ViewStyle } from 'react-native'
+import { View, Text, StyleSheet, Pressable, BackHandler, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing, runOnJS } from 'react-native-reanimated'
 import { Colors, Spacing, Radius, Type } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 
-const { height: SH } = Dimensions.get('window')
 const CLOSE_DISTANCE = 110
 const CLOSE_VELOCITY = 900
 
@@ -44,6 +43,8 @@ export function Sheet({
   style?:       StyleProp<ViewStyle>
 }) {
   const insets = useSafeAreaInsets()
+  // The live window height (the Flip's cover screen is about half the main one's).
+  const { height: SH } = useWindowDimensions()
   const y = useSharedValue(SH)
   const backdrop = useSharedValue(0)
 

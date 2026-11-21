@@ -65,3 +65,8 @@ export function useScreen(): ScreenInfo {
   const kind: ScreenKind = isCoverWindow(width, height) ? 'cover' : 'main'
   return { kind, source: 'size', detail: `${kind} (guessed from size) · ${w}×${h} dp · ${k}` }
 }
+
+/** True while the app is on the Flip's cover screen. */
+export function useIsCover(): boolean {
+  return useScreen().kind === 'cover'
+}

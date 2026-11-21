@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react'
-import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native'
+import { View, Text, Pressable, StyleSheet, Dimensions, useWindowDimensions } from 'react-native'
+import { isCoverWindow } from '@/hooks/useCoverScreen'
 import { Image } from 'expo-image'
 import Animated, {
   useSharedValue,
@@ -20,7 +21,9 @@ const SIDE_PAD = Spacing.lg
 // 2.0 Liquid: playlists are frosted-glass tiles with the cover inset and the words
 // underneath (grid) or beside it (list) — no text printed over the artwork.
 export const GRID_GAP = Spacing.md
-export const GRID_W   = (SCREEN_W - SIDE_PAD * 2 - GRID_GAP) / 2
+/** Grid tile width for a window this wide. GRID_W = at launch (skeletons). */
+export const gridWidth = (windowW: number) => (windowW - SIDE_PAD * 2 - GRID_GAP) / 2
+export const GRID_W   = gridWidth(SCREEN_W)
 const TILE_PAD  = 8
 const ROW_COVER = 92
 /** Corner radius of the inset cover (the open transition starts from it). */
@@ -42,6 +45,11 @@ interface PlaylistCardProps {
 export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, layout = 'full' }: PlaylistCardProps) {
   const grid = layout === 'grid'
   const coverUrl = playlist.images?.[0]?.url
+  // Sized from the live window, not the one at launch: the Flip's cover screen is a
+  // different width (and much shorter, so rows get a smaller cover there).
+  const { width: W, height: H } = useWindowDimensions()
+  const compact = isCoverWindow(W, H)
+  const rowCover = compact ? 68 : ROW_COVER
 
   const cachedVibe = useMemo(() => {
     const cached = getCache<PlaylistAnalysis>(CacheKeys.playlistAnalysis(playlist.id))
@@ -86,7 +94,7 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, l
     : null
 
   const cover = (
-    <View style={grid ? styles.coverGrid : styles.coverRow}>
+    <View style={grid ? styles.coverGrid : [styles.coverRow, { width: rowCover, height: rowCover }]}>
       {coverUrl
         ? <Image source={{ uri: coverUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={300} recyclingKey={playlist.id} />
         : <View style={[StyleSheet.absoluteFill, styles.coverFallback]} />}
@@ -110,7 +118,7 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, l
   )
 
   return (
-    <Animated.View style={[grid ? styles.wrapperGrid : styles.wrapper, gridPos, entranceStyle]}>
+    <Animated.View style={[grid ? styles.wrapperGrid : styles.wrapper, { width: grid ? gridWidth(W) : W - SIDE_PAD * 2 }, compact && { marginBottom: Spacing.sm }, gridPos, entranceStyle]}>
       <AnimatedPressable
         onPressIn={() => { scale.value = withSpring(0.96, Spring.snappy) }}
         onPressOut={() => { scale.value = withSpring(1, Spring.snappy) }}

@@ -26,7 +26,8 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'New',
         items: [
-          'Galaxy Z Flip: groundwork for a compact version of the whole app on the cover screen, with a ring round the cameras that fills as your song plays. Coming in the next updates.',
+          'Galaxy Z Flip: the app fits the cover screen. A compact header, a small tab strip in the free corner (or swipe anywhere to change tab), and playlist cards that use the full width.',
+          'On the cover screen a ring round the cameras fills as your song plays. Tap round the cameras to open Now playing.',
         ],
       },
     ],

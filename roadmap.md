@@ -383,6 +383,20 @@ A ring hugging both lenses (`components/cover/`), in the cover art's colours:
 - **Before it leaves the lab:** progress advances a fraction of a pixel every frame. Snap
   it to whole pixels like the now-playing line (`ProgressFill`) so it doesn't redraw at 60/120 Hz.
 
+## Direction (changed 2026-11-21): the real app, compact
+A separate 3-page cover mini-app (`CoverApp`: Now playing / This week / More) was built
+and rejected: the cover screen shows **the real app** with compact layouts. The mini-app
+is switched off in `CoverHost` (`MINI_APP_ENABLED = false`), kept only for reference.
+- [x] Shared chrome (2.0.21): `TabHeader` collapses to one row (title + buttons, 24 pt);
+      the tab bar becomes a small icon strip in the free bottom-left corner
+      (`CoverTabs`); swipe anywhere off the edges changes tab (paused on Swipe, whose
+      deck swipes sideways); the now-playing pill hides; `CoverRing` draws the ring over
+      everything and a tap round the cameras opens Now playing.
+- [x] Sizes from the live window, not the launch one: playlist cards (smaller row cover
+      on the cover screen), `Sheet`, the swipe deck, What's new.
+- [ ] Still sized at launch: DetailSheet, story, auth, artwork-fix sheet, tour.
+- [ ] Per screen on the cover: Lenses, Queue, Play, Swipe, Settings, sheets clear of the cameras.
+
 ## Plan (decided 2026-11-21)
 - [x] Measure the screen; find the cameras; camera ring prototype + lab — OTA on 2.0.18
 - [x] Native "which screen" flag (`DisplayInfo`) — APK

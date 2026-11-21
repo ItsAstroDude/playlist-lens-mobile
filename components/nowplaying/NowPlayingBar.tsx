@@ -1,3 +1,4 @@
+import { useIsCover } from '@/hooks/useScreen'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { BlurView } from 'expo-blur'
@@ -100,7 +101,10 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
 
   const isTrack = !!np?.item && np.type === 'track'
   const showReconnect = needsReconnect && !dismissed
-  const visible = pos === 'bottom' && (showReconnect || isTrack)
+  // On the Flip cover screen the camera ring shows progress and a tap on the cameras
+  // opens the sheet, so the pill stays out of the way (its sheet still lives here).
+  const cover = useIsCover()
+  const visible = !cover && pos === 'bottom' && (showReconnect || isTrack)
 
   // Sits just above whichever navbar variant is active.
   const bottom = useMemo(() => {
