@@ -2,9 +2,10 @@
  * Cover-screen camera outline: where the two rear cameras sit on the Flip's cover
  * screen. Stored in the cover panel's PHYSICAL PIXELS (Flip 7: 948×1048, cameras
  * bottom-right, flash to their left). `toDp` scales by window size ÷ panel size.
- * Don't use PixelRatio.get() for this: React Native keeps the MAIN screen's value
- * (e.g. ×2.625) after the app moves to the cover screen, where apps really run at
- * ×2.0 (474×524 dp). Pure maths, no Skia, so it's testable and usable from worklets.
+ * Don't convert with PixelRatio: app pixels aren't panel pixels there. One UI shows
+ * apps on the cover as a 1244×1375 px display at ×2.625 (474×524 dp) and scales the
+ * result down to the 948×1048 panel (screenshots are the panel's size).
+ * Pure maths, no Skia, so it's testable and usable from worklets.
  *
  * The cameras are modelled as two lenses of radius `r` side by side on one row
  * (`cy`), and the ring hugs their hull: a stadium (pill) `gap` dp outside the glass.

@@ -339,19 +339,21 @@ Samsung's own cover UI is. One UI 9 lets almost any app run there.
 | | Main (display 0) | Cover (display 1) |
 |---|---|---|
 | Panel | 1080 × 2520 px | 948 × 1048 px |
-| What the app gets | 411 × 960 dp at ×2.625 | **474 × 524 dp at ×2.0** |
+| What the app gets | 411 × 960 dp at ×2.625 | **474 × 524 dp at ×2.625** (1244 × 1375 px, scaled down to the panel) |
 | Refresh rate | 120 Hz | 60 Hz by default (supports 120) |
 
 - **Cameras bottom-right**, two lenses side by side, the flash to their left. Outline in
   panel px: lenses at x 649 / 836, y 935, radius 85 (`FLIP7_OUTLINE`, checked on the phone).
 - **Samsung's "open on main screen" button sits at the bottom centre.** Keep controls and
   gestures clear of it; it's also why the cover UI has no bottom tab bar.
-- **`PixelRatio.get()` is wrong on the cover screen**: it keeps the main screen's ×2.625
-  while the app lays out at ×2.0. Never convert with it there; scale by window size ÷
-  panel size (`panelScale`). Screenshots also leave out the camera cutout.
+- **App pixels aren't panel pixels on the cover screen**: One UI gives apps a 1244 × 1375 px
+  display at ×2.625 and scales it down to the 948 × 1048 panel (screenshots are panel-sized).
+  Place things by panel position: scale by window size ÷ panel size (`panelScale`).
+  Screenshots also leave out the camera cutout.
 - **Which screen:** `useScreen()` (hooks/useScreen.ts) asks Android for the activity's
-  display through the `DisplayInfo` native module (modules/display-info, in the APK
-  built 2026-11-21); older APKs fall back to window size (short + nearly square = cover).
+  display through the `DisplayInfo` native module (modules/display-info, APK versionCode 4,
+  2026-11-21; confirmed on the phone: display 1 = cover). Older APKs fall back to window
+  size (short + nearly square = cover).
 
 ## Camera ring (motion, prototype in Settings › About › Cover screen lab)
 A ring hugging both lenses (`components/cover/`), in the cover art's colours:

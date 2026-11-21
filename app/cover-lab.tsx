@@ -75,7 +75,7 @@ export default function CoverLab() {
   const insets = useSafeAreaInsets()
 
   // ── outline, in cover-panel px (saved on every change) ──
-  // dp per panel px, from the window (PixelRatio is stale on the cover screen).
+  // dp per panel px, from the window (app px aren't panel px on the cover screen).
   const { width: winW } = useWindowDimensions()
   const scale = panelScale(winW)
   const [outline, setOutline] = useState<CameraOutline>(getCameraOutline)

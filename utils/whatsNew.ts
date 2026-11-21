@@ -19,6 +19,27 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.19',
+    name:    'Two screens',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'The app now knows whether it is on the main screen or the Flip cover screen, by asking the phone directly. This is the groundwork for a cover screen version of the app.',
+          'Cover screen lab: the camera ring now sits round the real cameras, with animated backgrounds in 20 colour sets to test it against.',
+          'Settings › About › Update details shows exactly which update the phone is running.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Settings no longer shows the old "Audio features" note (Spotify stopped sharing them; vibes use genres).',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.18',
     name:    'Smooth Wrapped',
     date:    '2026-11-21',

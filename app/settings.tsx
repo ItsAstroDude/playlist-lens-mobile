@@ -31,7 +31,7 @@ import {
 import { notificationsEnabled, setNotificationsEnabled, sendTestNotification } from '@/utils/notifications'
 import { clearWrappedStats } from '@/hooks/useWrapped'
 import { loadArtReports } from '@/hooks/useArtwork'
-import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel, reloadApp } from '@/utils/updates'
+import { checkForUpdate, applyUpdate, otaEnabled, currentUpdateLabel, updateDetails, reloadApp } from '@/utils/updates'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { emitOpenTutorial, emitOpenWhatsNew } from '@/utils/overlayEvents'
 import { appVersion, nativeVersion } from '@/utils/version'
@@ -617,8 +617,8 @@ export default function SettingsScreen() {
               value={appVersion()} />
             <SettingRow icon="cloud-download-outline" tint="sky" label="Check for updates"
               value={updateMsg ?? undefined} valueTone={okMsg(updateMsg) ? 'ok' : undefined} onPress={onCheckUpdates} />
-            <SettingRow icon="pulse-outline" tint="amber" label="Audio features"
-              hint="Spotify only shares these with apps registered before Nov 2024 — vibes fall back to genres" />
+            <SettingRow icon="git-commit-outline" tint="amber" label="Update details"
+              value={updateDetails().running} hint={updateDetails().detail} />
             <SettingRow icon="color-palette-outline" label="Design system"
               hint="Every colour, type style and component the app is built from"
               onPress={() => { haptic.light(); router.push('/design') }} />
