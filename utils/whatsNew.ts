@@ -26,9 +26,7 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'New',
         items: [
-          'Galaxy Z Flip: close the phone and playlist.lens switches to a compact app made for the cover screen. A ring round the cameras fills as your song plays.',
-          'Swipe between Now playing (tap the cover to play or pause, hold it to open Spotify) and This week (time listened, top artist, top song).',
-          'Open the phone and you are right where you left off. Want the full app on the cover screen instead? Swipe to More.',
+          'Galaxy Z Flip: groundwork for a compact version of the whole app on the cover screen, with a ring round the cameras that fills as your song plays. Coming in the next updates.',
         ],
       },
     ],
