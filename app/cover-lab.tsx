@@ -23,13 +23,26 @@ const LIGHT_INK = { text: '#121316', muted: '#43474f', dim: '#6b7079', glass: 'r
 
 /** Backgrounds to check the ring against (the Background button cycles them). */
 const BACKGROUNDS: { name: string; color: string }[] = [
-  { name: 'black', color: '#000000' },
+  { name: 'black',    color: '#000000' },
   { name: 'charcoal', color: '#1c1d22' },
-  { name: 'red', color: '#e8401c' },
-  { name: 'blue', color: '#2459d6' },
-  { name: 'green', color: '#1f9e55' },
-  { name: 'purple', color: '#6a2bd9' },
-  { name: 'light', color: '#f2efe9' },
+  { name: 'slate',    color: '#3b4250' },
+  { name: 'grey',     color: '#8a8f98' },
+  { name: 'light',    color: '#f2efe9' },
+  { name: 'white',    color: '#ffffff' },
+  { name: 'red',      color: '#e8401c' },
+  { name: 'crimson',  color: '#b3122e' },
+  { name: 'orange',   color: '#ff8a1f' },
+  { name: 'yellow',   color: '#ffd23f' },
+  { name: 'lime',     color: '#a6e22e' },
+  { name: 'green',    color: '#1f9e55' },
+  { name: 'teal',     color: '#14a39a' },
+  { name: 'cyan',     color: '#3fd0f2' },
+  { name: 'blue',     color: '#2459d6' },
+  { name: 'navy',     color: '#14204a' },
+  { name: 'indigo',   color: '#4b3fd6' },
+  { name: 'purple',   color: '#6a2bd9' },
+  { name: 'pink',     color: '#ff70a5' },
+  { name: 'brown',    color: '#6b4226' },
 ]
 
 /** Relative luminance of a #rrggbb colour, 0–1. */
@@ -115,6 +128,7 @@ export default function CoverLab() {
   // ── background: cycles the presets, plus the cover's colour when a song is playing ──
   const bgs = pal ? [...BACKGROUNDS, { name: 'cover art', color: pal.background }] : BACKGROUNDS
   const [bgIdx, setBgIdx] = useState(0)
+  const [picking, setPicking] = useState(false)
   const bg = bgs[bgIdx % bgs.length]
   const bgInk: InkSet = luminance(bg.color) > 0.4 ? LIGHT_INK : COVER_INK
   const ink = bgInk
@@ -129,8 +143,20 @@ export default function CoverLab() {
         </>}
         {!!live && <Pill label={showingDemo ? 'Use live' : 'Use demo'} onPress={() => { haptic.light(); setUseDemo(d => !d) }} />}
         <Pill label={tuning ? 'Done' : 'Tune'} active={tuning} onPress={() => { haptic.light(); setTuning(v => !v) }} />
-        <Pill label={`Background: ${bg.name}`} onPress={() => { haptic.light(); setBgIdx(i => (i + 1) % bgs.length) }} />
+        <Pill label={`Background: ${bg.name}`} active={picking} onPress={() => { haptic.light(); setPicking(v => !v) }} />
       </View>
+      {picking && (
+        <View style={styles.swatches}>
+          {bgs.map((b, i) => (
+            <Pressable key={b.name} onPress={() => { haptic.light(); setBgIdx(i) }} hitSlop={3}
+              accessibilityRole="button" accessibilityLabel={`${b.name} background`} accessibilityState={{ selected: i === bgIdx % bgs.length }}
+              style={[styles.swatch, { backgroundColor: b.color, borderColor: i === bgIdx % bgs.length ? ink.text : ink.border },
+                i === bgIdx % bgs.length && styles.swatchOn]}>
+              {b.name === 'cover art' && <Ionicons name="musical-notes" size={12} color={luminance(b.color) > 0.4 ? '#121316' : '#ffffff'} />}
+            </Pressable>
+          ))}
+        </View>
+      )}
       {tuning && (
         <View style={styles.tune}>
           <Stepper label="left/right" onMinus={() => nudge({ x: -2 })} onPlus={() => nudge({ x: 2 })} />
@@ -219,6 +245,9 @@ const styles = StyleSheet.create({
   pillOn:    { borderColor: alpha(Colors.greenPrimary, 0.6) },
   pillText:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.text },
   tune:      { gap: 6, marginTop: 6 },
+  swatches:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  swatch:    { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  swatchOn:  { borderWidth: 3 },
   stepper:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stepLabel: { flex: 1, fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
   values:    { fontFamily: FontFamily.mono, fontSize: 10, color: Colors.textMuted },
