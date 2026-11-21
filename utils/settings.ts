@@ -3,6 +3,7 @@
  * Synchronous reads make it safe to call from render and from the haptic helper.
  */
 import { storage } from '@/utils/cache'
+import { cleanOutline, FLIP7_OUTLINE, type CameraOutline } from '@/components/cover/outline'
 
 const KEYS = {
   haptics:      'settings.haptics',
@@ -16,6 +17,7 @@ const KEYS = {
   navbarStyle:  'settings.navbarStyle',
   nowPlayingPos: 'settings.nowPlayingPos',
   tribute:       'settings.tribute',
+  cameraOutline: 'settings.cameraOutline',
 } as const
 
 // ── Haptics (default ON) ──
@@ -136,4 +138,16 @@ export function setCustomQuote(text: string): void {
   const v = text.trim()
   if (v) storage.set(KEYS.customQuote, v)
   else   storage.remove(KEYS.customQuote)
+}
+
+// ── Cover-screen camera outline (prototype) — tuned in the Cover screen lab ──
+// Falls back to the hardcoded Flip 7 estimate until the user saves a tuned copy.
+export function getCameraOutline(): CameraOutline {
+  const raw = storage.getString(KEYS.cameraOutline)
+  if (!raw) return { ...FLIP7_OUTLINE }
+  try { return cleanOutline(JSON.parse(raw)) } catch { return { ...FLIP7_OUTLINE } }
+}
+export function setCameraOutline(o: CameraOutline | null): void {
+  if (o) storage.set(KEYS.cameraOutline, JSON.stringify(cleanOutline(o)))
+  else   storage.remove(KEYS.cameraOutline)
 }

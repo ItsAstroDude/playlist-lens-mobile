@@ -625,6 +625,9 @@ export default function SettingsScreen() {
             <SettingRow icon="sparkles-outline" tint="violet" label="Motion lab"
               hint="Try the 2.0 animations"
               onPress={() => { haptic.light(); router.push('/motion-lab') }} />
+            <SettingRow icon="phone-portrait-outline" tint="sky" label="Cover screen lab"
+              hint="Prototype: a ring round the cameras on the Flip's cover screen"
+              onPress={() => { haptic.light(); router.push('/cover-lab') }} />
             <SettingRow icon="timer-outline" tint="amber" label="Load times"
               hint="How fast each screen opens on this phone"
               onPress={() => { haptic.light(); router.push('/load-times') }} />
