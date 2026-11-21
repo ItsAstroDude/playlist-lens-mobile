@@ -12,6 +12,9 @@ import { Aurora, RollingNumber, RackFocus, useMotionReduced } from '@/components
 import { KineticText } from '@/components/motion/KineticText'
 import { ArtThumb } from '@/components/ui'
 import { ShareCard, CARD_W, CARD_H } from '@/components/story/ShareCard'
+import { FitHeadline } from '@/components/story/FitHeadline'
+import { useArtwork } from '@/hooks/useArtwork'
+import { usePalette } from '@/hooks/usePalette'
 import { buildStory, type Palette } from '@/utils/story'
 import { storyAsync, type StoryData, type StoryKind } from '@/utils/storyData'
 import { showToast } from '@/utils/dialog'
@@ -22,6 +25,8 @@ const SLIDE_MS = 5200
 const { width: SW } = Dimensions.get('window')
 
 const LOADING_PALETTE: Palette = ['#6a2bd9', '#ff70a5', '#ffb347', '#b39dff']
+/** Cover size on cover slides: big, but leaves room for a three-line title. */
+const ART = Math.min(Math.round(SW * 0.62), 280)
 
 /**
  * Motion #6 — Story mode. Your week / month / year as full-screen slides: progress bars,
@@ -109,6 +114,15 @@ export default function StoryScreen() {
     }
   }, [sharing, data, reduced, run])
 
+  // Cover slides take their colours from the cover (like the Now Playing sheet).
+  const artSlide = slides?.[i]?.art
+  const coverUrl = useArtwork(artSlide?.kind ?? null, artSlide?.name, artSlide?.artist)
+  const { palettes, extract } = usePalette()
+  const palKey = coverUrl ? `story-${coverUrl}` : null
+  useEffect(() => { if (palKey && coverUrl) extract(palKey, coverUrl) }, [palKey])
+  const pal = palKey ? palettes[palKey] : undefined
+  const coverPalette: Palette | null = artSlide && pal ? [pal.primary, pal.secondary, pal.detail, pal.background] : null
+
   if (!slides || !data) {
     return (
       <View style={styles.root}>
@@ -132,7 +146,7 @@ export default function StoryScreen() {
   const s = slides[i]
   return (
     <View style={styles.root}>
-      <Aurora colors={s.palette} style={StyleSheet.absoluteFill} dim={0.34} />
+      <Aurora colors={coverPalette ?? s.palette} style={StyleSheet.absoluteFill} dim={0.34} />
 
       <Pressable
         style={StyleSheet.absoluteFill}
@@ -154,19 +168,21 @@ export default function StoryScreen() {
         </View>
       </View>
 
-      <View style={styles.body} pointerEvents="none" key={s.id} accessibilityLiveRegion="polite">
+      <View style={[styles.body, s.art && styles.bodyArt]} pointerEvents="none" key={s.id} accessibilityLiveRegion="polite">
         {s.art ? (
-          <RackFocus index={0}>
-            <ArtThumb kind={s.art.kind} name={s.art.name} artist={s.art.artist} size={132} />
+          // Cover slides: the cover big and centred, the words centred under it.
+          <RackFocus index={0} style={styles.artWrap}>
+            <ArtThumb kind={s.art.kind} name={s.art.name} artist={s.art.artist} size={ART} />
           </RackFocus>
         ) : null}
-        <KineticText text={s.kicker} style={styles.kicker} stagger={60} />
+        <KineticText text={s.kicker} style={styles.kicker} stagger={60} containerStyle={s.art ? styles.center : undefined} />
         {s.list ? (
           <View style={styles.list}>
             {s.list.map((r, k) => (
               <RackFocus key={r.name + k} index={k + 1} step={110}>
                 <View style={styles.listRow}>
                   <Text style={styles.listRank}>{k + 1}</Text>
+                  {s.listKind ? <ArtThumb kind={s.listKind} name={r.name} artist={r.sub} size={40} /> : null}
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.listName} numberOfLines={1}>{r.name}</Text>
                     {r.sub ? <Text style={styles.listSub} numberOfLines={1}>{r.sub}</Text> : null}
@@ -178,9 +194,9 @@ export default function StoryScreen() {
           </View>
         ) : s.roll
           ? <RollingNumber value={s.big} style={styles.big} unitStyle={styles.bigUnit} stagger={90} />
-          : <KineticText text={s.big} style={styles.big} delay={260} stagger={110} />}
+          : <FitHeadline text={s.big} style={styles.big} delay={260} stagger={110} containerStyle={s.art ? styles.center : undefined} />}
         {s.clock ? <MiniClock clock={s.clock} /> : null}
-        {s.sub ? <KineticText text={s.sub} style={styles.sub} delay={700} stagger={40} /> : null}
+        {s.sub ? <KineticText text={s.sub} style={styles.sub} delay={700} stagger={40} containerStyle={s.art ? styles.center : undefined} /> : null}
       </View>
 
       {s.share && (
@@ -236,6 +252,12 @@ const styles = StyleSheet.create({
   brand:   { fontFamily: FontFamily.syneBold, fontSize: 16, color: 'rgba(255,255,255,0.85)', letterSpacing: -0.5 },
   close:   { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   body:    { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.xl, gap: Spacing.md },
+  bodyArt: { alignItems: 'center' },
+  artWrap: {
+    marginBottom: Spacing.md, borderRadius: 24,
+    shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 28, shadowOffset: { width: 0, height: 16 }, elevation: 18,
+  },
+  center:  { justifyContent: 'center' },
   kicker:  { fontFamily: FontFamily.mono, fontSize: 16, color: 'rgba(255,255,255,0.86)' },
   big:     { fontFamily: FontFamily.syneBold, fontSize: 46, lineHeight: 52, color: '#fff', letterSpacing: -1.5 },
   bigUnit: { fontFamily: FontFamily.syneBold, fontSize: 26, color: 'rgba(255,255,255,0.8)', marginBottom: 6 },

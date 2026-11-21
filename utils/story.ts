@@ -15,8 +15,9 @@ export interface StorySlide {
   palette: Palette
   /** A cover / photo above the words (top artist, top song). */
   art?:    { kind: ArtKind; name: string; artist?: string }
-  /** A short ranked list instead of a sub line (top 5). */
+  /** A short ranked list instead of a sub line (top 5); `listKind` picks each row's cover. */
   list?:   { name: string; sub?: string; value: string }[]
+  listKind?: ArtKind
   /** 24 hourly values: a little listening clock. */
   clock?:  number[]
   /** The last slide: offers the share card. */
@@ -92,13 +93,13 @@ export function buildStory(c: PeriodComparison, opts: StoryOpts = {}): StorySlid
   const a = s.topArtists[0]
   if (a) slides.push({ id: 'artist', kicker: 'The artist you couldn’t stop playing', big: a.name, sub: `${fmtListen(a.ms)} · ${a.plays.toLocaleString()} plays`, palette: pal(2), art: { kind: 'artist', name: a.name } })
   if (s.topArtists.length >= 3) {
-    slides.push({ id: 'artists', kicker: 'Your top artists', big: '', palette: pal(2),
+    slides.push({ id: 'artists', kicker: 'Your top artists', big: '', palette: pal(2), listKind: 'artist',
       list: s.topArtists.slice(0, 5).map(x => ({ name: x.name, value: fmtListen(x.ms) })) })
   }
   const t = s.topTracks[0]
   if (t) slides.push({ id: 'track', kicker: 'On repeat', big: t.name, sub: `${t.sub ? t.sub + ' · ' : ''}${t.plays.toLocaleString()} plays`, palette: pal(3), art: { kind: 'track', name: t.name, artist: t.sub } })
   if (s.topTracks.length >= 3) {
-    slides.push({ id: 'tracks', kicker: 'Your top songs', big: '', palette: pal(3),
+    slides.push({ id: 'tracks', kicker: 'Your top songs', big: '', palette: pal(3), listKind: 'track',
       list: s.topTracks.slice(0, 5).map(x => ({ name: x.name, sub: x.sub, value: `${x.plays}×` })) })
   }
   const peak = s.buckets.reduce((best, v, i) => (v > s.buckets[best] ? i : best), 0)
@@ -111,7 +112,9 @@ export function buildStory(c: PeriodComparison, opts: StoryOpts = {}): StorySlid
     slides.push({ id: 'clock', kicker: 'You’re', big: clockPersona(h), sub: `Most of your listening: ${two(h)}–${two((h + 1) % 24)}`, palette: pal(5), clock: s.clock })
   }
   const fresh = opts.newArtists && opts.newArtists > 0 ? ` · ${opts.newArtists.toLocaleString()} of them new to you` : ''
-  slides.push({ id: 'range', kicker: 'You heard', big: `${s.artists.toLocaleString()} artists`, roll: true, sub: `and ${s.tracks.toLocaleString()} different songs${fresh}`, palette: pal(5) })
+  // Just the number rolls (a rolling number can't wrap: "12,345 artists" in the display
+  // face is wider than a phone), the unit goes in the line under it.
+  slides.push({ id: 'range', kicker: 'You heard', big: s.artists.toLocaleString(), roll: true, sub: `${s.artists === 1 ? 'artist' : 'artists'} and ${s.tracks.toLocaleString()} different songs${fresh}`, palette: pal(5) })
   slides.push(opts.all
     ? { id: 'outro', kicker: 'That’s all of it, so far', big: 'Keep listening', sub: 'Share your card, or tap to close.', palette: pal(0), share: true }
     : { id: 'outro', kicker: opts.past ? `That was your ${w}` : `That’s your ${w}`, big: opts.past ? 'Nice one' : 'See you next one', sub: 'Share your card, or tap to close.', palette: pal(0), share: true })
