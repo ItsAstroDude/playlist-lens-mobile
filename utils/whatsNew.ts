@@ -19,6 +19,26 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.18',
+    name:    'Smooth Wrapped',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Wrapped Year and All time scroll smoothly. Once their rows, heatmap and numbers have finished animating in, they stop costing work on every scroll, here and on every other tab.',
+          'The app stops redrawing when nothing is moving. The now-playing progress line slides instead of resizing, and the hidden now-playing pill no longer animates out of sight.',
+        ],
+      },
+      {
+        label: 'New',
+        items: [
+          'Cover screen lab (Settings › About): a first look at a ring that traces round the cameras on the Flip cover screen as your song plays.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.17',
     name:    'Smooth playback',
     date:    '2026-11-21',
