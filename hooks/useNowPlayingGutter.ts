@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNowPlaying } from './useNowPlaying'
+import { useNowPlayingSelect } from './useNowPlaying'
 import { getNowPlayingPos, onNowPlayingPos } from '@/utils/settings'
 
 // Vertical space the bottom now-playing pill occupies (its height + breathing
@@ -10,9 +10,10 @@ import { getNowPlayingPos, onNowPlayingPos } from '@/utils/settings'
 export const NOW_PLAYING_BAR_CLEARANCE = 60
 
 export function useNowPlayingGutter(): number {
-  const { np, needsReconnect } = useNowPlaying()
+  // Only "is there a bar?" — not the whole now-playing state, which changes every poll.
+  const barShown = useNowPlayingSelect((np, needsReconnect) => !!np?.item || needsReconnect)
   const [pos, setPos] = useState(getNowPlayingPos)
   useEffect(() => onNowPlayingPos(setPos), [])
-  const showsBottomBar = pos === 'bottom' && (!!np?.item || needsReconnect)
+  const showsBottomBar = pos === 'bottom' && barShown
   return showsBottomBar ? NOW_PLAYING_BAR_CLEARANCE : 0
 }

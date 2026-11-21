@@ -19,6 +19,20 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.17',
+    name:    'Smooth playback',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'No more stutter while music plays. The colour backgrounds behind stories and Now Playing are drawn once and moved, instead of being redrawn 60 times a second, and changing colour no longer redraws them either.',
+          'Screens no longer refresh every few seconds while a song is playing just to keep track of it.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.16',
     name:    'Covers for everything',
     date:    '2026-11-21',

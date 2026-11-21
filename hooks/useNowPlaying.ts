@@ -103,3 +103,28 @@ export function useNowPlaying() {
 
   return { np, needsReconnect: scopes === 'missing' }
 }
+
+/**
+ * Only the part of now-playing you need — re-renders when `select`'s answer changes,
+ * not on every poll. (A playing song's progress changes every 8 s poll; before 2.0.17
+ * every screen using the bottom-bar gutter re-rendered on each one — all of Wrapped,
+ * Lenses, Queue and Swipe — which showed as a hitch while music played.)
+ * `select` must return a primitive (compared with Object.is).
+ */
+export function useNowPlayingSelect<T extends string | number | boolean | null>(select: (np: NowPlaying | null, needsReconnect: boolean) => T): T {
+  const read = () => select(current, getScopeStatus() === 'missing')
+  const [value, setValue] = useState<T>(read)
+  useEffect(() => {
+    const update = () => { const v = read(); setValue(prev => (Object.is(prev, v) ? prev : v)) }
+    subs.add(update)
+    update()
+    const unsubScopes = onScopeStatus(update)
+    sync()
+    return () => {
+      subs.delete(update)
+      unsubScopes()
+      sync()
+    }
+  }, [])
+  return value
+}

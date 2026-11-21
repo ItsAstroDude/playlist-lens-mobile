@@ -3,13 +3,13 @@ import { StyleSheet, View, useWindowDimensions } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { Canvas, Circle, Blur } from '@shopify/react-native-skia'
 import Animated, {
-  useSharedValue, useAnimatedStyle, useDerivedValue, useFrameCallback, withTiming, interpolateColor, Easing,
+  useSharedValue, useAnimatedStyle, useFrameCallback, withTiming, Easing, runOnJS,
 } from 'react-native-reanimated'
 import { Colors, activeThemeMode } from '@/constants/theme'
 import { useTint, type Tint } from '@/utils/liquidTint'
 import { useMotionReduced } from './reduced'
 
-// Each blob is drawn ONCE in Skia (redrawn only while its colour cross-fades) and
+// Each blob is drawn ONCE in Skia (once more per colour change, then cross-faded) and
 // drifts by transform on the UI thread — far cheaper than redrawing a blurred scene
 // every frame. Positions come from one wall clock, so every screen's background is in
 // the same phase and switching tabs doesn't jump.
@@ -43,26 +43,32 @@ export function LiquidBackground() {
 
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.background }]} pointerEvents="none">
-      {ORBITS.map((o, i) => <Blob key={i} i={i} o={o} t={t} tint={tint} W={W} H={H} light={light} />)}
+      {ORBITS.map((o, i) => <Blob key={i} i={i} o={o} t={t} tint={tint} W={W} H={H} light={light} focused={focused} />)}
       <View style={[StyleSheet.absoluteFill, { backgroundColor: light ? 'rgba(246,245,248,0.35)' : 'rgba(10,8,16,0.42)' }]} />
     </View>
   )
 }
 
-function Blob({ i, o, t, tint, W, H, light }: {
-  i: number; o: typeof ORBITS[number]; t: { value: number }; tint: Tint; W: number; H: number; light: boolean
+function Blob({ i, o, t, tint, W, H, light, focused }: {
+  i: number; o: typeof ORBITS[number]; t: { value: number }; tint: Tint; W: number; H: number; light: boolean; focused: boolean
 }) {
   const size = Math.max(W, H) * o.r
   const cx = CENTERS[i][0] * W - size / 2, cy = CENTERS[i][1] * H - size / 2
-  // colour cross-fade (1 s) when the tint changes
-  const from = useSharedValue(tint[i]), to = useSharedValue(tint[i]), mix = useSharedValue(1)
+  // Colour change (1 s): the old colour's drawing stays, the new one fades in over it —
+  // an opacity change only, no Skia redraw per frame (2.0.17: redrawing four big blurs
+  // every frame on every open screen was the lag when the song changed). Screens you
+  // can't see switch instantly.
+  const [layers, setLayers] = useState<{ under: string; over: string }>({ under: tint[i], over: tint[i] })
+  const fade = useSharedValue(1)
   useEffect(() => {
-    from.value = interpolateColor(mix.value, [0, 1], [from.value, to.value]) as string
-    to.value = tint[i]
-    mix.value = 0
-    mix.value = withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+    if (tint[i] === layers.over) return
+    if (!focused) { setLayers({ under: tint[i], over: tint[i] }); fade.value = 1; return }
+    setLayers({ under: layers.over, over: tint[i] })
+    fade.value = 0
+    fade.value = withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }, done => {
+      if (done) runOnJS(setLayers)({ under: tint[i], over: tint[i] })
+    })
   }, [tint[i]])
-  const color = useDerivedValue(() => interpolateColor(mix.value, [0, 1], [from.value, to.value]))
   const move = useAnimatedStyle(() => ({
     transform: [
       { translateX: cx + Math.sin(t.value * o.sx + o.px) * W * o.ax },
@@ -70,13 +76,26 @@ function Blob({ i, o, t, tint, W, H, light }: {
       { scale: 1 + 0.08 * Math.sin(t.value * 0.0004 + i) },
     ],
   }))
+  const fadeIn = useAnimatedStyle(() => ({ opacity: fade.value }))
   return (
     <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: size, height: size, opacity: light ? 0.32 : 0.62 }, move]}>
-      <Canvas style={{ width: size, height: size }}>
-        <Circle cx={size / 2} cy={size / 2} r={size * 0.3} color={color}>
-          <Blur blur={size * 0.12} />
-        </Circle>
-      </Canvas>
+      <BlobCanvas size={size} color={layers.under} />
+      {layers.over !== layers.under && (
+        <Animated.View style={[StyleSheet.absoluteFill, fadeIn]}>
+          <BlobCanvas size={size} color={layers.over} />
+        </Animated.View>
+      )}
     </Animated.View>
   )
 }
+
+/** One blurred circle, drawn once per colour (memoised: moving it never redraws it). */
+const BlobCanvas = React.memo(function BlobCanvas({ size, color }: { size: number; color: string }) {
+  return (
+    <Canvas style={{ width: size, height: size, position: 'absolute' }}>
+      <Circle cx={size / 2} cy={size / 2} r={size * 0.3} color={color}>
+        <Blur blur={size * 0.12} />
+      </Circle>
+    </Canvas>
+  )
+})
