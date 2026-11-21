@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, type StyleProp, type TextStyle, type ViewStyle 
 import Animated, { useSharedValue, useAnimatedStyle, withDelay, withSpring, withTiming } from 'react-native-reanimated'
 import { rollingParts, rollDelays } from './math'
 import { useMotionReduced } from './reduced'
+import { useSettle } from './settle'
 
 const DIGITS = '0123456789'.split('')
 
@@ -38,17 +39,22 @@ export function RollingNumber({ value, style, unitStyle, stagger = 70, container
 function DigitColumn({ digit, delay, lineH, style }: { digit: number; delay: number; lineH: number; style: StyleProp<TextStyle> }) {
   const reduced = useMotionReduced()
   const y = useSharedValue(0)
+  // Landed digits become a plain View at the same offset (see useSettle); a new digit
+  // flips back and rolls on from where the column sits, as before.
+  const { settled, begin } = useSettle(`${digit}:${lineH}`)
   useEffect(() => {
+    const onEnd = begin()
     y.value = reduced
-      ? withTiming(-digit * lineH, { duration: 0 })
-      : withDelay(delay, withSpring(-digit * lineH, { mass: 1, damping: 15, stiffness: 110 }))
+      ? withTiming(-digit * lineH, { duration: 0 }, onEnd)
+      : withDelay(delay, withSpring(-digit * lineH, { mass: 1, damping: 15, stiffness: 110 }, onEnd))
   }, [digit, lineH, reduced])
   const a = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }))
+  const column = DIGITS.map(d => <Text key={d} style={[style, styles.digit, { height: lineH }]}>{d}</Text>)
   return (
     <View style={{ height: lineH, overflow: 'hidden' }} importantForAccessibility="no-hide-descendants">
-      <Animated.View style={a}>
-        {DIGITS.map(d => <Text key={d} style={[style, styles.digit, { height: lineH }]}>{d}</Text>)}
-      </Animated.View>
+      {settled
+        ? <View style={{ transform: [{ translateY: -digit * lineH }] }}>{column}</View>
+        : <Animated.View style={a}>{column}</Animated.View>}
     </View>
   )
 }

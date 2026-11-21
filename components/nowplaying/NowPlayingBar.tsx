@@ -11,6 +11,7 @@ import Animated, {
 import { ACCENTS, Colors, FontFamily, Floating, activeAccentId, activeThemeMode, alpha, CHROME_FONT_MAX } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { tabBarHidden } from '@/utils/tabBar'
+import { ProgressFill } from './ProgressFill'
 import {
   getNowPlayingPos, onNowPlayingPos, reduceMotionEnabled, type NavbarStyle,
 } from '@/utils/settings'
@@ -130,7 +131,8 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
     const dur = np?.item?.duration_ms ?? 0
     if (!isTrack || !dur) { progress.value = 0; return }
     const at = Math.min((np?.progress_ms ?? 0) / dur, 1)
-    if (np?.is_playing) {
+    // Hidden (strip placement, or no track): park at the polled spot, no glide.
+    if (np?.is_playing && visible) {
       progress.value = withSequence(
         withTiming(at, { duration: 250 }),
         withTiming(1, { duration: Math.max(dur - (np?.progress_ms ?? 0), 0), easing: Easing.linear }),
@@ -138,9 +140,7 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
     } else {
       progress.value = withTiming(at, { duration: 250 })
     }
-  }, [np, isTrack])
-
-  const progressStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }))
+  }, [np, isTrack, visible])
 
   const onReconnect = async () => {
     if (isLoading) return
@@ -206,14 +206,15 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
                   {np?.item?.artists?.join(', ')}
                 </Text>
               </View>
-              <Equalizer playing={!!np?.is_playing} />
+              {/* stays mounted while hidden (opacity 0), so only bounce while it can be seen */}
+              <Equalizer playing={!!np?.is_playing && visible} />
             </Pressable>
           )}
 
           {/* progress underline — only meaningful in playing mode */}
           {!showReconnect && (
             <View style={styles.progressTrack}>
-              <Animated.View style={[styles.progressFill, progressStyle]} />
+              <ProgressFill progress={progress} style={styles.progressFill} />
             </View>
           )}
         </View>

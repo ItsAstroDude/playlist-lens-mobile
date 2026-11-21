@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-nativ
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
-import Animated, {
-  Easing, useAnimatedStyle, useSharedValue, withSequence, withTiming,
+import {
+  Easing, useSharedValue, withSequence, withTiming,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha, CHROME_FONT_MAX } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { emitOpenNowPlaying } from '@/utils/overlayEvents'
 import { RotatingStrip } from '@/components/ui/RotatingStrip'
 import { Icon } from '@/components/ui/Icon'
+import { ProgressFill } from './ProgressFill'
 
 // ─── Home-strip now-playing (v1.3 "Pulse") ───────────────────────────────────
 // The alternative placement: now-playing takes over the Lenses quote-strip slot
@@ -48,7 +49,6 @@ export function HomeTopStrip() {
       progress.value = withTiming(at, { duration: 250 })
     }
   }, [np, isTrack])
-  const progressStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }))
 
   if (pos !== 'top' || (!isTrack && !showReconnect)) return <RotatingStrip />
 
@@ -97,7 +97,7 @@ export function HomeTopStrip() {
             </Text>
             {/* progress underline along the pill's bottom edge */}
             <View style={styles.progressTrack} pointerEvents="none">
-              <Animated.View style={[styles.progressFill, progressStyle, { backgroundColor: accent }]} />
+              <ProgressFill progress={progress} style={[styles.progressFill, { backgroundColor: accent }]} />
             </View>
           </LinearGradient>
         </Pressable>
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     position: 'absolute', left: Spacing.lg, right: Spacing.lg, bottom: 0,
-    height: 2, borderRadius: 1,
+    height: 2, borderRadius: 1, overflow: 'hidden',
   },
   progressFill: { height: 2, borderRadius: 1 },
 })

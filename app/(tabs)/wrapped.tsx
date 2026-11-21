@@ -334,7 +334,7 @@ export default function WrappedTab() {
             <View style={styles.cardSpecular} />
             <Text style={styles.sectionLabel}>{item.title}</Text>
             {item.rows.map((r, i) => (
-              <RackFocus key={r.name + i} index={Math.min(i, 8)} step={70}>
+              <RackFocus key={r.name + i} index={Math.min(i, 8)} step={70} settle>
                 <RankRow rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)}
                   leading={<ArtThumb kind={item.kind} name={r.name} artist={item.kind === 'artist' ? undefined : r.sub} />}
                   trailing={r.add ? <AddToQueueButton item={r.add} /> : undefined} />
