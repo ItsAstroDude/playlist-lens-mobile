@@ -138,3 +138,144 @@ describe('history', () => {
     expect(m.get(day)?.plays).toBe(5)
   })
 })
+
+describe('recaps from the database', () => {
+  const { recapsFromDb } = require('@/utils/stats')
+  const { beginImport, addImportChunk, finishImport } = require('@/utils/playDb')
+
+  it('keys and labels match the 1.x bundle, newest first, with top lists', () => {
+    insertPlays([
+      row('2026-11-16T10:00:00Z', 'Ghost', 'DECO', 200_000),
+      row('2026-11-17T10:00:00Z', 'Ghost', 'DECO', 200_000),
+      row('2026-11-17T11:00:00Z', 'Aurora', 'HOYO', 100_000, 'B'),
+      row('2026-01-09T10:00:00Z', 'Iarta', 'Smiley', 300_000, 'C'),
+      row('2025-12-20T10:00:00Z', 'Snow', 'Smiley', 300_000, 'C'),
+    ], 'recent')
+    const r = recapsFromDb(null, NOW, UTC)
+    expect(r.years.map((y: any) => y.key)).toEqual(['2026', '2025'])
+    expect(r.years[0]).toMatchObject({ label: '2026', streams: 4, ms: 800_000 })
+    expect(r.years[0].topArtists[0]).toMatchObject({ name: 'DECO', ms: 400_000 })
+    expect(r.years[0].topTracks[0]).toMatchObject({ name: 'Ghost', artist: 'DECO', plays: 2 })
+    // Dec 2025 + Jan 2026 are one winter, labelled by the year it began
+    const winter = r.seasons.find((s: any) => s.key === '2025-Winter')
+    expect(winter).toMatchObject({ label: 'Winter 2025', streams: 2 })
+    expect(r.seasons[0].key).toBe('2026-Autumn')
+    expect(r.months[0]).toMatchObject({ key: '2026-11', label: 'November 2026', streams: 3 })
+    expect(r.weeks[0]).toMatchObject({ key: '2026-W47', label: 'Week 47 · 2026', streams: 3 })
+  })
+
+  it('weeks follow the local clock', () => {
+    // Sunday 23:30 UTC = Monday 01:30 in Bucharest → next ISO week there
+    insertPlays([row('2026-11-15T23:30:00Z', 'Late', 'A')], 'recent')
+    expect(recapsFromDb(null, NOW, UTC).weeks[0].key).toBe('2026-W46')
+    expect(recapsFromDb(null, NOW, BUCHAREST).weeks[0].key).toBe('2026-W47')
+  })
+
+  it('keeps a pre-2.0 stored bundle for history the database does not have', () => {
+    const old = { key: '2019', label: '2019', kind: 'year', ms: 1, streams: 1, topArtists: [], topTracks: [], topAlbums: [] }
+    const stored = { version: 1, generatedAt: '', years: [old], seasons: [], months: [], weeks: [] }
+    insertPlays([row('2026-11-16T10:00:00Z', 'Ghost', 'DECO')], 'recent')
+    expect(recapsFromDb(stored, NOW, UTC).years.map((y: any) => y.key)).toEqual(['2026', '2019'])
+    // …but once the database holds an import, it is the whole history
+    beginImport(); addImportChunk([row('2018-05-01T10:00:00Z', 'Old', 'Z')]); finishImport()
+    expect(recapsFromDb(stored, NOW, UTC).years.map((y: any) => y.key)).toEqual(['2026', '2018'])
+  })
+
+  it('nothing anywhere → null', () => {
+    expect(recapsFromDb(null, NOW, UTC)).toBeNull()
+  })
+})
+
+describe('all time', () => {
+  const { allTimeStats, yearsWithTopArtist } = require('@/utils/stats')
+  const { beginImport, addImportChunk, finishImport } = require('@/utils/playDb')
+  const stored = { version: 1, generatedAt: '', totalMs: 9, totalStreams: 100, realListens: 1, podcastStreams: 7, skipCount: 25,
+    uniqueArtists: 1, uniqueTracks: 1, firstTs: null, lastTs: null, topArtists: [], topTracks: [], topAlbums: [], byYear: [], clock: [], weekday: [] }
+
+  it('tracking only (no import): all time comes from the database', () => {
+    insertPlays([row('2026-11-16T10:00:00Z', 'Ghost', 'DECO', 200_000), row('2025-02-01T10:00:00Z', 'Old', 'Z', 10_000)], 'recent')
+    const s = allTimeStats(null, NOW, UTC)
+    expect(s).toMatchObject({ totalStreams: 2, totalMs: 210_000, realListens: 1, skipCount: 0, uniqueArtists: 2 })
+    expect(s.byYear).toEqual([
+      { year: 2025, ms: 10_000, streams: 1, topArtist: 'Z' },
+      { year: 2026, ms: 200_000, streams: 1, topArtist: 'DECO' },
+    ])
+    expect(s.weekday[1]).toBe(200_000)       // Monday, in the Sunday-first array
+    expect(s.firstTs).toBe('2025-02-01T10:00:00.000Z')
+  })
+
+  it('a pre-2.0 import (only the stored summary) stays the source', () => {
+    insertPlays([row('2026-11-16T10:00:00Z', 'Ghost', 'DECO')], 'recent')
+    expect(allTimeStats(stored, NOW, UTC)).toBe(stored)
+  })
+
+  it('with an import in the database: engine numbers + the import skip rate and podcasts', () => {
+    beginImport(); addImportChunk([row('2024-05-01T10:00:00Z', 'A1', 'X'), row('2024-05-02T10:00:00Z', 'A2', 'X')]); finishImport()
+    insertPlays([row('2026-11-16T10:00:00Z', 'Ghost', 'DECO')], 'tracked')
+    const s = allTimeStats(stored, NOW, UTC)
+    expect(s.totalStreams).toBe(3)            // import + plays tracked since
+    expect(s.skipCount).toBe(1)               // 25% of 3, rounded
+    expect(s.podcastStreams).toBe(7)
+    expect(yearsWithTopArtist(UTC).map((y: any) => y.year)).toEqual([2024, 2026])
+  })
+
+  it('nothing at all → null', () => {
+    expect(allTimeStats(null, NOW, UTC)).toBeNull()
+  })
+})
+
+describe('calendar', () => {
+  const { yearCalendar, heatLevel, yearsWithPlays } = require('@/utils/stats')
+
+  it('one entry per day of the year, leap years included', () => {
+    expect(yearCalendar(2024, UTC).days).toBe(366)
+    expect(yearCalendar(2026, UTC).days).toBe(365)
+    expect(yearCalendar(2026, UTC).firstDay).toBe(Date.UTC(2026, 0, 1) / 86_400_000)
+  })
+
+  it('totals, active days, longest streak, local days', () => {
+    insertPlays([
+      row('2026-03-01T10:00:00Z', 'a', 'A', 100_000),
+      row('2026-03-02T10:00:00Z', 'b', 'A', 200_000),
+      row('2026-03-03T10:00:00Z', 'c', 'A', 300_000),
+      row('2026-03-03T11:00:00Z', 'd', 'A', 300_000),
+      row('2026-03-10T23:30:00Z', 'e', 'A', 50_000),     // 11 Mar in Bucharest
+      row('2025-12-31T23:30:00Z', 'f', 'A', 50_000),     // 1 Jan 2026 in Bucharest
+    ], 'recent')
+    const c = yearCalendar(2026, UTC)
+    expect(c.activeDays).toBe(4)
+    expect(c.longestStreak).toBe(3)
+    expect(c.ms[59]).toBe(100_000)                       // 1 Mar = day index 59
+    expect(c.plays[61]).toBe(2)
+    const b = yearCalendar(2026, BUCHAREST)
+    expect(b.ms[0]).toBe(50_000)                          // New Year's Eve play lands on 1 Jan locally
+    expect(b.ms[69]).toBe(50_000)                         // 11 Mar
+    expect(yearsWithPlays(UTC)).toEqual([2026, 2025])
+    expect(yearsWithPlays(BUCHAREST)).toEqual([2026])
+  })
+
+  it('heat levels: 0 for silence, then this year’s quartiles', () => {
+    const lv: [number, number, number] = [10, 20, 30]
+    expect([0, 5, 10, 15, 25, 31].map(v => heatLevel(v, lv))).toEqual([0, 1, 1, 2, 3, 4])
+  })
+
+  it('history can be cut to one local day', () => {
+    insertPlays([row('2026-03-10T23:30:00Z', 'late', 'A'), row('2026-03-10T12:00:00Z', 'noon', 'A')], 'recent')
+    const day = localDay(Date.UTC(2026, 2, 11) / 1000, UTC)
+    const from = day * 86_400 - BUCHAREST, to = from + 86_400
+    expect(historyPage({ from, to }, null).map(p => p.track)).toEqual(['late'])
+  })
+})
+
+
+describe('period comparison carries the clock and weekdays', () => {
+  it('for the screens that draw them', () => {
+    const { periodComparison } = require('@/utils/stats')
+    insertPlays([row('2026-11-17T21:00:00Z', 'a', 'A', 120_000)], 'recent')     // Tue 21:00 UTC
+    const c = periodComparison('month', NOW, UTC)
+    expect(c.current.clock[21]).toBe(120_000)
+    expect(c.current.weekdays[1]).toBe(120_000)
+    expect(c.current.clock).toHaveLength(24)
+    expect(c.current.weekdays).toHaveLength(7)
+  })
+})

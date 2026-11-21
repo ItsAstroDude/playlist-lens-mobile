@@ -23,6 +23,13 @@ export interface PeriodSummary {
   topArtists:  TopItem[]
   topTracks:   TopItem[]
   topAlbums:   TopItem[]
+  /** ms by local hour 0..23 and by weekday Mon..Sun (from the stats engine). */
+  clock?:      number[]
+  weekdays?:   number[]
+  /** Names for `buckets` when they aren't the usual ones (all time: years). */
+  bucketLabels?: string[]
+  /** Days in the period with any music (from the stats engine). */
+  activeDays?: number
 }
 
 export interface PeriodComparison {
@@ -138,13 +145,15 @@ export function comparePeriods(rows: StreamRow[], kind: SummaryKind, now: Date =
 }
 
 /** "Nov 10 – 16", "November 2026", "2026" — in the viewer's locale. */
+// Local time: periods come from the stats engine (utils/stats), whose boundaries are
+// the phone's local midnights.
 export function periodTitle(s: Pick<PeriodSummary, 'kind' | 'start' | 'end'>): string {
-  const opts = { timeZone: 'UTC' } as const
+  const opts = {} as const
   const a = new Date(s.start)
-  if (s.kind === 'year') return String(a.getUTCFullYear())
+  if (s.kind === 'year') return String(a.getFullYear())
   if (s.kind === 'month') return a.toLocaleDateString(undefined, { ...opts, month: 'long', year: 'numeric' })
-  const b = new Date(s.end - DAY)
-  const sameMonth = a.getUTCMonth() === b.getUTCMonth()
+  const b = new Date(s.end - 1)                // last moment of the period (DST-safe)
+  const sameMonth = a.getMonth() === b.getMonth()
   const left  = a.toLocaleDateString(undefined, { ...opts, month: 'short', day: 'numeric' })
   const right = sameMonth
     ? b.toLocaleDateString(undefined, { ...opts, day: 'numeric' })

@@ -20,7 +20,7 @@ export function TrackRow({ title, sub, image, trailing, accessibilityLabel }: {
     <View style={styles.row}>
       <View accessible accessibilityLabel={accessibilityLabel ?? [title, sub].filter(Boolean).join(', ')} style={styles.main}>
         {image
-          ? <Image source={{ uri: image }} style={styles.cover} contentFit="cover" transition={120} />
+          ? <Image source={{ uri: image }} style={styles.cover} contentFit="cover" transition={120} cachePolicy="memory-disk" />
           : <View style={[styles.cover, styles.coverEmpty]}><Icon name="musical-note" size={16} color={Colors.textMuted} /></View>}
         <View style={styles.text}>
           <Text style={styles.title} numberOfLines={1}>{title}</Text>

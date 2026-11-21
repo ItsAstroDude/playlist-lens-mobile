@@ -1,16 +1,19 @@
 import React, { useMemo, useState, useCallback } from 'react'
 import { useLoadTime, useRenderStart } from '@/utils/perf'
-import { View, Text, StyleSheet, ScrollView, Share } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, Share, ActivityIndicator } from 'react-native'
 import { router } from 'expo-router'
 import { Colors, FontFamily, FontSize, Spacing, Type } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { fmtHours, type RecapPeriod } from '@/utils/wrapped'
 import { loadRecaps } from '@/hooks/useWrapped'
-import { loadBuffer, mergeRecaps, autoPullScopeMissing } from '@/utils/recents'
+import { autoPullScopeMissing } from '@/utils/recents'
+import { recapsAsync, type recapsFromDb } from '@/utils/stats'
+import { backFromKey } from '@/utils/storyData'
+import { useCachedStat } from '@/utils/sqlJob'
 import { keptSeasons, setSeasonKept, hiddenYears, setYearHidden } from '@/utils/recapPrefs'
 import type { PeriodKind } from '@/utils/periods'
 import {
-  Screen, ScreenHeader, Card, ListRow, Chip, EmptyState, RankRow, Button,
+  Screen, ScreenHeader, Card, ListRow, Chip, EmptyState, RankRow, Button, ArtThumb,
 } from '@/components/ui'
 
 const KINDS: { id: PeriodKind; label: string }[] = [
@@ -20,7 +23,7 @@ const KINDS: { id: PeriodKind; label: string }[] = [
   { id: 'week',   label: 'Week' },
 ]
 
-function listFor(recaps: ReturnType<typeof mergeRecaps>, kind: PeriodKind): RecapPeriod[] {
+function listFor(recaps: ReturnType<typeof recapsFromDb>, kind: PeriodKind): RecapPeriod[] {
   if (!recaps) return []
   return kind === 'year' ? recaps.years
     : kind === 'season' ? recaps.seasons
@@ -30,8 +33,12 @@ function listFor(recaps: ReturnType<typeof mergeRecaps>, kind: PeriodKind): Reca
 
 export default function RecapsScreen() {
   const t0 = useRenderStart()
-  const recaps = useMemo(() => mergeRecaps(loadRecaps(), loadBuffer()), [])
-  useLoadTime('recaps', t0, true)  // everything above is synchronous on first render
+  // Built from the play database in SQL, local time (the stats engine), off the UI
+  // thread. Opens on the last saved recaps while fresh ones are worked out.
+  const stored = useMemo(() => loadRecaps(), [])
+  const { value, loading } = useCachedStat('recaps', () => recapsAsync(stored), [stored])
+  const recaps = value ?? null
+  useLoadTime('recaps', t0, value !== undefined || !loading)
   const needsReconnect = useMemo(() => autoPullScopeMissing(), [])
   const [kind, setKind] = useState<PeriodKind>('year')
   const [hidden, setHidden] = useState<Set<string>>(() => hiddenYears())
@@ -69,7 +76,12 @@ export default function RecapsScreen() {
     <Screen>
       <ScreenHeader title="recaps" subtitle="Your listening by week, month, season and year" />
 
-      {!recaps ? (
+      {value === undefined && loading ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color={Colors.greenPrimary} />
+          <Text style={Type.caption}>Building your recaps…</Text>
+        </View>
+      ) : !recaps ? (
         <EmptyState
           icon="time-outline"
           title="No recaps yet"
@@ -138,8 +150,16 @@ function RecapDetail({ period, kind, isKept, isHidden, onShare, onToggleKeep, on
   const maxA = period.topArtists[0]?.ms || 1
   const maxT = period.topTracks[0]?.plays || 1
   const maxL = period.topAlbums[0]?.ms || 1
+  // Weeks, months and years can play as a story (seasons aren't a period the engine has).
+  const storyBack = kind === 'season' ? null : backFromKey(kind, period.key)
   return (
     <View style={styles.detail}>
+      {storyBack !== null && (
+        <Card tone="accent">
+          <ListRow icon="play" label={`Play this ${kind} as a story`} hint="Top artists and songs, your biggest day, a card to share"
+            onPress={() => { haptic.medium(); router.push(`/story?kind=${kind}&back=${storyBack}`) }} last />
+        </Card>
+      )}
       <Card tone="accent" padded>
         <Text style={Type.overline}>{period.label}</Text>
         <Text style={styles.heroValue}>{fmtHours(period.ms)}</Text>
@@ -148,17 +168,20 @@ function RecapDetail({ period, kind, isKept, isHidden, onShare, onToggleKeep, on
 
       {period.topArtists.length > 0 && (
         <RankCard title="top artists · by time">
-          {period.topArtists.map((a, i) => <RankRow key={a.name + i} rank={i + 1} name={a.name} value={fmtHours(a.ms)} frac={a.ms / maxA} color={Colors.greenPrimary} />)}
+          {period.topArtists.map((a, i) => <RankRow key={a.name + i} rank={i + 1} name={a.name} value={fmtHours(a.ms)} frac={a.ms / maxA} color={Colors.greenPrimary}
+            leading={<ArtThumb kind="artist" name={a.name} />} />)}
         </RankCard>
       )}
       {period.topTracks.length > 0 && (
         <RankCard title="top tracks · by plays">
-          {period.topTracks.map((t, i) => <RankRow key={t.name + i} rank={i + 1} name={t.name} sub={t.artist} value={`${t.plays}×`} frac={t.plays / maxT} color={Colors.pink} />)}
+          {period.topTracks.map((t, i) => <RankRow key={t.name + i} rank={i + 1} name={t.name} sub={t.artist} value={`${t.plays}×`} frac={t.plays / maxT} color={Colors.pink}
+            leading={<ArtThumb kind="track" name={t.name} artist={t.artist} />} />)}
         </RankCard>
       )}
       {period.topAlbums.length > 0 && (
         <RankCard title="top albums · by time">
-          {period.topAlbums.map((a, i) => <RankRow key={a.name + i} rank={i + 1} name={a.name} value={fmtHours(a.ms)} frac={a.ms / maxL} color={Colors.lavender} />)}
+          {period.topAlbums.map((a, i) => <RankRow key={a.name + i} rank={i + 1} name={a.name} value={fmtHours(a.ms)} frac={a.ms / maxL} color={Colors.lavender}
+            leading={<ArtThumb kind="album" name={a.name} />} />)}
         </RankCard>
       )}
 
@@ -186,6 +209,7 @@ function RankCard({ title, children }: { title: string; children: React.ReactNod
 }
 
 const styles = StyleSheet.create({
+  loading:       { alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing['3xl'] },
   chips:         { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
   periodsScroll: { marginTop: -Spacing.sm, marginHorizontal: -Spacing.lg },
   periods:       { gap: Spacing.sm, paddingHorizontal: Spacing.lg },

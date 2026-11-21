@@ -2,8 +2,8 @@
  * Live lines for the Lenses strip (2.0): short, personal facts about this week, read
  * fresh from the play database each time the strip builds its rotation.
  */
-import { playsSince, newArtistsSince, activeDays } from '@/utils/playDb'
-import { comparePeriods, periodRange } from '@/utils/listening'
+import { newArtistsSince, activeDays } from '@/utils/playDb'
+import { periodComparison, periodRange as statsPeriodRange, localOffsetSec } from '@/utils/stats'
 import { fmtListen } from '@/utils/story'
 
 export interface WeekFacts {
@@ -40,10 +40,9 @@ export function weekLines(f: WeekFacts): string[] {
 /** This week's facts from the play database (null if it can't be read). */
 export function weekFacts(now: Date = new Date()): WeekFacts | null {
   try {
-    const prevStart = Math.floor(periodRange('week', now, 1).start / 1000)
-    const weekStart = Math.floor(periodRange('week', now).start / 1000)
-    const c = comparePeriods(playsSince(prevStart), 'week', now)
-    const offset = -now.getTimezoneOffset() * 60
+    const offset = localOffsetSec(now)
+    const weekStart = statsPeriodRange('week', now, offset).start
+    const c = periodComparison('week', now, offset)   // stats engine, local time
     const today = Math.floor((now.getTime() / 1000 + offset) / 86400)
     const t = c.current.topTracks[0]
     return {

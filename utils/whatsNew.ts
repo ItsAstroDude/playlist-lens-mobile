@@ -19,6 +19,231 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.16',
+    name:    'Covers for everything',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Covers now come straight from Spotify for every song you’ve played, so smaller artists and releases get their pictures too. Ones that were blank before are fetched again.',
+          'Share card: a line about you at the bottom (night owl, your biggest day, new artists), colours from your top song’s cover (tap “Cover colours” to switch), and the month or week always fits.',
+          'Stories show the song that’s playing at the bottom of the screen.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.15',
+    name:    'Stories with sound',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Stories play music: your number one song on the top songs slide, your top artist’s own song on theirs, and your other favourites shuffled under the rest. Tap the speaker to mute.',
+          'A new share card: your top song’s cover, your numbers, your top artists’ photos and your top songs.',
+          'Save the card: pick a folder once (like Pictures) and every card after goes straight there.',
+          'The listening-clock slide shows what you play at your peak hour, and the time slide shows your biggest day’s soundtrack.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'The story intro fills the screen with your top songs’ covers.',
+          'Share card: the three numbers line up, and long song titles no longer break in the middle of a word.',
+          'The time slide sits higher, so your biggest day’s songs show their full names; a month’s day numbers no longer turn into “…”.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.14',
+    name:    'Tighter stories',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Time listened and your biggest day are one slide now: the bars with your biggest day picked out, this period against the last, and your plays, days with music and time per listening day.',
+          'Your top artist and top artists are one slide: number one big, with the rest under it. Same for songs, with as many as fit your screen.',
+          '“You heard” lines up your top artists biggest first, from one big photo down to small ones, each with its name.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.13',
+    name:    'Fuller stories',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Story slides fill the screen now: your biggest day comes with the whole period’s bars, time listened with this period against the last, and the listening clock is big.',
+          'The intro opens on a wall of your top songs’ covers, and “You heard” shows your top artists’ photos.',
+          'Top 5 lists have bigger covers, and long titles get two lines instead of being cut short.',
+          'The last slide previews your share card before you send it.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.12',
+    name:    'Story fit',
+    date:    '2026-11-21',
+    sections: [
+      {
+        label: 'Fixed',
+        items: ['Long song and artist names in stories were cut off. Headlines now shrink just enough to fit, up to three lines.'],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Story slides about your top artist and song show a big centred cover, and the background takes its colours from it.',
+          'The top-5 slides have a cover next to every name.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.11',
+    name:    'Instant covers',
+    date:    '2026-11-20',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Covers and artist photos you’ve seen before now show straight away, with no fade-in. Only a brand-new one fades in.',
+          'When there’s no picture to find, the app remembers that instead of looking again every time you open it, so the covers it can find arrive sooner.',
+          'Clearing the cache in Settings keeps your covers, including the ones you picked by hand.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.10',
+    name:    'Stories',
+    date:    '2026-11-20',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Play any period as a story: this week, month or year, all time, or any past week, month or year from Recaps.',
+          'Stories have more to show: photos of your top artist and song, your top 5 artists and songs, your biggest day (or month, or year), what kind of listener you are by the clock, and how many artists were new to you.',
+          'Share card: the last slide makes a story-sized picture of your period to send anywhere.',
+          'Recap notifications open the week, month or year that just ended as a story.',
+        ],
+      },
+      {
+        label: 'Fixed',
+        items: ['A month’s “biggest day” could name the day before. It now follows your own calendar.'],
+      },
+    ],
+  },
+  {
+    version: '2.0.9',
+    name:    'Covers',
+    date:    '2026-11-20',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Every top list has pictures now: artist photos and song and album covers, in Wrapped, Recaps and New to you. The first time they fill in over a minute or so, then they’re instant.',
+          'The listening clock is in every view (week, month and year, not just All time), and month, year and All time show which weekday you listen most.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.8',
+    name:    'Glide',
+    date:    '2026-11-20',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Scrolling Wrapped no longer stutters, especially in Year and All time. Every card is now built right after the page opens, instead of the moment it scrolls into view.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.7',
+    name:    'Smoother',
+    date:    '2026-11-20',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Year and All time in Wrapped no longer hiccup when you open them. Adding up a whole year now happens in the background, and the calendar draws itself in over a few frames instead of all at once. The ripple looks exactly the same.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.6',
+    name:    'Smooth',
+    date:    '2026-11-20',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Wrapped, Recaps and History stay smooth while they add up your history. The heavy maths now runs on its own, so it never holds up what’s on screen.',
+          'Searching History no longer stutters as you type, even across years of plays.',
+          'Stats you’ve already seen open instantly, even after restarting the app, until a new play arrives.',
+          'The calendar ripples in where you’re looking (around today) instead of starting in January.',
+          'History and Recaps have moved to two icons next to the Wrapped title, always one tap away.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.5',
+    name:    'Milestones',
+    date:    '2026-11-19',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Streaks in All time: how many days in a row you’ve had music, your longest streak ever, and your longest run with one artist.',
+          'Milestones: your 10,000th play, your 100th artist, your 1,000th hour, with the date and the song that got you there, plus how close the next one is.',
+          'New to you: the artists and songs you heard for the first time this week, month or year. Tap one to see every play.',
+          'On this day: what you played on today’s date in earlier years. Play them again, or add them to your queue, in one tap.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'All time and Recaps no longer freeze the app while they add up years of history. They open on your last numbers and update in place.',
+        ],
+      },
+    ],
+  },
+  {
+    version: '2.0.4',
+    name:    'Every day',
+    date:    '2026-11-19',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'A calendar of your listening: every day of the year as a square, brighter the more you listened. Tap a day to see its total, then “See plays” to open that day in History.',
+          'Find it in Wrapped › Year, and in All time with every year you’ve listened.',
+          'Each year shows its longest streak of days with music.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Wrapped, Recaps and Story mode now follow your own clock: days and weeks start at your midnight, and the listening clock shows your hours.',
+          'All time now includes everything tracked since your import, and works with listening tracking alone, no import needed.',
+          'Recaps are built from every play you have, so they’re always current.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.3',
     name:    'History',
     date:    '2026-11-19',

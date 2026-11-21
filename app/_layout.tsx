@@ -93,6 +93,19 @@ function LiquidTintFeeder() {
   return null
 }
 
+/**
+ * A recap notification opens the period that just ended as a story (week / month /
+ * year), or the Recaps screen (seasons, and notifications scheduled before 2.0 Phase 4).
+ */
+function openRecap(data: Record<string, unknown> | undefined) {
+  const story = data?.story as { kind?: unknown; back?: unknown } | undefined
+  if (story && (story.kind === 'week' || story.kind === 'month' || story.kind === 'year') && typeof story.back === 'number') {
+    router.push(`/story?kind=${story.kind}&back=${story.back}`)
+  } else {
+    router.push('/recaps')
+  }
+}
+
 export default function RootLayout() {
   // Keep the current screen on error reports.
   const pathname = usePathname()
@@ -188,12 +201,12 @@ export default function RootLayout() {
     if (!isAuthenticated) return
     syncNotificationsOnLaunch()
     Notifications.getLastNotificationResponseAsync().then(resp => {
-      if (resp?.notification.request.content.data?.kind === 'recap') router.push('/recaps')
+      if (resp?.notification.request.content.data?.kind === 'recap') openRecap(resp.notification.request.content.data)
     })
   }, [isAuthenticated])
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener(resp => {
-      if (authedRef.current && resp.notification.request.content.data?.kind === 'recap') router.push('/recaps')
+      if (authedRef.current && resp.notification.request.content.data?.kind === 'recap') openRecap(resp.notification.request.content.data)
     })
     return () => sub.remove()
   }, [])

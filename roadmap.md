@@ -237,23 +237,36 @@ The 12 motions picked from the Motion Reel (claude.ai/artifact/5bdHJcHSDSsQb26Si
 - [ ] Widget restyled in the new look
 
 ## Phase 3 — Headline 2: Lifetime history explorer (OTA)
-- [~] One stats engine on the play database: Week / Month / Year / All time and Recaps
-      (`utils/stats.ts`: SQL-only, local time, tested — 2.0.3. Screens still use the old
-      UTC summaries; move Wrapped + Recaps onto it next)
+- [x] One stats engine on the play database: Week / Month / Year / All time and Recaps
+      (`utils/stats.ts`: SQL-only, local time, tested — 2.0.3; Wrapped, Recaps, Story and
+      the home strip moved onto it in 2.0.4. `utils/listening.ts`' summarize/comparePeriods
+      are now only used by their own tests — delete them once 2.0.4 has settled)
 - [x] History screen: search every play; scroll by day; filter by artist / track / album — 2.0.3
-- [ ] Calendar heatmap (a year of listening at a glance, tap a day)
-- [ ] Streaks (days in a row, an artist's run), milestones (10,000th play, 100th artist),
-      first-ever listens ("new this week")
-- [ ] "On this day" throwbacks, one tap to queue them
-- [ ] Listening clock + by-day for every period; artwork on every top list
+- [x] Calendar heatmap (a year of listening at a glance, tap a day → that day in History) — 2.0.4
+      (Wrapped › Year and › All time with a year picker; longest streak per year)
+- [x] Streaks (days in a row, an artist's run), milestones (10,000th play, 100th artist),
+      first-ever listens ("new this week") — 2.0.5 (`utils/highlights.ts`; Wrapped › All time
+      and the period views)
+- [x] "On this day" throwbacks, one tap to queue them — 2.0.5 (Wrapped › Week)
+- Heavy stats (All time, Recaps, streaks, milestones) run off the UI thread via
+  `utils/sqlJob.ts` (one generator, sync or async runner) and open on the last saved
+  answer. Measured at 150k plays in Node: recaps ~1.1 s, milestones ~0.7 s, All time
+  ~0.5 s — fine off-thread, but worth precomputing per closed period if it grows
+- [x] Listening clock + by-day for every period; artwork on every top list — 2.0.9
+      (iTunes lookups spaced ~3 s apart: covers fill in over a minute the first time, cached after)
+- **Phase 3 done (2.0.3–2.0.9).** Perf notes: heavy stats on a second SQLite connection
+  (`statsDb`), cached by `plays.version`; Wrapped is a ScrollView, not FlashList (cards built once)
 
-## Phase 4 — Headline 3: Story mode Wrapped (OTA)
-- [ ] Story player: full-screen slides, progress bars, tap / hold / swipe, music-free
-- [ ] Slides: time listened, top artist reveal, top tracks, genres, listening clock,
-      discoveries, milestones and streaks, a listening "personality"
-- [ ] Any period: this week, a month, a year, all time — from Wrapped and from Recaps
-- [ ] Share card at the end (story-sized image via view-shot + share sheet)
-- [ ] Weekly recap notification opens your week as a story
+## Phase 4 — Headline 3: Story mode Wrapped (OTA) ✅ 2.0.10
+- [x] Story player: full-screen slides, progress bars, tap / hold, music-free (2.0 motion #6)
+- [x] Slides: time listened, top artist reveal (with photo), top-5 artists and songs, biggest
+      day / month / year, listening clock + "personality" (night owl…), new-to-you artists
+      - genres: not possible (no audio features / genres in the play data) — dropped
+      - milestones and streaks: live in All time; not story slides yet (see "Next up" 3)
+- [x] Any period: this or a past week / month / year, or all time — Wrapped (every view) and
+      Recaps (weeks, months, years; seasons aren't an engine period). `utils/storyData.ts`
+- [x] Share card at the end (`components/story/ShareCard`, 1080×1920 via view-shot + share sheet)
+- [x] Recap notifications open the period that just ended as a story (week / month / year)
 
 ## Phase 4.5 — Discovery, after the headline (OTA + backend)
 - [ ] Smart playlists, one tap to save to Spotify: Top 50 this month, Discoveries,
@@ -261,6 +274,44 @@ The 12 motions picked from the Motion Reel (claude.ai/artifact/5bdHJcHSDSsQb26Si
 - [ ] Auto-updating smart playlists — the server already holds your (encrypted) token
       and runs hourly, so it can refresh "Your Weekly Top 30" every Monday
 - [ ] Vibe / mood playlists from genres (audio features are unavailable to this app)
+
+## Next up — proposed features (planned 2026-11-20)
+Ranked by value for effort. Everything here works with data the app already has, ships
+as OTA updates unless marked, and keeps history on the phone.
+
+**Tier 1 — next**
+1. **Artist and song pages.** Tap any artist or song anywhere (Wrapped, Recaps, History,
+   stories) → its own page: lifetime time and plays, first listen ("you found them on
+   3 Mar 2021"), a listening-over-time chart, your top songs by them, when you play them
+   (clock), your longest run with them, and "Play top 10" / "Add to queue". The explorer's
+   missing depth — the play database already answers all of it.
+2. **Backup and restore.** The whole history lives only on the phone: a lost or reset phone
+   loses years of imported + tracked plays. Export the play database to one file (share
+   sheet → Drive / Files), import it back on a new phone. Also covers Phase 5's
+   "export + delete" requirement.
+3. **Smart playlists to Spotify** (Phase 4.5, now cheap): Top 50 this month, On repeat,
+   Discoveries (new to you), Forgotten favorites, On this day — one tap creates the
+   playlist via the existing `/api/playlist/create` + `/add`. Then auto-refresh weekly
+   from the hourly server job (backend work).
+
+**Tier 2 — after**
+4. **Eras.** Detect your phases automatically: stretches where one artist (or album)
+   dominated your weeks — "Your Radiohead era, Mar–May 2024". A timeline in All time and
+   a story slide; Spark gets lines about them.
+5. **Listening goal + streak saver.** A weekly minutes goal shown with the Liquid fill
+   (motion #7 was designed for it), and an opt-in evening nudge when a long streak is
+   about to break.
+6. **Then vs now.** This month vs the same month last year (or any two periods side by
+   side): who stayed, who's new, who faded. Uses the engine's existing comparisons.
+7. **Milestones in stories.** A slide when a milestone fell in the period ("your
+   10,000th play was in this month: …") and the streak record.
+
+**Tier 3 — later**
+8. **Skips.** Store the export's `skipped` flag (schema v2) for "most skipped", skip rate
+   per artist, and songs you always skip at the same point.
+9. **More widgets** (native build): streak, on this day, now-playing with the cover tint.
+10. **Year-in-review season** — every 1 December, a full-year story with extra slides
+    (eras, milestones, firsts), plus a printable poster-sized share card.
 
 ## Phase 5 — ship-ready (only if going public)
 - [ ] Privacy policy + in-app data page (what's stored, where; export + delete)

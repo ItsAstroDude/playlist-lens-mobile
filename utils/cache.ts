@@ -63,6 +63,10 @@ export const SecureKeys = {
 export function clearCaches(): void {
   for (const k of storage.getAllKeys()) {
     if (k.startsWith('settings.')) continue // preserve app settings
+    // Covers found (art:) and covers you picked (artov:) don't go stale — keep them, so
+    // clearing the cache doesn't mean waiting for every picture again. Saved "no picture"
+    // answers (artmiss*:) do get cleared: that's how you make the app look again.
+    if (k.startsWith('art:') || k.startsWith('artov:')) continue
     if (k === 'wrapped_stats') continue     // preserve imported listening history (costly to re-import)
     storage.remove(k)
   }

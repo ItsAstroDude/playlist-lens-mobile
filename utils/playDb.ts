@@ -36,6 +36,16 @@ interface PlayRow {
 }
 
 let _db: SQLiteDatabase | null = null
+let _stats: SQLiteDatabase | null = null
+
+// ─── change counter ─────────────────────────────────────────────────────────────
+// Bumped by every write below (all writes go through this module), so cached stats
+// can tell "nothing changed" without scanning the table. Persisted, so answers saved
+// before a restart are still known to be current.
+const VERSION_KEY = 'plays.version'
+/** Increases whenever plays are added, replaced or removed. */
+export function playsVersion(): number { return storage.getNumber(VERSION_KEY) ?? 0 }
+function bump(): void { storage.set(VERSION_KEY, playsVersion() + 1) }
 
 /** Open (once) and bring the schema up to date. */
 export function db(): SQLiteDatabase {
@@ -62,12 +72,25 @@ export function db(): SQLiteDatabase {
   }
   if (v < SCHEMA) d.execSync(`PRAGMA user_version = ${SCHEMA}`)
   _db = d
+  _stats = null
   migrateLegacyBuffer(d)
   return d
 }
 
+/**
+ * A second connection to the same file, for heavy reads that run off the UI thread
+ * (utils/sqlJob's runAsync). One SQLite connection runs one query at a time: on the
+ * main connection, a quick query from the screen would wait behind a second-long stats
+ * query and freeze the UI. In WAL mode the two connections don't block each other.
+ */
+export function statsDb(): SQLiteDatabase {
+  db()                                   // schema up to date first
+  if (!_stats) _stats = openDatabaseSync(DB_NAME, { useNewConnection: true })
+  return _stats
+}
+
 /** Test hook: forget the open handle (the test mock gives each open a fresh DB). */
-export function _resetForTests(): void { _db = null }
+export function _resetForTests(): void { _db = null; _stats = null }
 
 // ─── meta ─────────────────────────────────────────────────────────────────────
 function getMeta(d: SQLiteDatabase, k: string): string | null {
@@ -138,6 +161,7 @@ export function insertPlays(rows: StreamRow[], source: SourceName, opts?: { repl
       }
     } finally { stmt.finalizeSync() }
   })
+  if (written) bump()
   return written
 }
 
@@ -187,6 +211,7 @@ export function finishImport(): number {
     d.runSync('DELETE FROM plays WHERE src != ? AND t <= ?', [Source.import, max])
   })
   d.execSync('DROP TABLE IF EXISTS import_stage')
+  bump()
   return n
 }
 export function abortImport(): void {
@@ -198,12 +223,14 @@ export function clearImport(): void {
   const d = db()
   d.runSync('DELETE FROM plays WHERE src = ?', [Source.import])
   setMeta(d, 'import_max_t', null)
+  bump()
 }
 /** Remove everything. */
 export function clearAllPlays(): void {
   const d = db()
   d.runSync('DELETE FROM plays', [])
   setMeta(d, 'import_max_t', null)
+  bump()
 }
 
 // ─── read ─────────────────────────────────────────────────────────────────────

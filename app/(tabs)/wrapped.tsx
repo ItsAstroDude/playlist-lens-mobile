@@ -1,19 +1,23 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking,
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, ScrollView,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
-import { FlashList } from '@shopify/flash-list'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { useWrapped } from '@/hooks/useWrapped'
 import { fmtHours, fmtMinutesShort, type WrappedStats, type StreamRow } from '@/utils/wrapped'
-import { comparePeriods, periodTitle, bucketLabels, periodRange, type SummaryKind, type PeriodComparison } from '@/utils/listening'
-import { playsSince, countSince, windowStartT } from '@/utils/playDb'
+import { periodTitle, bucketLabels, type SummaryKind, type PeriodComparison } from '@/utils/listening'
+import { countSince, windowStartT } from '@/utils/playDb'
+import { periodComparison, periodComparisonAsync, currentBucket, allTimeAsync, yearsWithPlays, localOffsetSec, periodRange as statsPeriodRange } from '@/utils/stats'
+import { useCachedStat, peekCached } from '@/utils/sqlJob'
+import { newToYouAsync, onThisDay, streaksAsync, milestonesAsync, type NewToYou, type OnThisDayYear, type Streaks, type Milestone, type NextMilestone } from '@/utils/highlights'
+import { NewToYouCard, OnThisDayCard, StreaksCard, MilestonesCard } from '@/components/stats/Highlights'
+import { CalendarHeatmap } from '@/components/stats/CalendarHeatmap'
 import { trackingEnrolled } from '@/utils/tracking'
-import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow } from '@/components/ui'
+import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow, IconButton, ArtThumb } from '@/components/ui'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
@@ -30,21 +34,58 @@ const PRIVACY_URL = 'https://www.spotify.com/account/privacy/'
 type Block =
   | { t: 'hero'; ms: number; since: string }
   | { t: 'pills'; streams: number; artists: number; tracks: number }
-  | { t: 'recaps' }
   | { t: 'list'; key: string; title: string; kind: ArtKind; color: string; rows: Row[] }
   | { t: 'clock'; clock: number[] }
+  | { t: 'weekdays'; days: number[] }
+  | { t: 'heat'; years: number[] }
+  | { t: 'newToYou'; kind: SummaryKind; n: NewToYou }
+  | { t: 'otd'; years: OnThisDayYear[] }
+  | { t: 'streaks'; s: Streaks }
+  | { t: 'miles'; m: { reached: Milestone[]; next: NextMilestone[] } }
   | { t: 'years'; rows: { year: number; ms: number; topArtist: string; frac: number }[] }
-  | { t: 'foot'; real: number; skipPct: number; podcast: number }
+  | { t: 'foot'; real: number; skipPct: number | null; podcast: number }
   | { t: 'manage' }
+  | { t: 'importCta' }
   // ── Period views (v1.8): this week / month / year from the play buffer ──
   | { t: 'pHero'; kind: SummaryKind; title: string; ms: number; delta: number | null }
   | { t: 'pTiles'; plays: number; playsDelta: number | null; artists: number; tracks: number }
   | { t: 'pBars'; kind: SummaryKind; buckets: number[]; labels: string[]; current: number }
   | { t: 'pEmpty'; kind: SummaryKind; tracked: boolean }
   | { t: 'pCta' }
-  | { t: 'pStory'; kind: SummaryKind }
+  | { t: 'pStory'; kind: SummaryKind | 'all' }
 
 interface Row { name: string; sub?: string; value: string; frac: number; sel: WrappedSelection; add?: QueueItem }
+
+/** Cards built on the first frame (about a screenful); the rest follow a couple per frame. */
+const FIRST_BLOCKS = 4
+/** Stable identity per card, so a card arriving late (streaks, milestones) doesn't rebuild the ones below it. */
+const blockKey = (b: Block): string => ('key' in b && typeof b.key === 'string' ? b.key : b.t)
+
+const WEEKDAY_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+const WEEKDAY_NAME = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+/** Listening by weekday (Mon..Sun), like the clock. */
+const Weekdays = React.memo(function Weekdays({ days }: { days: number[] }) {
+  const max = Math.max(...days, 1)
+  const peak = days.indexOf(max)
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardSpecular} />
+      <Text style={styles.sectionLabel}>BY WEEKDAY</Text>
+      <View style={styles.clockRow} accessible accessibilityLabel={`Listening by weekday; busiest is ${WEEKDAY_NAME[peak]}`}>
+        {days.map((ms, d) => (
+          <View key={d} style={styles.clockCol}>
+            <View style={[styles.clockBar, { height: `${Math.max(3, (ms / max) * 100)}%`, backgroundColor: d === peak ? Colors.greenPrimary : alpha(Colors.greenPrimary, 0.35) }]} />
+          </View>
+        ))}
+      </View>
+      <View style={styles.clockLabels}>
+        {WEEKDAY_SHORT.map((l, d) => <Text key={d} style={[styles.clockLabel, styles.bucketLabel, d === peak && { color: Colors.greenPrimary }]}>{l}</Text>)}
+      </View>
+      <Text style={styles.clockPeak}>Busiest day: {WEEKDAY_NAME[peak]}</Text>
+    </View>
+  )
+})
 
 const Clock = React.memo(function Clock({ clock }: { clock: number[] }) {
   const max = Math.max(...clock, 1)
@@ -70,7 +111,7 @@ const Clock = React.memo(function Clock({ clock }: { clock: number[] }) {
 })
 
 // ─── Build blocks from stats ──────────────────────────────────────────────────
-function buildBlocks(stats: WrappedStats): Block[] {
+function buildBlocks(stats: WrappedStats, imported: boolean, years: number[], extra: { streaks?: Streaks; miles?: { reached: Milestone[]; next: NextMilestone[] } }): Block[] {
   const since = stats.firstTs ? new Date(stats.firstTs).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '—'
   const maxA = stats.topArtists[0]?.ms ?? 1
   const maxT = stats.topTracks[0]?.plays ?? 1
@@ -95,15 +136,24 @@ function buildBlocks(stats: WrappedStats): Block[] {
     { t: 'hero', ms: stats.totalMs, since },
     { t: 'pills', streams: stats.totalStreams, artists: stats.uniqueArtists, tracks: stats.uniqueTracks },
   ]
-  blocks.push({ t: 'recaps' })
+  blocks.push({ t: 'pStory', kind: 'all' })
+  if (extra.streaks?.longest) blocks.push({ t: 'streaks', s: extra.streaks })
+  if (extra.miles && (extra.miles.reached.length || extra.miles.next.length)) blocks.push({ t: 'miles', m: extra.miles })
   if (artistRows.length) blocks.push({ t: 'list', key: 'artists', title: 'TOP ARTISTS · BY TIME', kind: 'artist', color: Colors.greenPrimary, rows: artistRows })
   if (trackRows.length)  blocks.push({ t: 'list', key: 'tracks',  title: 'TOP TRACKS · BY PLAYS', kind: 'track', color: Colors.pink, rows: trackRows })
   if (albumRows.length)  blocks.push({ t: 'list', key: 'albums',  title: 'TOP ALBUMS · BY TIME', kind: 'album', color: Colors.lavender, rows: albumRows })
   blocks.push({ t: 'clock', clock: stats.clock })
+  // WrappedStats keeps weekdays Sunday-first; the chart reads Monday-first.
+  if (stats.weekday?.length === 7 && stats.weekday.some(v => v > 0)) {
+    blocks.push({ t: 'weekdays', days: [...stats.weekday.slice(1), stats.weekday[0]] })
+  }
+  if (years.length) blocks.push({ t: 'heat', years })   // calendar heatmap, a year at a time
   if (stats.byYear.length) blocks.push({ t: 'years', rows: stats.byYear.map(y => ({ year: y.year, ms: y.ms, topArtist: y.topArtist, frac: y.ms / maxY })) })
-  const skipPct = stats.totalStreams ? Math.round((stats.skipCount / stats.totalStreams) * 100) : 0
+  // Skips are only known from an import (the export records them; tracking can't).
+  const skipPct = imported && stats.totalStreams ? Math.round((stats.skipCount / stats.totalStreams) * 100) : null
   blocks.push({ t: 'foot', real: stats.realListens, skipPct, podcast: stats.podcastStreams })
-  blocks.push({ t: 'manage' })
+  // Re-import / Clear only with an import: Clear wipes every stored play, tracked ones too.
+  blocks.push(imported ? { t: 'manage' } : { t: 'importCta' })
   return blocks
 }
 
@@ -115,19 +165,20 @@ const MODES: { id: Mode; label: string }[] = [
 const PERIOD_WORD: Record<SummaryKind, string> = { week: 'week', month: 'month', year: 'year' }
 const fmtPeriod = (kind: SummaryKind, ms: number) => (kind === 'year' ? fmtHours(ms) : fmtMinutesShort(ms))
 
-function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date): Block[] {
+function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date, extra: { fresh?: NewToYou; otd?: OnThisDayYear[] }): Block[] {
   const s = c.current
   const kind = s.kind
   const blocks: Block[] = [{ t: 'pHero', kind, title: periodTitle(s), ms: s.ms, delta: c.deltaMs }]
   if (!s.plays) {
     blocks.push({ t: 'pEmpty', kind, tracked })
-    blocks.push({ t: 'recaps' })
     return blocks
   }
-  const today = kind === 'year' ? now.getUTCMonth() : Math.floor((now.getTime() - periodRange(kind, now).start) / 86_400_000)
+  const today = currentBucket(kind, now)
   blocks.push({ t: 'pStory', kind })
   blocks.push({ t: 'pTiles', plays: s.plays, playsDelta: c.deltaPlays, artists: s.artists, tracks: s.tracks })
   blocks.push({ t: 'pBars', kind, buckets: s.buckets, labels: bucketLabels(s), current: today })
+  if (kind === 'year') blocks.push({ t: 'heat', years: [new Date(s.start).getFullYear()] })
+  if (extra.otd?.length) blocks.push({ t: 'otd', years: extra.otd })
 
   const maxA = s.topArtists[0]?.ms || 1
   const maxT = s.topTracks[0]?.plays || 1
@@ -142,7 +193,12 @@ function buildPeriodBlocks(c: PeriodComparison, tracked: boolean, now: Date): Bl
   if (s.topAlbums.length) blocks.push({ t: 'list', key: 'p-albums', title: 'TOP ALBUMS', kind: 'album', color: Colors.lavender,
     rows: s.topAlbums.map((a, i) => ({ name: a.name, sub: a.sub, value: fmtPeriod(kind, a.ms), frac: a.ms / maxL,
       sel: { kind: 'album', name: a.name, rank: i + 1, ms: a.ms, accent: Colors.lavender } })) })
-  blocks.push({ t: 'recaps' })
+  // The listening clock for every period; the weekday split where the bars aren't
+  // already weekdays (a week's bars are).
+  if (s.clock?.some(v => v > 0)) blocks.push({ t: 'clock', clock: s.clock })
+  if (kind !== 'week' && s.weekdays?.some(v => v > 0)) blocks.push({ t: 'weekdays', days: s.weekdays })
+  // Only when the history starts well before this period — otherwise everything is "new".
+  if (extra.fresh?.trusted && extra.fresh.artists > 0) blocks.push({ t: 'newToYou', kind, n: extra.fresh })
   if (!tracked) blocks.push({ t: 'pCta' })
   return blocks
 }
@@ -172,7 +228,7 @@ const Bars = React.memo(function Bars({ buckets, labels, current, kind }: { buck
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function WrappedTab() {
   const t0 = useRenderStart()
-  const { stats, status, progress, errorMsg, importHistory, clearHistory } = useWrapped()
+  const { stats: storedStats, status, progress, errorMsg, importHistory, clearHistory } = useWrapped()
   const [sel, setSel] = useState<WrappedSelection | null>(null)
 
   // Play buffer (tracked + device + import tail) — re-read whenever the tab is
@@ -189,19 +245,58 @@ export default function WrappedTab() {
   // empty week (stats load a tick after mount, so decide once they arrive).
   const pickedMode = React.useRef(false)
   React.useEffect(() => {
-    if (pickedMode.current || !stats) return
+    if (pickedMode.current || !storedStats) return
     pickedMode.current = true
     if (!hasRecent) setMode('all')
-  }, [stats, hasRecent])
+  }, [storedStats, hasRecent])
   const chooseMode = useCallback((m: Mode) => { pickedMode.current = true; setMode(m) }, [])
   const now = useMemo(() => new Date(), [version, mode])
-  const comparison = useMemo(() => {
-    if (mode === 'all') return null
-    const since = Math.floor(periodRange(mode, now, 1).start / 1000)
-    return comparePeriods(playsSince(since), mode, now)
-  }, [mode, now])
+  // All time from the stats engine (SQL, local time, includes plays tracked since the
+  // import); falls back to the stored import summary for pre-2.0 imports. It scans the
+  // whole history, so it runs off the UI thread, only while All time is open, and
+  // opens on the last saved answer while the fresh one is worked out.
+  // All time, its streaks and milestones arrive together: one list rebuild, not three.
+  const allOpen = mode === 'all'
+  type AllBundle = { stats: WrappedStats | null; streaks?: Streaks; miles?: { reached: Milestone[]; next: NextMilestone[] } }
+  const allBundle = useCachedStat<AllBundle>(
+    'allBundle',
+    () => Promise.all([allTimeAsync(storedStats, now), streaksAsync(now), milestonesAsync()])
+      .then(([stats, streaks, miles]) => ({ stats, streaks, miles })),
+    [storedStats, now],
+    {
+      enabled: allOpen,
+      initial: () => {
+        const s = peekCached<WrappedStats | null>('allTime')
+        return s === undefined ? undefined
+          : { stats: s, streaks: peekCached<Streaks>('streaks'), miles: peekCached<AllBundle['miles']>('milestones') }
+      },
+    },
+  )
+  const stats = allOpen ? (allBundle.value?.stats ?? storedStats) : storedStats
+  const allLoading = allOpen && !stats && allBundle.loading
+  // This period so far vs the last, from the stats engine (SQL, local time). A week or a
+  // month is a millisecond or two; a year is a few hundred on a phone, so it runs off the
+  // UI thread — and a saved one only shows if it's for this same year.
+  const off = useMemo(() => localOffsetSec(now), [now])
+  const shortCmp = useMemo(() => (mode === 'week' || mode === 'month' ? periodComparison(mode, now) : null), [mode, now])
+  const yearCmp = useCachedStat('cmp2.year', () => periodComparisonAsync('year', now), [now], { enabled: mode === 'year' })
+  const yearStartMs = statsPeriodRange('year', now, off).start * 1000
+  const yearValue = yearCmp.value && yearCmp.value.current.start === yearStartMs ? yearCmp.value : undefined
+  const comparison = mode === 'all' ? null : mode === 'year' ? (yearValue ?? null) : shortCmp
+  const periodLoading = mode === 'year' && !yearValue
+  // New to you (this period) and On this day (week view only — it's about today).
+  const fresh = useCachedStat(
+    `new.${mode}`,
+    () => newToYouAsync(mode, Math.floor((comparison?.current.start ?? 0) / 1000), Math.floor((comparison?.current.end ?? 0) / 1000)),
+    [mode, now], { enabled: !!comparison, peek: false },
+  )
+  const otd = useMemo(() => (mode === 'week' ? onThisDay(now) : []), [mode, now])
   const gutter = useNowPlayingGutter()
-  const scrollY = useSharedValue(0)
+  // Build the first screenful at once and the rest a couple of cards per frame, so
+  // opening stays quick. Reset only when the view (mode) changes — not when data
+  // arrives, which would rebuild cards that are already up.
+  const [shownBlocks, setShownBlocks] = useState(FIRST_BLOCKS)
+  useEffect(() => { setShownBlocks(FIRST_BLOCKS) }, [mode])
 
 
   const onImport = useCallback(() => { haptic.medium(); importHistory() }, [importHistory])
@@ -233,28 +328,6 @@ export default function WrappedTab() {
             <Pill label="tracks"  value={item.tracks.toLocaleString()} />
           </View>
         )
-      case 'recaps':
-        return (
-          <>
-            <TouchableOpacity style={styles.recapsBtn} onPress={() => { haptic.light(); router.push('/recaps') }} activeOpacity={0.85}>
-              <View style={styles.cardSpecular} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.recapsTitle}>Recaps</Text>
-                <Text style={styles.recapsSub}>Weekly · monthly · seasonal · yearly</Text>
-              </View>
-              <Icon name="arrow-forward" style={styles.recapsArrow} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.recapsBtn} onPress={() => { haptic.light(); router.push('/history') }} activeOpacity={0.85}
-              accessibilityRole="button" accessibilityLabel="History" accessibilityHint="Every play, searchable, by day">
-              <View style={styles.cardSpecular} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.recapsTitle}>History</Text>
-                <Text style={styles.recapsSub}>Every play · search · by day</Text>
-              </View>
-              <Icon name="arrow-forward" style={styles.recapsArrow} />
-            </TouchableOpacity>
-          </>
-        )
       case 'list':
         return (
           <View style={styles.card}>
@@ -262,13 +335,17 @@ export default function WrappedTab() {
             <Text style={styles.sectionLabel}>{item.title}</Text>
             {item.rows.map((r, i) => (
               <RackFocus key={r.name + i} index={Math.min(i, 8)} step={70}>
-                <RankRow rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)} trailing={r.add ? <AddToQueueButton item={r.add} /> : undefined} />
+                <RankRow rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)}
+                  leading={<ArtThumb kind={item.kind} name={r.name} artist={item.kind === 'artist' ? undefined : r.sub} />}
+                  trailing={r.add ? <AddToQueueButton item={r.add} /> : undefined} />
               </RackFocus>
             ))}
           </View>
         )
       case 'clock':
         return <Clock clock={item.clock} />
+      case 'weekdays':
+        return <Weekdays days={item.days} />
       case 'years':
         return (
           <View style={styles.card}>
@@ -282,7 +359,7 @@ export default function WrappedTab() {
       case 'foot':
         return (
           <Text style={styles.foot}>
-            {item.real.toLocaleString()} full plays (≥30s) · {item.skipPct}% skipped{item.podcast > 0 ? ` · ${item.podcast.toLocaleString()} podcast plays` : ''}
+            {item.real.toLocaleString()} full plays (≥30s){item.skipPct !== null ? ` · ${item.skipPct}% skipped` : ''}{item.podcast > 0 ? ` · ${item.podcast.toLocaleString()} podcast plays` : ''}
           </Text>
         )
       case 'pHero':
@@ -300,7 +377,8 @@ export default function WrappedTab() {
       case 'pStory':
         return (
           <Card tone="accent" style={styles.block}>
-            <ListRow icon="play" label={`Play your ${PERIOD_WORD[item.kind]}`} hint="As a story: top artist, on repeat, your biggest day"
+            <ListRow icon="play" label={item.kind === 'all' ? 'Play your story: all time' : `Play your ${PERIOD_WORD[item.kind]}`}
+              hint={item.kind === 'all' ? 'Every year, as a story: your top artists, your biggest year, a card to share' : 'As a story: top artists and songs, your biggest day, a card to share'}
               onPress={() => { haptic.medium(); router.push(`/story?kind=${item.kind}`) }} last />
           </Card>
         )
@@ -346,6 +424,24 @@ export default function WrappedTab() {
               onPress={() => { haptic.light(); router.push('/settings') }} last />
           </Card>
         )
+      case 'newToYou':
+        return <View style={styles.block}><NewToYouCard kind={item.kind} n={item.n} /></View>
+      case 'otd':
+        return <View style={styles.block}><OnThisDayCard years={item.years} /></View>
+      case 'streaks':
+        return <View style={styles.block}><StreaksCard s={item.s} /></View>
+      case 'miles':
+        return <View style={styles.block}><MilestonesCard reached={item.m.reached} next={item.m.next} /></View>
+      case 'heat':
+        return <View style={styles.block}><CalendarHeatmap years={item.years} /></View>
+      case 'importCta':
+        return (
+          <Card style={styles.block}>
+            <ListRow icon="cloud-download-outline" label="Import your Spotify history"
+              hint="Adds everything from before tracking started — years of it"
+              onPress={onImport} last />
+          </Card>
+        )
       case 'manage':
         return (
           <View style={styles.manageRow}>
@@ -358,20 +454,40 @@ export default function WrappedTab() {
 
   const parsing = status === 'parsing'
   const blocks = useMemo(
-    () => (comparison ? buildPeriodBlocks(comparison, tracked, now) : stats ? buildBlocks(stats) : []),
-    [comparison, tracked, now, stats],
+    () => (comparison
+      ? buildPeriodBlocks(comparison, tracked, now, { fresh: fresh.value, otd })
+      : stats
+        // Engine stats (version 2) know their years; a pre-2.0 summary doesn't cover the database.
+        ? buildBlocks(stats, !!storedStats, stats.version >= 2 ? stats.byYear.map(y => y.year).reverse() : yearsWithPlays(),
+            { streaks: allBundle.value?.streaks, miles: allBundle.value?.miles })
+        : []),
+    [comparison, tracked, now, stats, storedStats, fresh.value, otd, allBundle.value],
   )
+  useEffect(() => {
+    if (shownBlocks >= blocks.length) return
+    const raf = requestAnimationFrame(() => setShownBlocks(n => n + 2))
+    return () => cancelAnimationFrame(raf)
+  }, [shownBlocks, blocks.length])
   // Content on screen: a period view, lifetime stats, or the settled empty state.
   useLoadTime('wrapped', t0, !parsing && (blocks.length > 0 || stats === null))
   const subtitle = mode === 'all'
-    ? (stats ? 'Your lifetime listening, from your Spotify export' : 'All-time stats from your Spotify export')
+    ? (storedStats ? 'Your lifetime listening, from your Spotify export' : stats ? 'Everything tracked so far' : 'All-time stats from your Spotify export')
     : `Your ${PERIOD_WORD[mode]} in music${tracked ? '' : ' — from what Spotify remembers'}`
 
   return (
     <View style={styles.container}>
 
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <TabHeader title={mode === 'all' ? 'all time' : `your ${PERIOD_WORD[mode]}`} subtitle={subtitle}>
+        <TabHeader
+          title={mode === 'all' ? 'all time' : `your ${PERIOD_WORD[mode]}`}
+          subtitle={subtitle}
+          titleRight={
+            <>
+              <IconButton icon="time-outline" label="History: every play, searchable, by day" onPress={() => router.push('/history')} />
+              <IconButton icon="albums-outline" label="Recaps: past weeks, months, seasons and years" onPress={() => router.push('/recaps')} />
+            </>
+          }
+        >
           <View style={styles.modes}>
             {MODES.map(m => <Chip key={m.id} label={m.label} selected={mode === m.id} onPress={() => chooseMode(m.id)} />)}
           </View>
@@ -385,19 +501,25 @@ export default function WrappedTab() {
             </LiquidFill>
             <Text style={styles.parsingText}>Crunching your history{progress.total ? `  ${progress.done}/${progress.total} files` : ''}…</Text>
           </View>
-        ) : (mode !== 'all' || stats) ? (
-          <View style={{ flex: 1 }}>
-            <FlashList
-              data={blocks}
-              renderItem={renderBlock}
-              keyExtractor={(item, i) => item.t + i}
-              getItemType={item => item.t}
-              contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: 130 + gutter }}
-              showsVerticalScrollIndicator={false}
-              onScroll={e => { scrollY.value = e.nativeEvent.contentOffset.y }}
-              scrollEventThrottle={16}
-            />
+        ) : allLoading || periodLoading ? (
+          <View style={styles.parsing}>
+            <ActivityIndicator color={Colors.greenPrimary} />
+            <Text style={styles.parsingText}>{periodLoading ? 'Adding up your year…' : 'Adding up all your listening…'}</Text>
           </View>
+        ) : (mode !== 'all' || stats) ? (
+          // A plain ScrollView, not a virtualised list: Wrapped is ~15 different cards, and
+          // FlashList built each heavy one (the calendar, 30 animated rows…) the moment it
+          // scrolled into view — the stutter while scrolling. Now every card is built once,
+          // right after opening, and scrolling only moves them.
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: 130 + gutter }}
+            showsVerticalScrollIndicator={false}
+          >
+            {blocks.slice(0, shownBlocks).map(item => (
+              <React.Fragment key={blockKey(item)}>{renderBlock({ item })}</React.Fragment>
+            ))}
+          </ScrollView>
         ) : (
           <View style={styles.scrollPad}>
             <EmptyState onImport={onImport} />
@@ -469,10 +591,6 @@ const styles = StyleSheet.create({
   heroSub: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted },
 
   statRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
-  recapsBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.glass, borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.28), borderRadius: Radius.lg, overflow: 'hidden', padding: Spacing.lg, marginBottom: Spacing.md },
-  recapsTitle: { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, color: Colors.text, letterSpacing: -0.5 },
-  recapsSub: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-  recapsArrow: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.greenPrimary },
   statPill: { flex: 1, backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, alignItems: 'center', gap: 2 },
   statValue: { fontFamily: FontFamily.display, fontSize: 16, fontWeight: '700', color: Colors.text, letterSpacing: -0.5, alignSelf: 'stretch', textAlign: 'center' },
   statLabel: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },

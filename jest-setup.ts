@@ -61,9 +61,12 @@ jest.mock('expo-sqlite', () => {
   const { DatabaseSync } = require('node:sqlite')
   process.emitWarning = emit
   const plain = (r: any) => (r ? { ...r } : null)
+  let last: any = null
   return {
-    openDatabaseSync: jest.fn(() => {
-      const d = new DatabaseSync(':memory:')
+    // A plain open is a fresh empty database; `useNewConnection` is a second handle on
+    // the last one (the same "file"), like the app's stats connection.
+    openDatabaseSync: jest.fn((_name: string, opts?: { useNewConnection?: boolean }) => {
+      const d = opts?.useNewConnection && last ? last : (last = new DatabaseSync(':memory:'))
       return {
         execSync: (sql: string) => d.exec(sql),
         runSync: (sql: string, params: any[] = []) => {
@@ -84,6 +87,10 @@ jest.mock('expo-sqlite', () => {
           }
         },
         closeSync: () => d.close(),
+        // Async twins (the app runs heavy stats with these, off the UI thread).
+        execAsync:     async (sql: string) => { d.exec(sql) },
+        getFirstAsync: async (sql: string, params: any[] = []) => plain(d.prepare(sql).get(...params)),
+        getAllAsync:   async (sql: string, params: any[] = []) => d.prepare(sql).all(...params).map(plain),
       }
     }),
   }

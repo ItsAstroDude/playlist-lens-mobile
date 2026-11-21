@@ -11,9 +11,11 @@ import { Colors, Spacing, Type } from '@/constants/theme'
  * `frac` (0–1) is the bar length relative to the #1 item; `color` is the list's
  * colour (artists accent · tracks pink · albums lavender). `trailing` sits outside
  * the pressable area (e.g. the queue ＋) so tapping it doesn't open the item.
+ * `leading` goes between the rank and the name — the cover (ArtThumb).
  */
-export const RankRow = React.memo(function RankRow({ rank, name, sub, value, frac, color = Colors.greenPrimary, onPress, trailing }: {
+export const RankRow = React.memo(function RankRow({ rank, name, sub, value, frac, color = Colors.greenPrimary, onPress, trailing, leading }: {
   rank?:     number
+  leading?:  React.ReactNode
   name:      string
   sub?:      string
   value:     string
@@ -25,6 +27,7 @@ export const RankRow = React.memo(function RankRow({ rank, name, sub, value, fra
   const body = (
     <View style={styles.body}>
       {rank != null && <Text style={styles.rank}>{rank}</Text>}
+      {leading}
       <View style={styles.text}>
         <Text style={styles.name} numberOfLines={1}>
           {name}{sub ? <Text style={styles.sub}>  {sub}</Text> : null}

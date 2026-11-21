@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store'
 import { storage, SecureKeys } from '@/utils/cache'
 import { artworkEnabled } from '@/utils/settings'
 import { BACKEND_URL } from '@/utils/api'
+import { db } from '@/utils/playDb'
 
 /**
  * Artwork lookup via the iTunes Search API — no auth, no backend, on-device.
@@ -131,23 +132,97 @@ async function fetchSpotifyArtistImage(name: string): Promise<string | null> {
   }
 }
 
-async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<string | null> {
-  // Artists: prefer a real Spotify portrait; fall back to an iTunes song cover.
+// iTunes Search allows roughly 20 requests a minute. Since 2.0.9 every top list shows
+// artwork (~30 rows at once), so automatic lookups are spaced out — they fill in over a
+// minute the first time and come from the cache ever after. User-started searches
+// (fetchArtworkCandidates) don't wait, but still count.
+const ITUNES_GAP_MS = 3100
+let itunesNext = 0
+function itunesSlot(wait: boolean): Promise<void> {
+  const now = Date.now()
+  const at = Math.max(now, itunesNext)
+  itunesNext = (wait ? at : now) + ITUNES_GAP_MS
+  return wait && at > now ? new Promise(r => setTimeout(r, at - now)) : Promise.resolve()
+}
+
+// One lookup per item at a time, however many rows ask for it.
+const inflight = new Map<string, Promise<string | null>>()
+
+// "No picture exists for this" is an answer too: saved for a while, so items iTunes
+// can't match aren't looked up on every launch (holding up the queue for ones it can).
+// Network errors and rate limits are NOT saved — those retry on the next launch.
+const MISS_PREFIX = 'artmiss2:'   // v2 (2.0.16): misses from before the Spotify covers get retried
+const MISS_TTL_MS = 14 * 86_400_000
+function knownMiss(k: string): boolean {
+  const at = storage.getNumber(MISS_PREFIX + k)
+  return at !== undefined && Date.now() - at < MISS_TTL_MS
+}
+
+// ─── Spotify covers (2.0.16) ──────────────────────────────────────────────────
+// iTunes doesn't carry a lot of what people play (indie / Vocaloid / SoundCloud-born
+// releases), so those rows stayed blank. Every play we hold has its Spotify URI, and
+// Spotify's public oEmbed endpoint returns that song's cover — exact, no login, no
+// backend. Songs, albums (via one of their songs) and artists without a portrait (via
+// one of their songs) try it before iTunes.
+
+/** A Spotify track URI from the play database for this song / album / artist. */
+function uriFor(kind: ArtKind, name: string, artist?: string): string | null {
+  try {
+    const d = db()
+    const r = kind === 'track'
+      ? d.getFirstSync<{ uri: string }>(`SELECT uri FROM plays WHERE artist IS ? AND track = ? AND uri LIKE 'spotify:track:%' LIMIT 1`, [artist ?? null, name])
+        ?? d.getFirstSync<{ uri: string }>(`SELECT uri FROM plays WHERE track = ? AND uri LIKE 'spotify:track:%' LIMIT 1`, [name])
+      : kind === 'album'
+        ? d.getFirstSync<{ uri: string }>(`SELECT uri FROM plays WHERE album = ? AND uri LIKE 'spotify:track:%'${artist ? ' AND artist = ?' : ''} LIMIT 1`, artist ? [name, artist] : [name])
+        : d.getFirstSync<{ uri: string }>(`SELECT uri FROM plays WHERE artist = ? AND uri LIKE 'spotify:track:%' LIMIT 1`, [name])
+    return r?.uri ?? null
+  } catch {
+    return null
+  }
+}
+
+/** The cover of a Spotify track (URI), or null. `final` = Spotify answered. */
+async function spotifyCover(uri: string): Promise<{ url: string | null; final: boolean }> {
+  const id = uri.slice('spotify:track:'.length)
+  try {
+    const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(`https://open.spotify.com/track/${id}`)}`)
+    if (!res.ok) return { url: null, final: res.status === 404 }
+    const json = await res.json()
+    const url = typeof json?.thumbnail_url === 'string' ? json.thumbnail_url : null
+    return { url, final: true }
+  } catch {
+    return { url: null, final: false }
+  }
+}
+
+/** The cover, plus whether that's a real answer (`final`) or a failed lookup. */
+async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<{ url: string | null; final: boolean }> {
+  // Artists: prefer a real Spotify portrait; then one of their songs' covers.
   if (kind === 'artist') {
     const portrait = await fetchSpotifyArtistImage(name)
-    if (portrait) return portrait
+    if (portrait) return { url: portrait, final: true }
+  }
+  const uri = uriFor(kind, name, artist)
+  if (uri) {
+    const sp = await spotifyCover(uri)
+    if (sp.url) return sp
   }
   const entity = kind === 'album' ? 'album' : 'song'
   const term   = kind === 'artist' ? name : `${name} ${artist ?? ''}`.trim()
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=${entity}&limit=8`
   try {
+    await itunesSlot(true)
     const res  = await fetch(url)
+    if (!res.ok) return { url: null, final: false }          // rate-limited / server trouble
     const json = await res.json()
-    return pickArtwork(json?.results ?? [], kind, name, artist)
+    return { url: pickArtwork(json?.results ?? [], kind, name, artist), final: true }
   } catch {
-    return null
+    return { url: null, final: false }                       // offline
   }
 }
+
+/** Test hook: forget this session's lookups (as if the app restarted). */
+export function _resetArtworkSession(): void { mem.clear(); ovMem.clear(); inflight.clear(); itunesNext = 0 }
 
 export function useArtwork(kind: ArtKind | null, name?: string, artist?: string): string | null {
   const enabled = artworkEnabled()
@@ -159,6 +234,7 @@ export function useArtwork(kind: ArtKind | null, name?: string, artist?: string)
     if (mem.has(k)) return mem.get(k)!
     const cached = storage.getString(k)
     if (cached !== undefined) { mem.set(k, cached); return cached }
+    if (knownMiss(k)) { mem.set(k, null); return null }
     return null
   })
 
@@ -166,12 +242,19 @@ export function useArtwork(kind: ArtKind | null, name?: string, artist?: string)
     if (!k || !kind || !name) { setUrl(null); return }
     if (ov) { const o = readOverride(ov); if (o != null) { setUrl(o); return } }
     if (mem.has(k)) { setUrl(mem.get(k)!); return }
+    if (knownMiss(k)) { mem.set(k, null); setUrl(null); return }
     let cancelled = false
-    fetchArt(kind, name, artist).then(u => {
-      mem.set(k, u)
-      if (u) storage.set(k, u)
-      if (!cancelled) setUrl(u)
-    })
+    let p = inflight.get(k)
+    if (!p) {
+      p = fetchArt(kind, name, artist).then(({ url: u, final }) => {
+        mem.set(k, u)                                        // this session: don't ask again
+        if (u) storage.set(k, u)                             // found: kept for good
+        else if (final) storage.set(MISS_PREFIX + k, Date.now())
+        return u
+      }).finally(() => inflight.delete(k))
+      inflight.set(k, p)
+    }
+    p.then(u => { if (!cancelled) setUrl(u) })
     return () => { cancelled = true }
   }, [k])
 
@@ -189,6 +272,7 @@ export async function fetchArtworkCandidates(
   const q = (term && term.trim()) || (kind === 'artist' ? name : `${name} ${artist ?? ''}`.trim())
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=${entity}&limit=20`
   try {
+    await itunesSlot(false)
     const res  = await fetch(url)
     const json = await res.json()
     const seen = new Set<string>()

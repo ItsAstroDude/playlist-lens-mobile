@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { clearStatCache } from '@/utils/sqlJob'
 import * as DocumentPicker from 'expo-document-picker'
 import * as FileSystem from 'expo-file-system/legacy'
 import { File } from 'expo-file-system'
@@ -188,6 +189,7 @@ export function useWrapped() {
     storage.remove(TRACK_INDEX_KEY)
     storage.remove(RECAPS_KEY)
     clearBuffer()
+    clearStatCache()
     setStats(null)
     setStatus('idle')
     setErrorMsg(null)
