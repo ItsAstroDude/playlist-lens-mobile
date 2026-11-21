@@ -331,6 +331,61 @@ The tracker's per-user play store is the foundation, so nothing in 2.0 blocks it
 
 ---
 
+# Cover screen — Galaxy Z Flip 7 (started 2026-11-21)
+A compact playlist.lens for the Flip's cover screen, built around the cameras the way
+Samsung's own cover UI is. One UI 9 lets almost any app run there.
+
+## The screen (measured on the phone)
+| | Main (display 0) | Cover (display 1) |
+|---|---|---|
+| Panel | 1080 × 2520 px | 948 × 1048 px |
+| What the app gets | 411 × 960 dp at ×2.625 | **474 × 524 dp at ×2.0** |
+| Refresh rate | 120 Hz | 60 Hz by default (supports 120) |
+
+- **Cameras bottom-right**, two lenses side by side, the flash to their left. Outline in
+  panel px: lenses at x 649 / 836, y 935, radius 85 (`FLIP7_OUTLINE`, checked on the phone).
+- **Samsung's "open on main screen" button sits at the bottom centre.** Keep controls and
+  gestures clear of it; it's also why the cover UI has no bottom tab bar.
+- **`PixelRatio.get()` is wrong on the cover screen**: it keeps the main screen's ×2.625
+  while the app lays out at ×2.0. Never convert with it there; scale by window size ÷
+  panel size (`panelScale`). Screenshots also leave out the camera cutout.
+- **Which screen:** `useScreen()` (hooks/useScreen.ts) asks Android for the activity's
+  display through the `DisplayInfo` native module (modules/display-info, in the APK
+  built 2026-11-21); older APKs fall back to window size (short + nearly square = cover).
+
+## Camera ring (motion, prototype in Settings › About › Cover screen lab)
+A ring hugging both lenses (`components/cover/`), in the cover art's colours:
+- **Progress:** fills clockwise from the top centre (right lens first) as the song plays,
+  with a glowing white tip. A new song rewinds it on `Spring.bouncy`; seeks use `Spring.snappy`.
+- **Playing:** three soft pulses ripple out from the cameras (1.7 s cycle, 26 dp travel).
+- **Paused:** the track breathes for 30 s, then holds still (no frame work while idle).
+- **Reduce motion:** progress only, no pulses or breathing.
+- Geometry: a stadium 7 dp outside the glass, 3.5 dp stroke; maths in `outline.ts` (tested).
+- The lab draws at the real camera positions (no simulator), has a Tune mode (drag,
+  steppers, red lens guide, saved per phone) and a background picker: the animated aurora
+  in 20 colour sets + black/white + the cover art's colours, to check the ring on any backdrop.
+- **Before it leaves the lab:** progress advances a fraction of a pixel every frame. Snap
+  it to whole pixels like the now-playing line (`ProgressFill`) so it doesn't redraw at 60/120 Hz.
+
+## Plan (decided 2026-11-21)
+- [x] Measure the screen; find the cameras; camera ring prototype + lab — OTA on 2.0.18
+- [x] Native "which screen" flag (`DisplayInfo`) — APK
+- [ ] Ring without per-frame redraws, then out of the lab
+- [ ] Cover shell: detects the cover screen and swaps the whole app to a compact layout
+- [ ] Gesture-only navigation: swipe left/right between sections, swipe up for a section
+      picker that springs out of the cameras; tap = play/pause, long-press = actions.
+      Avoid the system's edges (top = quick panel, sides = back) and the bottom-centre button
+- [ ] A first-time animated hint showing the gestures
+- [ ] Compact screens, in order: Now Playing, Home/stats, Swipe, Queue, then Wrapped and
+      stories; dev/settings screens say "open on the main screen"
+- [ ] More camera moments: a new song's cover flies out from behind the lenses; toasts and
+      "added to queue" pop out of the cameras
+- [ ] Ask for 120 Hz on the cover screen if the app can
+- [ ] Restart test: does the app reload when moving between screens? If yes, handle
+      `density` in `configChanges` (native, next APK)
+
+---
+
 # The family — Spark + a sister player (planned 2026-11-18)
 
 Two things, planned together because they share code: **Spark** comes into
