@@ -56,10 +56,14 @@ const Ink = createContext(THEME_INK)
  * On the main screen it shows a simulated cover screen instead.
  */
 export default function CoverLab() {
-  const onCover = useCoverScreen()
+  const detected = useCoverScreen()
+  // Escape hatch when detection misses the cover screen: draw at real coordinates anyway.
+  const [forced, setForced] = useState(false)
+  const onCover = detected || forced
   const reduced = useMotionReduced()
   const insets = useSafeAreaInsets()
-  const { width } = useWindowDimensions()
+  const { width, height } = useWindowDimensions()
+  const dims = `${Math.round(width)}×${Math.round(height)} dp · ×${PixelRatio.get()} · ${detected ? 'cover detected' : 'not detected'}`
 
   // ── outline, in cover-panel px (saved on every change) ──
   const ratio = onCover ? PixelRatio.get() : SIM_RATIO
@@ -134,6 +138,7 @@ export default function CoverLab() {
         </>}
         {!!live && <Pill label={showingDemo ? 'Use live' : 'Use demo'} onPress={() => { haptic.light(); setUseDemo(d => !d) }} />}
         <Pill label={tuning ? 'Done' : 'Tune'} active={tuning} onPress={() => { haptic.light(); setTuning(v => !v) }} />
+        {forced && <Pill label="Simulator" onPress={() => { haptic.light(); setForced(false) }} />}
         <Pill label={`Background: ${bg.name}`} onPress={() => { haptic.light(); setBgIdx(i => (i + 1) % bgs.length) }} />
       </View>
       {tuning && (
@@ -147,7 +152,7 @@ export default function CoverLab() {
             <Pill label="Reset" onPress={() => { haptic.medium(); setOutline({ ...FLIP7_OUTLINE }) }} />
           </View>
           <Text style={[styles.values, { color: ink.muted }]} selectable>
-            {`px  cx1 ${outline.cx1.toFixed(0)} · cx2 ${outline.cx2.toFixed(0)} · cy ${outline.cy.toFixed(0)} · r ${outline.r.toFixed(0)}  (×${PixelRatio.get()})`}
+            {`px  cx1 ${outline.cx1.toFixed(0)} · cx2 ${outline.cx2.toFixed(0)} · cy ${outline.cy.toFixed(0)} · r ${outline.r.toFixed(0)}\n${dims}`}
           </Text>
           {onCover && <Text style={[styles.hint, { color: ink.dim }]}>Drag anywhere to move the ring.</Text>}
         </View>
@@ -183,6 +188,7 @@ export default function CoverLab() {
         <View style={{ flex: 1 }}>
           <Text style={styles.h1}>cover screen lab</Text>
           <Text style={styles.sub}>Prototype. Close the phone to see it round the real cameras.</Text>
+          <Text style={[styles.sub, { color: Colors.textDim }]}>{dims}</Text>
         </View>
       </View>
       <ScrollView contentContainerStyle={{ alignItems: 'center', paddingBottom: insets.bottom + Spacing.xl }}>
@@ -196,6 +202,9 @@ export default function CoverLab() {
           </View>
         </View>
         {controls}
+        <View style={[styles.row, { alignSelf: 'stretch', marginTop: Spacing.md }]}>
+          <Pill label="On the cover screen but seeing this? Use real screen" onPress={() => { haptic.light(); setForced(true) }} />
+        </View>
       </ScrollView>
     </View>
   )
