@@ -1,4 +1,4 @@
-import { pointAt, perimeter, stadium, cleanOutline, toDp, FLIP7_OUTLINE, type CameraOutline } from '@/components/cover/outline'
+import { pointAt, perimeter, stadium, cleanOutline, toDp, panelScale, FLIP7_OUTLINE, type CameraOutline } from '@/components/cover/outline'
 import { isCoverWindow } from '@/hooks/useCoverScreen'
 import { liveFraction } from '@/components/cover/useRingProgress'
 
@@ -49,7 +49,8 @@ describe('camera ring geometry', () => {
   })
 
   it('converts panel px to dp, and the Flip 7 cameras sit bottom-right on the panel', () => {
-    expect(toDp({ cx1: 600, cx2: 800, cy: 900, r: 80 }, 2)).toEqual({ cx1: 300, cx2: 400, cy: 450, r: 40 })
+    expect(panelScale(474)).toBe(0.5)                // Flip 7 cover window: 474 dp over 948 px
+    expect(toDp({ cx1: 600, cx2: 800, cy: 900, r: 80 }, panelScale(474))).toEqual({ cx1: 300, cx2: 400, cy: 450, r: 40 })
     const s = stadium(FLIP7_OUTLINE, 0)
     expect(s.left).toBeGreaterThan(948 / 2)
     expect(s.left + s.width).toBeLessThan(948)

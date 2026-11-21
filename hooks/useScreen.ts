@@ -54,14 +54,16 @@ export function useScreen(): ScreenInfo {
     return () => { app.remove(); sub?.remove() }
   }, [])
 
-  const w = Math.round(width), h = Math.round(height), k = PixelRatio.get()
+  // On the cover screen PixelRatio still reports the main screen's value; show both.
+  const w = Math.round(width), h = Math.round(height), k = `×${PixelRatio.get()} RN`
   if (display) {
     const kind: ScreenKind = display.isDefault ? 'main' : 'cover'
     return {
       kind, source: 'display',
-      detail: `display ${display.id} (${kind}) · ${display.widthPx}×${display.heightPx} px · ${w}×${h} dp · ×${k}`,
+      detail: `display ${display.id} (${kind}) · ${display.widthPx}×${display.heightPx} px · ${w}×${h} dp · ×${display.appDensity} real · ${k}`,
     }
   }
   const kind: ScreenKind = isCoverWindow(width, height) ? 'cover' : 'main'
-  return { kind, source: 'size', detail: `${kind} (guessed from size) · ${w}×${h} dp · ×${k}` }
+  const real = kind === 'cover' ? ` · ×${(948 / width).toFixed(2)} real` : ''
+  return { kind, source: 'size', detail: `${kind} (guessed from size) · ${w}×${h} dp${real} · ${k}` }
 }

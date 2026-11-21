@@ -1,10 +1,10 @@
 /**
  * Cover-screen camera outline: where the two rear cameras sit on the Flip's cover
  * screen. Stored in the cover panel's PHYSICAL PIXELS (Flip 7: 948×1048, cameras
- * bottom-right, flash to their left), because the app's dp scale on the cover screen
- * isn't the panel's: One UI runs apps there at 2.0 px/dp (≈474×524 dp), not the
- * panel's 380 dpi. `toDp` converts with the live PixelRatio. Pure maths, no Skia, so
- * it's testable and usable from worklets.
+ * bottom-right, flash to their left). `toDp` scales by window size ÷ panel size.
+ * Don't use PixelRatio.get() for this: React Native keeps the MAIN screen's value
+ * (e.g. ×2.625) after the app moves to the cover screen, where apps really run at
+ * ×2.0 (474×524 dp). Pure maths, no Skia, so it's testable and usable from worklets.
  *
  * The cameras are modelled as two lenses of radius `r` side by side on one row
  * (`cy`), and the ring hugs their hull: a stadium (pill) `gap` dp outside the glass.
@@ -27,10 +27,18 @@ export interface CameraOutline {
 /** Galaxy Z Flip 7 cover screen, in panel px. Estimated from a photo of the phone. */
 export const FLIP7_OUTLINE: CameraOutline = { cx1: 649, cx2: 836, cy: 935, r: 85 }
 
-/** Panel px → the window's dp (the window fills the cover panel). */
-export function toDp(o: CameraOutline, pixelRatio: number): CameraOutline {
-  const k = pixelRatio > 0 ? pixelRatio : 1
-  return { cx1: o.cx1 / k, cx2: o.cx2 / k, cy: o.cy / k, r: o.r / k }
+/** The Flip 7 cover panel, physical px. */
+export const FLIP7_PANEL = { width: 948, height: 1048 }
+
+/** dp per panel px for a window that fills the panel (≈0.5 on the Flip 7 cover). */
+export function panelScale(windowWidth: number, panelWidth = FLIP7_PANEL.width): number {
+  return windowWidth > 0 && panelWidth > 0 ? windowWidth / panelWidth : 0.5
+}
+
+/** Panel px → the window's dp. `scale` from panelScale(). */
+export function toDp(o: CameraOutline, scale: number): CameraOutline {
+  const k = scale > 0 ? scale : 0.5
+  return { cx1: o.cx1 * k, cx2: o.cx2 * k, cy: o.cy * k, r: o.r * k }
 }
 
 /** The ring's stadium for a given outline and gap: its box and corner radius. */

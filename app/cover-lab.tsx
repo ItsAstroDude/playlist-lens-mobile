@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { View, Text, StyleSheet, Pressable, PixelRatio } from 'react-native'
+import { View, Text, StyleSheet, Pressable, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { Ionicons } from '@expo/vector-icons'
@@ -7,7 +7,7 @@ import { BackButton } from '@/components/ui'
 import { Colors, OnDark, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { CameraRing } from '@/components/cover/CameraRing'
-import { FLIP7_OUTLINE, toDp, type CameraOutline } from '@/components/cover/outline'
+import { FLIP7_OUTLINE, toDp, panelScale, type CameraOutline } from '@/components/cover/outline'
 import { useRingProgress, type RingTrack } from '@/components/cover/useRingProgress'
 import { useMotionReduced } from '@/components/motion/reduced'
 import { Aurora } from '@/components/motion'
@@ -75,7 +75,9 @@ export default function CoverLab() {
   const insets = useSafeAreaInsets()
 
   // ── outline, in cover-panel px (saved on every change) ──
-  const ratio = PixelRatio.get()
+  // dp per panel px, from the window (PixelRatio is stale on the cover screen).
+  const { width: winW } = useWindowDimensions()
+  const scale = panelScale(winW)
   const [outline, setOutline] = useState<CameraOutline>(getCameraOutline)
   useEffect(() => { setCameraOutline(outline) }, [outline])
   const [guide, setGuide] = useState(true)
@@ -89,7 +91,7 @@ export default function CoverLab() {
     })
   }
   const drag = Gesture.Pan().runOnJS(true).enabled(tuning).minDistance(4)
-    .onChange(e => setOutline(o => ({ ...o, cx1: o.cx1 + e.changeX * ratio, cx2: o.cx2 + e.changeX * ratio, cy: o.cy + e.changeY * ratio })))
+    .onChange(e => setOutline(o => ({ ...o, cx1: o.cx1 + e.changeX / scale, cx2: o.cx2 + e.changeX / scale, cy: o.cy + e.changeY / scale })))
 
   // ── source: live Spotify, else a demo song ──
   const { np } = useNowPlaying()
@@ -186,7 +188,7 @@ export default function CoverLab() {
     </View></Ink.Provider>
   )
 
-  const ringOutline = toDp(outline, ratio)
+  const ringOutline = toDp(outline, scale)
   const ring = <CameraRing outline={ringOutline} progress={progress} playing={!!track?.playing} colors={colors} guide={tuning && guide} />
 
   return (
@@ -205,7 +207,7 @@ export default function CoverLab() {
             <Text style={[styles.values, { color: ink.muted }]} numberOfLines={2} selectable>{screen.detail}</Text>
           </View>
         </View>
-        <View style={styles.coverBody}>{controls}</View>
+        <View style={[styles.coverBody, { top: insets.top + 76 }]}>{controls}</View>
       </View>
     </GestureDetector>
   )
@@ -247,7 +249,7 @@ const styles = StyleSheet.create({
   coverTop:  { paddingHorizontal: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   screen:    { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs },
   // Upper area: the cameras are bottom-right, Samsung's "open on main screen" button bottom-centre.
-  coverBody: { position: 'absolute', top: 76, right: Spacing.lg, left: Spacing.lg },
+  coverBody: { position: 'absolute', right: Spacing.lg, left: Spacing.lg },
   controls:  { gap: 6, alignSelf: 'stretch' },
   track:     { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, color: Colors.text },
   sub:       { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
