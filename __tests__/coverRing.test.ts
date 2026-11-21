@@ -1,4 +1,4 @@
-import { pointAt, perimeter, stadium, cleanOutline, toDp, panelScale, FLIP7_OUTLINE, FLIP7_FLASH, FLIP7_FLASH_ZONE_LEFT, type CameraOutline } from '@/components/cover/outline'
+import { pointAt, perimeter, stadium, cleanOutline, toDp, panelScale, FLIP7_OUTLINE, FLIP7_FLASH, FLIP7_SYSTEM_BUTTON, SYSTEM_BUTTON_GAP, type CameraOutline } from '@/components/cover/outline'
 import { isCoverWindow } from '@/hooks/useCoverScreen'
 import { liveFraction } from '@/components/cover/useRingProgress'
 
@@ -81,12 +81,14 @@ describe('ring progress', () => {
   })
 })
 
-describe('flash zone', () => {
-  it('sits left of the flash, which sits left of the lenses', () => {
-    expect(FLIP7_FLASH_ZONE_LEFT).toBeLessThan(FLIP7_FLASH.cx - FLIP7_FLASH.r)
+describe('bottom edge', () => {
+  it('the system button sits below the flash, the flash left of the lenses', () => {
+    expect(FLIP7_SYSTEM_BUTTON.top).toBeGreaterThan(FLIP7_FLASH.cy + FLIP7_FLASH.r)
     expect(FLIP7_FLASH.cx + FLIP7_FLASH.r).toBeLessThan(FLIP7_OUTLINE.cx1 - FLIP7_OUTLINE.r)
   })
-  it('leaves room for the 4-icon tab strip (≈174 dp from 12 dp in)', () => {
-    expect(FLIP7_FLASH_ZONE_LEFT * panelScale(474) - 12).toBeGreaterThanOrEqual(174)
+  it('leaves room for a 4-icon tab strip left of the system button', () => {
+    const width = FLIP7_SYSTEM_BUTTON.left * panelScale(474) - SYSTEM_BUTTON_GAP - 12
+    expect(width).toBeGreaterThanOrEqual(4 * 40)
+    expect(12 + width).toBeLessThan(FLIP7_SYSTEM_BUTTON.left * panelScale(474))
   })
 })

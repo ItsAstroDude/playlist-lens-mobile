@@ -358,7 +358,8 @@ Samsung's own cover UI is. One UI 9 lets almost any app run there.
 
 - **Cameras bottom-right**, two lenses side by side, the flash to their left. Outline in
   panel px: lenses at x 649 / 836, y 935, radius 85 (`FLIP7_OUTLINE`, checked on the phone).
-- **Samsung's "open on main screen" button sits at the bottom centre.** Keep controls and
+- **Samsung's "open on main screen" button sits at the bottom centre** (panel px x 455–523,
+  `FLIP7_SYSTEM_BUTTON`). The tab strip runs from the left edge up to it. Keep controls and
   gestures clear of it; it's also why the cover UI has no bottom tab bar.
 - **App pixels aren't panel pixels on the cover screen**: One UI gives apps a 1244 × 1375 px
   display at ×2.625 and scales it down to the 948 × 1048 panel (screenshots are panel-sized).

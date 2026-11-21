@@ -12,7 +12,7 @@ import { NowPlayingBar } from '@/components/nowplaying/NowPlayingBar'
 import { LiquidTabBar, TAB_ICONS } from '@/components/motion/LiquidTabBar'
 import { Icon } from '@/components/ui/Icon'
 import { useIsCover } from '@/hooks/useScreen'
-import { FLIP7_FLASH_ZONE_LEFT, panelScale } from '@/components/cover/outline'
+import { FLIP7_SYSTEM_BUTTON, SYSTEM_BUTTON_GAP, panelScale } from '@/components/cover/outline'
 import { LiquidBackground } from '@/components/motion/LiquidBackground'
 
 // Minimal structural type for the navigator props we actually use (avoids a
@@ -60,9 +60,9 @@ const STRIP_BOTTOM = 12
 
 function CoverTabs({ state, navigation, navRef, onTab }: TabBarProps & TabBarExtra) {
   // Low in the corner (the system's bottom inset is ~100 dp here and holds nothing on
-  // the left), and never right of the flash zone.
+  // the left), stretching right up to Samsung's "open on main screen" button.
   const { width: W } = useWindowDimensions()
-  const maxWidth = FLIP7_FLASH_ZONE_LEFT * panelScale(W) - STRIP_LEFT
+  const width = FLIP7_SYSTEM_BUTTON.left * panelScale(W) - SYSTEM_BUTTON_GAP - STRIP_LEFT
   navRef.current = { index: state.index, routes: state.routes, navigate: navigation.navigate }
   useEffect(() => { onTab(state.routes[state.index]?.name ?? '') }, [state.index])
   // Same hide signal as the main tab bar (scrolling Lenses, an open lens sheet).
@@ -72,7 +72,7 @@ function CoverTabs({ state, navigation, navRef, onTab }: TabBarProps & TabBarExt
     transform: [{ translateY: tabBarHidden.value * (STRIP_BOTTOM + 60) }],
   }))
   return (
-    <Animated.View style={[styles.coverStrip, { left: STRIP_LEFT, bottom: STRIP_BOTTOM, maxWidth }, hide]}>
+    <Animated.View style={[styles.coverStrip, { left: STRIP_LEFT, bottom: STRIP_BOTTOM, width }, hide]}>
       {state.routes.map((route, i) => {
         const on = i === state.index
         const [filled, outline] = TAB_ICONS[route.name] ?? ['ellipse', 'ellipse-outline']
@@ -170,6 +170,6 @@ const styles = StyleSheet.create({
   dotActive:   { width: 18, backgroundColor: Colors.greenPrimary },
   coverStrip:  { position: 'absolute', flexDirection: 'row', gap: 4, padding: 4, borderRadius: 24,
                  backgroundColor: 'rgba(12,12,16,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
-  coverItem:   { flexShrink: 1, width: 38, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  coverItem:   { flex: 1, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   coverItemOn: { backgroundColor: '#fff' },
 })

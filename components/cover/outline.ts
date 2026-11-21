@@ -30,9 +30,12 @@ export const FLIP7_OUTLINE: CameraOutline = { cx1: 649, cx2: 836, cy: 935, r: 85
 
 /** The Flip 7 flash (left of the lenses), panel px, from the same photo. */
 export const FLIP7_FLASH = { cx: 500, cy: 932, r: 33 }
-/** Nothing along the bottom edge may reach right of this (panel px): the flash zone
- *  starts here. Marked on the phone (2026-11-21), a little left of the flash itself. */
-export const FLIP7_FLASH_ZONE_LEFT = 410
+/** Samsung's own "open on main screen" button, bottom of the cover screen (panel px,
+ *  measured from a screenshot). App controls along the bottom stop short of its left
+ *  edge (agreed on the phone, 2026-11-21: "right until that symbol"). */
+export const FLIP7_SYSTEM_BUTTON = { left: 455, right: 523, top: 975, bottom: 1020 }
+/** Gap (dp) kept between app controls and the system button. */
+export const SYSTEM_BUTTON_GAP = 8
 
 /** The Flip 7 cover panel, physical px. */
 export const FLIP7_PANEL = { width: 948, height: 1048 }
