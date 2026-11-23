@@ -19,6 +19,19 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.30',
+    name:    'No more flicker',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Drop card: the song and controls fade in as the card opens (they used to wait about a second and pop in), and fade out as it closes instead of hanging on while it shrinks.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.29',
     name:    'Drop card, smoother',
     date:    '2026-11-23',

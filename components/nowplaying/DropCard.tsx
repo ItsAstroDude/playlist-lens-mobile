@@ -277,12 +277,17 @@ function OpenCard({ open, a, W, top, reduced, lately }: {
     }
   })
   // The words, then the controls: each fades and rises in as the card makes room.
-  const phase = (from: number, span: number) => {
-    'worklet'
-    return Math.min(1, Math.max(0, (k.value - from) / span))
-  }
-  const content = useAnimatedStyle(() => ({ opacity: phase(0.35, 0.4), transform: [{ translateY: (1 - phase(0.35, 0.4)) * 10 }] }))
-  const rest = useAnimatedStyle(() => ({ opacity: phase(0.55, 0.4), transform: [{ translateY: (1 - phase(0.55, 0.4)) * 14 }] }))
+  // (k.value is read right here, not in a helper: Reanimated only re-runs a style when
+  // the shared values its own worklet reads change — read through a helper, the words
+  // waited for the next re-render, ~1 s, and popped in / lingered on close.)
+  const content = useAnimatedStyle(() => {
+    const p = Math.min(1, Math.max(0, (k.value - 0.35) / 0.4))
+    return { opacity: p, transform: [{ translateY: (1 - p) * 10 }] }
+  })
+  const rest = useAnimatedStyle(() => {
+    const p = Math.min(1, Math.max(0, (k.value - 0.55) / 0.4))
+    return { opacity: p, transform: [{ translateY: (1 - p) * 14 }] }
+  })
 
   // The cover travels: from the round art in the button to its corner of the card.
   const fromArt = BTN - RING * 2 - 4
