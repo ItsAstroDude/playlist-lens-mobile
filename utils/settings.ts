@@ -165,7 +165,9 @@ export function onFoldSettings(cb: () => void): () => void {
   return () => { foldListeners.delete(cb) }
 }
 export function tabletopEnabled(): boolean {
-  return storage.getBoolean(KEYS.tabletop) ?? true
+  // Off by default (2.0.31): half-folded, Lenses shows its own split layout; the full
+  // view opens from the cover button / stage. On = it opens by itself when you fold.
+  return storage.getBoolean(KEYS.tabletop) ?? false
 }
 export function setTabletopEnabled(on: boolean): void {
   storage.set(KEYS.tabletop, on); emitFold()

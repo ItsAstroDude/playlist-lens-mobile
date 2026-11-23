@@ -30,6 +30,8 @@ jest.mock('@/hooks/useNowPlaying', () => ({ useNowPlaying: () => ({ np: mockNp, 
 
 import { NowPlayingButton, DropCardHost } from '@/components/nowplaying/DropCard'
 import { CoverBento } from '@/components/cover/CoverBento'
+import { HalfFoldStage } from '@/components/fold/HalfFoldStage'
+import { tabletopRequested, requestTabletop } from '@/utils/coverMode'
 import { showToast } from '@/utils/dialog'
 import { setNowPlayingPos } from '@/utils/settings'
 import { _resetDropNews } from '@/utils/dropCard'
@@ -81,6 +83,25 @@ describe('cover bento', () => {
     mockNp = null
     const r = render(React.createElement(CoverBento))
     expect(r.getByText('Nothing playing')).toBeTruthy()
+    r.unmount()
+  })
+})
+
+describe('half-folded stage', () => {
+  it('shows the song and opens the full half-folded view on tap', () => {
+    const r = render(React.createElement(HalfFoldStage, { height: 260 }))
+    expect(r.getByText('PPPP')).toBeTruthy()
+    fireEvent.press(r.getByLabelText(/Open the half-folded view/))
+    expect(tabletopRequested()).toBe(true)
+    requestTabletop(false)
+    r.unmount()
+  })
+  it('shows this week when nothing plays', async () => {
+    mockNp = null
+    const r = render(React.createElement(HalfFoldStage, { height: 260 }))
+    await act(async () => { await Promise.resolve(); await Promise.resolve() })
+    expect(r.getByText('THIS WEEK')).toBeTruthy()
+    expect(r.getByText('Moe Shop')).toBeTruthy()
     r.unmount()
   })
 })

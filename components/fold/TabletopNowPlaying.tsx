@@ -18,7 +18,7 @@ import { useIsCover } from '@/hooks/useScreen'
 import { tabletopSplit } from '@/utils/posture'
 import { onFoldSettings, setTabletopLayout, tabletopEnabled, tabletopLayout, type TabletopLayout } from '@/utils/settings'
 import { UpNextPad, UpNextStrip, UpNextTop, useUpNext } from './UpNext'
-import { setTabletopActive } from '@/utils/coverMode'
+import { requestTabletop, setTabletopActive, useTabletopRequested } from '@/utils/coverMode'
 import { fmtClock, useNowPlayingModel } from '@/components/nowplaying/useNowPlayingModel'
 
 /**
@@ -27,8 +27,9 @@ import { fmtClock, useNowPlayingModel } from '@/components/nowplaying/useNowPlay
  * big controls and your numbers for the song on the half lying flat. Open the phone
  * flat (or tap the arrow) and it springs away, back to wherever you were.
  *
- * Shows only while a song is playing and the hinge runs across the screen. Settings ›
- * About › Labs has the switch, and a "simulate" one to try it without folding.
+ * Shows while a song is playing and the hinge runs across the screen — when asked for
+ * (Lenses' cover button or stage, half-folded), or by itself on folding if that Labs
+ * switch is on (off by default since 2.0.31). Labs also has "simulate" to try it flat.
  */
 export function TabletopNowPlaying() {
   const { width: W, height: H } = useWindowDimensions()
@@ -44,11 +45,13 @@ export function TabletopNowPlaying() {
   // Dismissed with the arrow: stays away until the phone leaves the half fold.
   const [dismissed, setDismissed] = useState(false)
   const half = posture.state === 'half'
-  useEffect(() => { if (!half) setDismissed(false) }, [half])
+  const asked = useTabletopRequested()
+  useEffect(() => { if (!half) { setDismissed(false); requestTabletop(false) } }, [half])
 
   const split = cover ? null : tabletopSplit(posture, H)
   const isTrack = !!np?.item && np.type === 'track'
-  const show = enabled && !!split && isTrack && !dismissed
+  // By itself when you fold (Labs switch), or when asked for (cover button / stage).
+  const show = !!split && isTrack && (asked || (enabled && !dismissed))
 
   // Stay mounted through the exit, then unmount (the aurora redraws every frame).
   const [mounted, setMounted] = useState(show)
@@ -67,7 +70,7 @@ export function TabletopNowPlaying() {
 
   useEffect(() => {
     if (!show) return
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { setDismissed(true); return true })
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { setDismissed(true); requestTabletop(false); return true })
     return () => sub.remove()
   }, [show])
 
@@ -205,7 +208,7 @@ export function TabletopNowPlaying() {
             )
           })}
         </View>
-        <Pressable onPress={() => { haptic.light(); setDismissed(true) }} hitSlop={12} style={styles.close}
+        <Pressable onPress={() => { haptic.light(); setDismissed(true); requestTabletop(false) }} hitSlop={12} style={styles.close}
           accessibilityRole="button" accessibilityLabel="Close tabletop view">
           <Ionicons name="chevron-down" size={22} color={Colors.textSecondary} />
         </Pressable>

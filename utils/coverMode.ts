@@ -21,6 +21,12 @@ let tabletop = false
 export function tabletopActive(): boolean { return tabletop }
 export function setTabletopActive(v: boolean): void { if (v !== tabletop) { tabletop = v; emit() } }
 
+/** Asked for (the Lenses cover button or stage, half-folded): open the tabletop view even
+ *  when it doesn't open by itself. Cleared when it closes or the phone opens flat. */
+let tabletopAsked = false
+export function tabletopRequested(): boolean { return tabletopAsked }
+export function requestTabletop(v = true): void { if (v !== tabletopAsked) { tabletopAsked = v; emit() } }
+
 export function coverFullApp(): boolean { return fullApp }
 export function setCoverFullApp(v: boolean): void { if (v !== fullApp) { fullApp = v; emit() } }
 
@@ -37,3 +43,4 @@ function useStore<T>(read: () => T): T {
 export function useCoverActive(): boolean { return useStore(coverActive) }
 export function useCoverFullApp(): boolean { return useStore(coverFullApp) }
 export function useTabletopActive(): boolean { return useStore(tabletopActive) }
+export function useTabletopRequested(): boolean { return useStore(tabletopRequested) }

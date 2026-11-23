@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
@@ -8,11 +8,9 @@ import { haptic } from '@/constants/animation'
 import { router } from 'expo-router'
 import { ArtThumb } from '@/components/ui'
 import { useNowPlaying } from '@/hooks/useNowPlaying'
+import { useWeekGlance } from '@/hooks/useWeekGlance'
 import { useNowPlayingModel, fmtClock } from '@/components/nowplaying/useNowPlayingModel'
 import { emitOpenNowPlaying } from '@/utils/overlayEvents'
-import { cachedAsync } from '@/utils/sqlJob'
-import { periodStatsJob, type PeriodStats } from '@/utils/stats'
-import { streaksAsync } from '@/utils/highlights'
 import { fmtHours } from '@/utils/wrapped'
 import { bentoSizes } from '@/utils/bento'
 
@@ -81,17 +79,7 @@ function NowTile({ size }: { size: number }) {
 }
 
 function WeekTiles({ size, gap }: { size: number; gap: number }) {
-  const [week, setWeek] = useState<PeriodStats | null>(null)
-  const [streak, setStreak] = useState(0)
-  const [loaded, setLoaded] = useState(false)
-  useEffect(() => {
-    let alive = true
-    Promise.all([
-      cachedAsync('cover.week', 'v1', () => periodStatsJob('week', { topN: 1 })).catch(() => null),
-      streaksAsync().then(s => s.current).catch(() => 0),
-    ]).then(([w, s]) => { if (alive) { setWeek(w); setStreak(s); setLoaded(true) } })
-    return () => { alive = false }
-  }, [])
+  const { loaded, week, streak } = useWeekGlance()
 
   const box = { width: size, height: size }
   // Nothing tracked yet: one tall tile (not an empty one under it) with the way in.

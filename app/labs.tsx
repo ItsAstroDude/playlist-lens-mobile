@@ -46,8 +46,8 @@ export default function Labs() {
 
       {Platform.OS === 'android' && (
       <Section label="half-folded">
-        <ToggleRow icon="laptop-outline" tint="sky" label="Tabletop Now Playing"
-          hint="Half-fold the phone while a song plays: cover on top, controls on the flat half"
+        <ToggleRow icon="laptop-outline" tint="sky" label="Open the full view when you fold"
+          hint="Off: half-folded, Lenses splits at the fold and the cover button opens the full view. On: it opens by itself"
           value={tabletop} onValueChange={v => { haptic.light(); setTabletopEnabled(v) }} />
         <ListRow icon="layers-outline" tint="violet" label="Half-folded shows"
           hint="Tap to switch. Also switchable in the view itself (now · 1 · 2, top right)"

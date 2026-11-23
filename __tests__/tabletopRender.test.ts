@@ -50,12 +50,28 @@ jest.mock('@/utils/api', () => {
 })
 
 import { TabletopNowPlaying } from '@/components/fold/TabletopNowPlaying'
-import { setSimulateHalfFold, setTabletopLayout } from '@/utils/settings'
+import { setSimulateHalfFold, setTabletopEnabled, setTabletopLayout } from '@/utils/settings'
+import { requestTabletop } from '@/utils/coverMode'
 
 beforeEach(() => { jest.useFakeTimers(); mockNp = null; mockWaking = null; mockCover = false; mockPath = '/' })
 afterEach(() => { jest.useRealTimers() })
 
 describe('TabletopNowPlaying', () => {
+  beforeEach(() => setTabletopEnabled(true))
+  afterEach(() => { setTabletopEnabled(false); requestTabletop(false) })
+
+  it('stays shut when folding with auto-open off, and opens when asked for', () => {
+    setTabletopEnabled(false)
+    mockNp = track
+    setSimulateHalfFold(true)
+    const r = render(React.createElement(TabletopNowPlaying))
+    act(() => { jest.advanceTimersByTime(50) })
+    expect(r.queryByLabelText('Close tabletop view')).toBeNull()
+    act(() => { requestTabletop() })
+    expect(r.getByLabelText('Close tabletop view')).toBeTruthy()
+    r.unmount()
+    setSimulateHalfFold(false)
+  })
   it('appears when simulated half-folded with a song playing', () => {
     mockNp = track
     setSimulateHalfFold(true)

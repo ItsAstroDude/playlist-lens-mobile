@@ -19,6 +19,26 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.31',
+    name:    'Half-folded Lenses',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Half-fold the phone on Lenses and it splits at the fold: your header and a stage on the half that stands up, your playlists scrolling on the flat half. The stage shows the song playing (cover, progress, play/pause), or this week\'s hours, top artist and streak when nothing plays.',
+          'Half-folded, the cover button (or the stage) opens the full half-folded view: now playing, or up next as layout 1 or 2.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'The full half-folded view no longer takes over the moment you fold, so Lenses can show its own layout. Want it back? Settings › About › Labs › Open the full view when you fold.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.30',
     name:    'No more flicker',
     date:    '2026-11-23',

@@ -18,6 +18,9 @@ import { Icon } from '@/components/ui/Icon'
 import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { useAuth } from '@/hooks/useAuth'
 import { useIsCover } from '@/hooks/useScreen'
+import { usePosture } from '@/hooks/usePosture'
+import { tabletopSplit } from '@/utils/posture'
+import { requestTabletop } from '@/utils/coverMode'
 import { fmtMinutesShort } from '@/utils/wrapped'
 import { claimToasts } from '@/utils/dialog'
 import { getNowPlayingPos, onNowPlayingPos, type NowPlayingPos } from '@/utils/settings'
@@ -79,6 +82,10 @@ export function NowPlayingButton() {
   const { np, needsReconnect } = useNowPlaying()
   const { login, isLoading } = useAuth()
   const cover = useIsCover()
+  // Half-folded, the button opens the full half-folded view instead of the card.
+  const posture = usePosture()
+  const { height: winH } = useWindowDimensions()
+  const folded = !cover && !!tabletopSplit(posture, winH)
   const ref = useRef<View>(null)
   const measure = useCallback(() => {
     ref.current?.measureInWindow((x, y, w, h) => { if (w > 0) anchor = { x, y, w, h } })
@@ -120,7 +127,7 @@ export function NowPlayingButton() {
   const C = 2 * Math.PI * r
   return (
     <Pressable ref={ref} onLayout={measure} hitSlop={4}
-      onPress={() => { haptic.light(); measure(); setOpen(true) }}
+      onPress={() => { haptic.light(); if (folded) { requestTabletop(); return } measure(); setOpen(true) }}
       style={[styles.btn, opened && { opacity: 0 }]} accessibilityRole="button"
       accessibilityLabel={`Now playing: ${item?.name ?? ''}${item?.artists?.length ? ` by ${item.artists.join(', ')}` : ''}`}
       accessibilityHint="Opens playback controls">

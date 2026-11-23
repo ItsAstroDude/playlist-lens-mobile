@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Keyboard, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Keyboard, type NativeSyntheticEvent, type NativeScrollEvent, useWindowDimensions } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { DetailSheet, detailCoverRect } from '@/components/sheet/DetailSheet'
@@ -27,6 +27,9 @@ import { useServerWaking } from '@/hooks/useServerWaking'
 import { RotatingStrip } from '@/components/ui/RotatingStrip'
 import { NowPlayingButton, DropCardHost, useHeaderPlacement } from '@/components/nowplaying/DropCard'
 import { CoverBento } from '@/components/cover/CoverBento'
+import { HalfFoldStage } from '@/components/fold/HalfFoldStage'
+import { usePosture } from '@/hooks/usePosture'
+import { tabletopSplit } from '@/utils/posture'
 import { useIsCover } from '@/hooks/useScreen'
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist'
 import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet'
@@ -74,6 +77,14 @@ export default function PlaylistsTab() {
   }, [])
 
   const listLayout = cover && !reorderMode ? 'tile' as const : layout
+
+  // Half-folded (2.0.31): the header and a stage (the song, or this week) on the half that
+  // stands up; the playlists scroll on the flat half, starting at the hinge.
+  const posture = usePosture()
+  const { height: winH } = useWindowDimensions()
+  const [headerBottom, setHeaderBottom] = useState(0)
+  const split = !cover && !reorderMode ? tabletopSplit(posture, winH) : null
+  const stageH = split && headerBottom ? Math.round(split.top - headerBottom) : 0
 
   const orderedData = useMemo(() => applyOrder(data ?? [], order), [data, order])
 
@@ -333,6 +344,7 @@ export default function PlaylistsTab() {
 
       <SafeAreaView style={styles.safe} edges={['top']}>
 
+        <View onLayout={e => setHeaderBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
         <TabHeader
           title={reorderMode ? 'reorder' : 'your lenses'}
           actions={headerNowPlaying ? <NowPlayingButton /> : undefined}
@@ -389,6 +401,9 @@ export default function PlaylistsTab() {
             </View>
           ) : null}
         </TabHeader>
+        </View>
+
+        {stageH >= 110 && <HalfFoldStage height={stageH} />}
 
         {/* ── Playlist list ── */}
         <Animated.View style={[styles.listWrap, sinkStyle]}>
