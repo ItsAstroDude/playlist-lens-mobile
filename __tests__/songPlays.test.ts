@@ -1,5 +1,5 @@
 import { storage } from '@/utils/cache'
-import { insertPlays, songPlays, onPlaysChanged, toT, _resetForTests } from '@/utils/playDb'
+import { insertPlays, songPlays, onPlaysChanged, toT, fromT, _resetForTests } from '@/utils/playDb'
 import type { StreamRow } from '@/utils/wrapped'
 
 const row = (ts: string, uri: string, ms = 180_000, track = 'Love Taste', artist = 'Moe Shop'): StreamRow => ({
@@ -25,5 +25,16 @@ describe('songPlays', () => {
     insertPlays([row('2026-11-22T10:00:00Z', 'spotify:track:a')], 'tracked')
     expect(cb).toHaveBeenCalled()
     off()
+  })
+})
+
+import { playedOf } from '@/utils/playDb'
+describe('playedOf', () => {
+  it('counts distinct songs played since a time', () => {
+    _resetForTests()
+    const r2 = (uri: string, t: number): StreamRow => ({ ts: fromT(t), master_metadata_track_name: uri, master_metadata_album_artist_name: "A", master_metadata_album_album_name: null, spotify_track_uri: uri, ms_played: 1000 } as any)
+    insertPlays([r2("spotify:track:a", 1000), r2("spotify:track:a", 5000), r2("spotify:track:b", 6000), r2("spotify:track:c", 100)], 'import')
+    expect(playedOf(['spotify:track:a', 'spotify:track:b', 'spotify:track:c', 'spotify:track:z', ''], 2000)).toBe(2)
+    expect(playedOf([], 0)).toBe(0)
   })
 })

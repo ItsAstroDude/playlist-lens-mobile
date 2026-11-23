@@ -19,6 +19,20 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.39',
+    name:    'Game night',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Play has three new games next to More or less. Blind five: five seconds of one of your top songs, so name it fast. Rank it: put five of your artists in order, with a new five every day. When?: find the month you were most into a song.',
+          'Lenses: the lens sheet is now a bento of tiles (sound, top artist, eras, fame, how much of it you played this month, genres). Tap a tile to open it in full. Play is right in the header.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.38',
     name:    'One row',
     date:    '2026-11-23',

@@ -208,7 +208,7 @@ export default function PlaylistsTab() {
   const handleCardPress = useCallback((playlist: SpotifyPlaylist, rect?: { x: number; y: number; w: number; h: number }) => {
     if (rect) {
       setCoverHidden(true)   // the sheet's own cover waits until the flying one lands
-      setFlight({ key: ++flightKey.current, uri: playlist.images?.[0]?.url, from: rect, to: detailCoverRect(), fromRadius: COVER_RADIUS, toRadius: Radius.xl })
+      setFlight({ key: ++flightKey.current, uri: playlist.images?.[0]?.url, from: rect, to: detailCoverRect(), fromRadius: COVER_RADIUS, toRadius: Radius.lg })
     }
     setSelected(playlist)
   }, [])

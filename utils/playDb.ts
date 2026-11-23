@@ -350,3 +350,20 @@ export function songPlays(uri: string | null, name: string, artist: string, week
   )
   return { plays: r?.n ?? 0, ms: r?.ms ?? 0, firstT: r?.a ?? null, lastT: r?.b ?? null, thisWeek: r?.w ?? 0 }
 }
+
+/**
+ * How many of these songs you've played since `sinceT` (the lens sheet's "you played"
+ * tile). By uri; chunked to stay well under SQLite's parameter limit.
+ */
+export function playedOf(uris: string[], sinceT: number): number {
+  const list = [...new Set(uris.filter(Boolean))]
+  let n = 0
+  for (let i = 0; i < list.length; i += 400) {
+    const chunk = list.slice(i, i + 400)
+    const r = db().getFirstSync<{ n: number }>(
+      `SELECT COUNT(DISTINCT uri) AS n FROM plays WHERE t >= ? AND uri IN (${chunk.map(() => '?').join(',')})`,
+      [sinceT, ...chunk])
+    n += r?.n ?? 0
+  }
+  return n
+}
