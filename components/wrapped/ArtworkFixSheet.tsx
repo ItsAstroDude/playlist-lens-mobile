@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, Pressable, Dimensions, BackHandler, Linking,
+  View, Text, StyleSheet, Pressable, useWindowDimensions, BackHandler, Linking,
   TextInput, ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native'
 import { Image } from 'expo-image'
@@ -17,12 +17,9 @@ import {
   type ArtKind, type ArtCandidate,
 } from '@/hooks/useArtwork'
 
-const { width: W, height: SH } = Dimensions.get('window')
-const SHEET_H = Math.min(620, SH * 0.82)
 const GRID_PAD = Spacing.xl
 const COLS = 3
 const GAP = Spacing.sm
-const CELL = Math.floor((W - GRID_PAD * 2 - GAP * (COLS - 1)) / COLS)
 
 export interface ArtworkTarget {
   kind:       ArtKind
@@ -43,6 +40,10 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
   if (target) lastTarget.current = target
   const shown = target ?? lastTarget.current
   const insets = useSafeAreaInsets()
+  // Sizes from the live window (the Flip's cover screen is about half the main one).
+  const { width: W, height: SH } = useWindowDimensions()
+  const sheetH = Math.min(620, SH * 0.82)
+  const CELL = Math.floor((W - GRID_PAD * 2 - GAP * (COLS - 1)) / COLS)
   // Clear the floating navbar pill (height ~62, sits at insets.bottom + ~28).
   const navClearance = insets.bottom + 92
   const [term, setTerm]       = useState('')
@@ -121,7 +122,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
         open={isOpen} onClose={onClose} zIndex={30}
         title="Fix the cover"
         subtitle={shown ? `${shown.name}${shown.artist ? ` — ${shown.artist}` : ''}` : undefined}
-        style={styles.frame}
+        style={[styles.frame, { height: sheetH }]}
       >
 
         {/* Re-search */}
@@ -148,8 +149,8 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
         ) : (
           <ScrollView style={styles.scroll} contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
             {items.map(it => (
-              <TouchableOpacity key={it.id} style={styles.cell} onPress={() => onPick(it.url)} activeOpacity={0.8}>
-                <Image source={{ uri: it.url }} style={styles.cellImg} contentFit="cover" transition={150} />
+              <TouchableOpacity key={it.id} style={{ width: CELL }} onPress={() => onPick(it.url)} activeOpacity={0.8}>
+                <Image source={{ uri: it.url }} style={[styles.cellImg, { width: CELL, height: CELL }]} contentFit="cover" transition={150} />
                 <Text style={styles.cellTitle} numberOfLines={1}>{it.title}</Text>
                 <Text style={styles.cellSub} numberOfLines={1}>{it.subtitle}</Text>
               </TouchableOpacity>
@@ -172,7 +173,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
 }
 
 const styles = StyleSheet.create({
-  frame: { height: SHEET_H, paddingHorizontal: GRID_PAD, paddingBottom: 0 },
+  frame: { paddingHorizontal: GRID_PAD, paddingBottom: 0 },
 
   searchRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
   input: {
@@ -191,8 +192,7 @@ const styles = StyleSheet.create({
 
   scroll: { flex: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP, paddingBottom: Spacing.md },
-  cell: { width: CELL },
-  cellImg: { width: CELL, height: CELL, borderRadius: Radius.md, backgroundColor: Colors.glass },
+  cellImg: { borderRadius: Radius.md, backgroundColor: Colors.glass },
   cellTitle: { fontFamily: FontFamily.monoMedium, fontSize: 10, color: Colors.textSecondary, marginTop: 4 },
   cellSub: { fontFamily: FontFamily.mono, fontSize: 9, color: Colors.textDim },
 

@@ -1,8 +1,10 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { router } from 'expo-router'
-import { Screen, ScreenHeader, Section, ListRow } from '@/components/ui'
+import { Screen, ScreenHeader, Section, ListRow, ToggleRow } from '@/components/ui'
 import { haptic } from '@/constants/animation'
 import { updateDetails } from '@/utils/updates'
+import { onFoldSettings, setSimulateHalfFold, setTabletopEnabled, simulateHalfFold, tabletopEnabled } from '@/utils/settings'
+import { postureSupported, usePosture } from '@/hooks/usePosture'
 
 const go = (path: Parameters<typeof router.push>[0]) => () => { haptic.light(); router.push(path) }
 
@@ -12,6 +14,13 @@ const go = (path: Parameters<typeof router.push>[0]) => () => { haptic.light(); 
  */
 export default function Labs() {
   const upd = updateDetails()
+  const posture = usePosture()
+  const [tabletop, setTabletop] = useState(tabletopEnabled)
+  const [simulate, setSimulate] = useState(simulateHalfFold)
+  useEffect(() => onFoldSettings(() => { setTabletop(tabletopEnabled()); setSimulate(simulateHalfFold()) }), [])
+  const fold = posture.state === 'none'
+    ? (postureSupported ? 'no fold here' : 'needs the new APK')
+    : `${posture.state === 'half' ? 'half-folded' : 'flat'} · hinge at ${Math.round(posture.top)} dp${posture.source === 'simulated' ? ' (simulated)' : ''}`
   return (
     <Screen>
       <ScreenHeader title="labs" subtitle="Prototypes and testing tools. Things here may change or go away." />
@@ -26,6 +35,17 @@ export default function Labs() {
         <ListRow icon="sparkles-outline" tint="violet" label="Motion lab"
           hint="Try the 2.0 animations one by one"
           onPress={go('/motion-lab')} last />
+      </Section>
+
+      <Section label="half-folded">
+        <ToggleRow icon="laptop-outline" tint="sky" label="Tabletop Now Playing"
+          hint="Half-fold the phone while a song plays: cover on top, controls on the flat half"
+          value={tabletop} onValueChange={v => { haptic.light(); setTabletopEnabled(v) }} />
+        <ToggleRow icon="contrast-outline" tint="amber" label="Simulate half-folded"
+          hint="Pretend the phone is folded halfway, to try the layout flat on the table"
+          value={simulate} onValueChange={v => { haptic.light(); setSimulateHalfFold(v) }} />
+        <ListRow icon="analytics-outline" tint="violet" label="Fold right now"
+          value={fold} last />
       </Section>
 
       <Section label="testing">

@@ -1,62 +1,25 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  BackHandler, Dimensions, Linking, Pressable, StyleSheet, Text, TouchableOpacity, View,
-} from 'react-native'
+import React from 'react'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
-import Animated, {
-  Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming,
-} from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { Sheet, Button } from '@/components/ui'
 import { Aurora } from '@/components/motion/Aurora'
-import { usePalette } from '@/hooks/usePalette'
-import { activeThemeMode } from '@/constants/theme'
-import { loadTrackIndex } from '@/hooks/useWrapped'
-import { fmtMinutesShort, type TrackStat } from '@/utils/wrapped'
-import { pokeNowPlaying, type NowPlaying } from '@/hooks/useNowPlaying'
-import {
-  resumePlayback, pausePlayback, skipNext, skipPrevious,
-  classifyPlaybackError, transportErrorMessage, setPlaybackScopeMissing,
-} from '@/utils/playback'
-import { showToast } from '@/utils/dialog'
+import { fmtMinutesShort } from '@/utils/wrapped'
+import type { NowPlaying } from '@/hooks/useNowPlaying'
+import { useIsCover } from '@/hooks/useScreen'
+import { fmtClock, useNowPlayingModel } from './useNowPlayingModel'
 
 // ─── Now-playing stats sheet (v1.3 "Pulse") ──────────────────────────────────
 // Tap the live bar → this. The song playing right now + YOUR lifetime numbers
 // for it, matched against the imported Wrapped history (by uri, falling back to
 // name+artist). Works without an import — it just nudges toward Wrapped instead.
-
-const { height: SH } = Dimensions.get('window')
-
-// The full per-track index is MBs of JSON — parse it once per session, on first
-// open (NOT at startup). A fresh import during the same session shows up after
-// the next app launch; acceptable for a stats peek.
-let _index: TrackStat[] | null | undefined
-function getIndex(): TrackStat[] | null {
-  if (_index === undefined) _index = loadTrackIndex()
-  return _index
-}
-
-function findStats(uri: string | null, name: string, artists: string[]) {
-  const index = getIndex()
-  if (!index) return { imported: false as const, stat: null, rank: null }
-  let i = uri ? index.findIndex(t => t.uri === uri) : -1
-  if (i < 0) {
-    const n = name.trim().toLowerCase()
-    const a = (artists[0] ?? '').trim().toLowerCase()
-    i = index.findIndex(t => t.name.trim().toLowerCase() === n && t.artist.trim().toLowerCase() === a)
-  }
-  return i >= 0
-    ? { imported: true as const, stat: index[i], rank: i + 1 }
-    : { imported: true as const, stat: null, rank: null }
-}
-
-function fmtClock(ms: number): string {
-  const s = Math.max(Math.floor(ms / 1000), 0)
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-}
+//
+// On the Flip's cover screen (≈474×524 dp, cameras bottom-right) the same sheet
+// uses a compact layout: cover beside the title, stats on one line, Spotify as an
+// icon (or hold the cover), so it all fits above the cameras.
 
 export function NowPlayingSheet({ np, onClose }: {
   np:      NowPlaying | null
@@ -67,125 +30,100 @@ export function NowPlayingSheet({ np, onClose }: {
   const lastNp = React.useRef(np)
   if (np?.item) lastNp.current = np
   np = isOpen ? np : lastNp.current
-  const item = np?.item ?? null
+  const cover = useIsCover()
 
+  const {
+    item, stats, dur, liveMs, playing, busy, art, auroraColors, initial,
+    onPlayPause, onNext, onPrev, onOpenSpotify,
+  } = useNowPlayingModel(np, isOpen)
+  const accent = Colors.greenPrimary
 
-  // Personal stats — resolved when the sheet opens for a given track.
-  const stats = useMemo(
-    () => (item ? findStats(item.uri, item.name, item.artists) : null),
-    [item?.uri, item?.name],
+  const artView = art ? (
+    <Image source={{ uri: art }} style={styles.art} contentFit="cover" transition={200} />
+  ) : (
+    <LinearGradient colors={[`${accent}55`, `${accent}11`]} style={styles.art}>
+      <Text style={[styles.initial, cover && styles.initialSm, { color: accent }]}>{initial}</Text>
+    </LinearGradient>
   )
 
-  // Live mm:ss — ticks locally between polls (np.receivedAt anchors the clock).
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    if (!isOpen || !np?.is_playing) return
-    const t = setInterval(() => setTick(x => x + 1), 1000)
-    return () => clearInterval(t)
-  }, [isOpen, np?.is_playing])
+  const progress = dur > 0 ? (
+    <View style={[styles.progressWrap, cover && styles.progressWrapSm]}>
+      <View style={styles.progressBarTrack}>
+        <View style={[styles.progressBarFill, { width: `${Math.min(liveMs / dur, 1) * 100}%` }]} />
+      </View>
+      <Text style={styles.clock}>{fmtClock(liveMs)} / {fmtClock(dur)}</Text>
+    </View>
+  ) : null
 
-  const dur = item?.duration_ms ?? 0
-  const liveMs = np
-    ? Math.min((np.progress_ms ?? 0) + (np.is_playing ? Date.now() - np.receivedAt : 0), dur)
-    : 0
+  // Transport controls (v1.6) — drive the active Spotify device
+  const controls = (
+    <View style={[styles.controls, cover && styles.controlsSm]}>
+      <Pressable onPress={onPrev} disabled={busy} hitSlop={8} style={styles.ctrlBtn} accessibilityRole="button" accessibilityLabel="Previous track">
+        <Ionicons name="play-skip-back" size={22} color={Colors.text} />
+      </Pressable>
+      <Pressable onPress={onPlayPause} disabled={busy} style={[styles.ctrlPlay, cover && styles.ctrlPlaySm, { backgroundColor: accent }]} accessibilityRole="button" accessibilityLabel={playing ? 'Pause' : 'Play'}>
+        <Ionicons name={playing ? 'pause' : 'play'} size={cover ? 22 : 26} color={Colors.background} />
+      </Pressable>
+      <Pressable onPress={onNext} disabled={busy} hitSlop={8} style={styles.ctrlBtn} accessibilityRole="button" accessibilityLabel="Next track">
+        <Ionicons name="play-skip-forward" size={22} color={Colors.text} />
+      </Pressable>
+    </View>
+  )
 
-  // Transport (v1.6) — optimistic play/pause + skip, re-synced by a poke. `override`
-  // wins until the next poll lands (effect clears it when the server state changes).
-  const [override, setOverride] = useState<boolean | null>(null)
-  const [busy, setBusy]         = useState(false)
-  const playing = override ?? (np?.is_playing ?? false)
-  useEffect(() => { setOverride(null) }, [np?.is_playing, item?.uri])
+  const aurora = auroraColors && isOpen ? (   // only while open — it redraws every frame
+    <View style={styles.aurora} pointerEvents="none">
+      <Aurora colors={auroraColors} base={Colors.sheet} dim={0.5} style={StyleSheet.absoluteFill} />
+    </View>
+  ) : null
 
-  const control = useCallback(async (fn: () => Promise<void>, optimistic?: boolean) => {
-    if (busy) return
-    haptic.light()
-    if (optimistic !== undefined) setOverride(optimistic)
-    setBusy(true)
-    try { await fn() } catch (err) {
-      // Snap the optimistic state back now (don't wait for the poll) and say why.
-      setOverride(null)
-      haptic.warning()
-      const kind = classifyPlaybackError(err)
-      if (kind === 'scope') setPlaybackScopeMissing(true)
-      showToast(transportErrorMessage(kind), 'alert-circle-outline')
-    }
-    setTimeout(() => { pokeNowPlaying(); setBusy(false) }, 500)
-  }, [busy])
-  const onPlayPause = () => (playing ? control(pausePlayback, false) : control(resumePlayback, true))
-  const onNext = () => control(skipNext)
-  const onPrev = () => control(skipPrevious)
-
-  const onOpenSpotify = useCallback(async () => {
-    if (!item?.uri) return
-    haptic.light()
-    const webUrl = item.id ? `https://open.spotify.com/track/${item.id}` : null
-    try {
-      await Linking.openURL(item.uri)        // spotify: scheme → the app
-    } catch {
-      if (webUrl) Linking.openURL(webUrl).catch(() => {})
-    }
-  }, [item?.uri, item?.id])
-
-  const accent = Colors.greenPrimary
-  const art = item?.album?.images?.[0]?.url ?? null
-  // 2.0 — motion #1: an aurora in the cover's colours drifts behind the sheet (dark theme).
-  const { palettes, extract } = usePalette()
-  const palKey = item?.id ? `np-${item.id}` : null
-  useEffect(() => { if (palKey && art) extract(palKey, art) }, [palKey, art])
-  const pal = palKey ? palettes[palKey] : undefined
-  const auroraColors: [string, string, string, string] | null = pal && activeThemeMode() === 'dark'
-    ? [pal.primary, pal.secondary, pal.detail, pal.background] : null
-  const initial = (item?.name ?? '?').trim().charAt(0).toUpperCase()
+  if (cover) {
+    const line = stats?.stat
+      ? `${stats.stat.plays.toLocaleString()} plays · ${fmtMinutesShort(stats.stat.ms)}${stats.rank != null ? ` · your #${stats.rank.toLocaleString()}` : ''}`
+      : stats?.imported ? 'first listen?' : null
+    return (
+      <Sheet open={isOpen} onClose={onClose} zIndex={30}>
+        {aurora}
+        <View style={styles.bodySm}>
+          <View style={styles.headRow}>
+            <Pressable onLongPress={() => { haptic.medium(); onOpenSpotify() }} delayLongPress={400}
+              accessibilityRole="image" accessibilityLabel="Cover. Hold to open in Spotify"
+              style={[styles.artWrap, styles.artWrapSm, { shadowColor: accent }]}>
+              {artView}
+            </Pressable>
+            <View style={styles.headText}>
+              <Text style={styles.kind}>{np?.is_playing ? 'NOW PLAYING' : 'PAUSED'}</Text>
+              <Text style={[styles.name, styles.nameSm]} numberOfLines={2}>{item?.name}</Text>
+              {!!item?.artists?.length && (
+                <Text style={styles.artist} numberOfLines={1}>{item.artists.join(', ')}</Text>
+              )}
+            </View>
+            <Pressable onPress={onOpenSpotify} hitSlop={10} style={styles.openBtn}
+              accessibilityRole="button" accessibilityLabel="Open in Spotify">
+              <Ionicons name="open-outline" size={18} color={Colors.textSecondary} />
+            </Pressable>
+          </View>
+          {progress}
+          {controls}
+          {line ? <Text style={styles.statLine} numberOfLines={1}>{line}</Text> : null}
+        </View>
+      </Sheet>
+    )
+  }
 
   return (
-    <>
-      <Sheet open={isOpen} onClose={onClose} zIndex={30}>
-        {/* only while open — it redraws every frame */}
-        {auroraColors && isOpen && (
-          <View style={styles.aurora} pointerEvents="none">
-            <Aurora colors={auroraColors} base={Colors.sheet} dim={0.5} style={StyleSheet.absoluteFill} />
-          </View>
-        )}
-        <View style={styles.body}>
-
-        {/* Artwork */}
-        <View style={[styles.artWrap, { shadowColor: accent }]}>
-          {art ? (
-            <Image source={{ uri: art }} style={styles.art} contentFit="cover" transition={200} />
-          ) : (
-            <LinearGradient colors={[`${accent}55`, `${accent}11`]} style={styles.art}>
-              <Text style={[styles.initial, { color: accent }]}>{initial}</Text>
-            </LinearGradient>
-          )}
-        </View>
+    <Sheet open={isOpen} onClose={onClose} zIndex={30}>
+      {aurora}
+      <View style={styles.body}>
+        <View style={[styles.artWrap, { shadowColor: accent }]}>{artView}</View>
 
         {/* Track */}
-        <Text style={styles.kind}>{np?.is_playing ? 'NOW PLAYING' : 'PAUSED'}</Text>
+        <Text style={[styles.kind, styles.kindGap]}>{np?.is_playing ? 'NOW PLAYING' : 'PAUSED'}</Text>
         <Text style={styles.name} numberOfLines={2}>{item?.name}</Text>
         {!!item?.artists?.length && (
           <Text style={styles.artist} numberOfLines={1}>{item.artists.join(', ')}</Text>
         )}
-        {dur > 0 && (
-          <View style={styles.progressWrap}>
-            <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: `${Math.min(liveMs / dur, 1) * 100}%` }]} />
-            </View>
-            <Text style={styles.clock}>{fmtClock(liveMs)} / {fmtClock(dur)}</Text>
-          </View>
-        )}
-
-        {/* Transport controls (v1.6) — drive the active Spotify device */}
-        <View style={styles.controls}>
-          <Pressable onPress={onPrev} disabled={busy} hitSlop={8} style={styles.ctrlBtn} accessibilityRole="button" accessibilityLabel="Previous track">
-            <Ionicons name="play-skip-back" size={22} color={Colors.text} />
-          </Pressable>
-          <Pressable onPress={onPlayPause} disabled={busy} style={[styles.ctrlPlay, { backgroundColor: accent }]} accessibilityRole="button" accessibilityLabel={playing ? 'Pause' : 'Play'}>
-            <Ionicons name={playing ? 'pause' : 'play'} size={26} color={Colors.background} />
-          </Pressable>
-          <Pressable onPress={onNext} disabled={busy} hitSlop={8} style={styles.ctrlBtn} accessibilityRole="button" accessibilityLabel="Next track">
-            <Ionicons name="play-skip-forward" size={22} color={Colors.text} />
-          </Pressable>
-        </View>
+        {progress}
+        {controls}
 
         {/* Personal stats from the imported history */}
         {stats?.stat ? (
@@ -213,9 +151,8 @@ export function NowPlayingSheet({ np, onClose }: {
         )}
 
         <Button label="Open in Spotify" icon="open-outline" onPress={onOpenSpotify} style={styles.spotifyBtn} />
-        </View>
-      </Sheet>
-    </>
+      </View>
+    </Sheet>
   )
 }
 
@@ -228,7 +165,8 @@ const styles = StyleSheet.create({
   },
   art: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   initial: { fontFamily: FontFamily.syneBold, fontSize: 64 },
-  kind: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2, marginTop: Spacing.lg },
+  kind: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2 },
+  kindGap: { marginTop: Spacing.lg },
   name: { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, textAlign: 'center', letterSpacing: -0.5, marginTop: 2 },
   artist: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, marginTop: 2 },
   clock: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.textSecondary },
@@ -252,4 +190,17 @@ const styles = StyleSheet.create({
     textAlign: 'center', marginTop: Spacing.lg, lineHeight: 19, maxWidth: 280,
   },
   spotifyBtn: { marginTop: Spacing.xl, minWidth: 200 },
+
+  // ── cover screen (compact) ──
+  bodySm:         { paddingTop: 0 },
+  headRow:        { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  artWrapSm:      { width: 88, height: 88, borderRadius: Radius.lg },
+  initialSm:      { fontSize: 40 },
+  headText:       { flex: 1, minWidth: 0 },
+  nameSm:         { fontSize: FontSize.lg, textAlign: 'left' },
+  openBtn:        { alignSelf: 'flex-start', padding: 4 },
+  progressWrapSm: { marginTop: Spacing.md, paddingHorizontal: 0, gap: 4 },
+  controlsSm:     { marginTop: Spacing.sm, gap: Spacing.xl },
+  ctrlPlaySm:     { width: 52, height: 52, borderRadius: 26 },
+  statLine:       { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
 })

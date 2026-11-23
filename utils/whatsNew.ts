@@ -19,6 +19,26 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.22',
+    name:    'Half-folded',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Galaxy Z Flip: stand the phone half-folded on a table while a song plays and Now playing splits at the fold. The cover and the song on the half that stands up, big controls and your numbers for the song on the half lying flat. Open the phone flat to go back. (Needs the next app install; until then, try it with Simulate half-folded in Settings › About › Labs.)',
+          'Cover screen: Now playing fits. The cover sits beside the title, your stats fit on one line, and everything stays clear of the cameras. Hold the cover to open the song in Spotify.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Cover screen: stories, the sign-in screen and the fix-artwork sheet are sized for the screen you are on, instead of the one the app opened on.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.21',
     name:    'Cover screen',
     date:    '2026-11-21',

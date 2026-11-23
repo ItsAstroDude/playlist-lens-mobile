@@ -395,7 +395,10 @@ is switched off in `CoverHost` (`MINI_APP_ENABLED = false`), kept only for refer
       everything and a tap round the cameras opens Now playing.
 - [x] Sizes from the live window, not the launch one: playlist cards (smaller row cover
       on the cover screen), `Sheet`, the swipe deck, What's new.
-- [ ] Still sized at launch: DetailSheet, story, auth, artwork-fix sheet, tour.
+- [x] Sized from the live window too (2.0.22): story + its pictures, auth, artwork-fix
+      sheet (DetailSheet and the tour already read the live window when they open).
+- [x] Now Playing on the cover (2.0.22): compact layout (cover beside the title, stats on
+      one line, Spotify as an icon or hold the cover), all above the cameras.
 - [ ] Per screen on the cover: Lenses, Queue, Play, Swipe, Settings, sheets clear of the cameras.
 
 ## Plan (decided 2026-11-21)
@@ -415,6 +418,26 @@ is switched off in `CoverHost` (`MINI_APP_ENABLED = false`), kept only for refer
 - [ ] Ask for 120 Hz on the cover screen if the app can
 - [ ] Restart test: does the app reload when moving between screens? If yes, handle
       `density` in `configChanges` (native, next APK)
+
+## Half-folded (Flex mode / tabletop) — started 2026-11-23
+Stand the Flip half-folded on a table while a song plays: Now Playing splits at the hinge
+(`components/fold/TabletopNowPlaying.tsx`). The half that stands up: cover, title,
+artist. The half lying flat: progress, big controls, your plays / time / rank, Spotify.
+Opening the phone flat (or the arrow, or back) springs it away; the app underneath stays
+where it was and its background holds still meanwhile.
+- **Posture:** Jetpack WindowManager's `FoldingFeature` (state flat / half-opened,
+  orientation, hinge bounds) through the `DisplayInfo` module's `getPosture` +
+  `onPosture` (`androidx.window` 1.3.0) — **native, APK versionCode 5**. JS:
+  `hooks/usePosture.ts`, maths in `utils/posture.ts` (tested). Older APKs read "no fold".
+- Only when the hinge runs across the screen and leaves both halves ≥ 25% of the height;
+  never on the cover screen. Dismissed with the arrow = stays away until the next fold.
+- Labs › half-folded: on/off (default on), **Simulate half-folded** (a fold across the
+  middle, to check the layout on APK 4), and a live "Fold right now" readout.
+- Motion: the standing half drops in, the flat half rises (`Spring.entrance`); a new
+  song's cover pops on `Spring.bouncy`. Reduce motion: fades only.
+- [ ] Check on the phone: hinge position reported vs the real crease; which angles count
+      as half-opened on One UI.
+- [ ] Next: other screens in tabletop (stories with the controls below, the Play game).
 
 ---
 

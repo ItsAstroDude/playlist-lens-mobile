@@ -1,4 +1,4 @@
-import { useCoverActive } from '@/utils/coverMode'
+import { useCoverActive, useTabletopActive } from '@/utils/coverMode'
 import React, { useCallback, useEffect, useState } from 'react'
 import { StyleSheet, View, useWindowDimensions } from 'react-native'
 import { useFocusEffect } from 'expo-router'
@@ -31,8 +31,10 @@ export function LiquidBackground() {
   const tint = useTint()
   const reduced = useMotionReduced()
   const [focused, setFocused] = useState(true)
-  // Hidden under the cover-screen app: hold still.
-  const coverOn = useCoverActive()
+  // Hidden under the cover-screen app or the tabletop Now Playing: hold still.
+  const underCover = useCoverActive()
+  const underTabletop = useTabletopActive()
+  const coverOn = underCover || underTabletop
   useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false) }, []))
   const { width: W, height: H } = useWindowDimensions()
   const light = activeThemeMode() === 'light'

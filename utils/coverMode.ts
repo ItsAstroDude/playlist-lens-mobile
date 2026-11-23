@@ -16,6 +16,11 @@ const emit = () => subs.forEach(cb => cb())
 export function coverActive(): boolean { return active }
 export function setCoverActive(v: boolean): void { if (v !== active) { active = v; emit() } }
 
+/** The half-folded tabletop Now Playing is up, covering the whole app (components/fold). */
+let tabletop = false
+export function tabletopActive(): boolean { return tabletop }
+export function setTabletopActive(v: boolean): void { if (v !== tabletop) { tabletop = v; emit() } }
+
 export function coverFullApp(): boolean { return fullApp }
 export function setCoverFullApp(v: boolean): void { if (v !== fullApp) { fullApp = v; emit() } }
 
@@ -31,3 +36,4 @@ function useStore<T>(read: () => T): T {
 
 export function useCoverActive(): boolean { return useStore(coverActive) }
 export function useCoverFullApp(): boolean { return useStore(coverFullApp) }
+export function useTabletopActive(): boolean { return useStore(tabletopActive) }

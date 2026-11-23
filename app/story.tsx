@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, StyleSheet, Pressable, BackHandler, Dimensions, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, Pressable, BackHandler, ActivityIndicator, useWindowDimensions } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
@@ -13,7 +13,7 @@ import { KineticText } from '@/components/motion/KineticText'
 import { ArtThumb } from '@/components/ui'
 import { ShareCard, CARD_W, CARD_H } from '@/components/story/ShareCard'
 import { FitHeadline } from '@/components/story/FitHeadline'
-import { StoryMosaic, StoryClock, StorySongs, StoryCardPreview, StoryTime, StoryHero, StoryPyramid, PREVIEW_MAX_H } from '@/components/story/Visuals'
+import { StoryMosaic, StoryClock, StorySongs, StoryCardPreview, StoryTime, StoryHero, StoryPyramid, previewMaxH } from '@/components/story/Visuals'
 import { useArtwork } from '@/hooks/useArtwork'
 import { usePalette } from '@/hooks/usePalette'
 import { buildStory, slideSongs, cardLine, type Palette } from '@/utils/story'
@@ -25,11 +25,10 @@ import { saveImageToFolder } from '@/utils/saveImage'
 import { useStoryMusic } from '@/hooks/useStoryMusic'
 
 const SLIDE_MS = 5200
-const { width: SW } = Dimensions.get('window')
 
 const LOADING_PALETTE: Palette = ['#6a2bd9', '#ff70a5', '#ffb347', '#b39dff']
 /** Cover size on cover slides: big, but leaves room for a three-line title. */
-const ART = Math.min(Math.round(SW * 0.62), 280)
+const artSize = (SW: number, SH: number) => Math.min(Math.round(SW * 0.62), Math.round(SH * 0.3), 280)
 
 /**
  * Motion #6 — Story mode. Your week / month / year as full-screen slides: progress bars,
@@ -42,6 +41,8 @@ const ART = Math.min(Math.round(SW * 0.62), 280)
  */
 export default function StoryScreen() {
   const insets = useSafeAreaInsets()
+  // The live window: the Flip's cover screen is a different shape from the main one.
+  const { width: SW, height: SH } = useWindowDimensions()
   const reduced = useMotionReduced()
   const params = useLocalSearchParams<{ kind?: string; back?: string }>()
   const kind: StoryKind = params.kind === 'month' || params.kind === 'year' || params.kind === 'all' ? params.kind : 'week'
@@ -222,7 +223,7 @@ export default function StoryScreen() {
         {s.art ? (
           // Cover slides: the cover big and centred, the words centred under it.
           <RackFocus index={0} style={styles.artWrap}>
-            <ArtThumb kind={s.art.kind} name={s.art.name} artist={s.art.artist} size={ART} />
+            <ArtThumb kind={s.art.kind} name={s.art.name} artist={s.art.artist} size={artSize(SW, SH)} />
           </RackFocus>
         ) : null}
         <KineticText text={s.kicker} style={styles.kicker} stagger={60} containerStyle={s.art ? styles.center : undefined} />
@@ -243,7 +244,7 @@ export default function StoryScreen() {
                   {s.songs ? <StorySongs songs={s.songs} /> : null}
                 </View>
               )
-              : s.share ? <StoryCardPreview s={data.comparison.current} all={data.all} palette={cardPalette} line={line} maxHeight={PREVIEW_MAX_H} />
+              : s.share ? <StoryCardPreview s={data.comparison.current} all={data.all} palette={cardPalette} line={line} maxHeight={previewMaxH(SH)} />
               : null}
           </View>
         ) : null}

@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native'
 import { router } from 'expo-router'
 import { BlurView } from 'expo-blur'
@@ -23,10 +23,12 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/Button'
 import { reduceMotionEnabled } from '@/utils/settings'
 
-const { width, height } = Dimensions.get('window')
-
 export default function AuthScreen() {
   const { login, isLoading, error } = useAuth()
+  // The live window (the Flip's cover screen is short): the orb fits whichever screen.
+  const { width, height } = useWindowDimensions()
+  const orbSize = Math.min(width * 0.9, height * 0.7)
+  const orbBox = { width: orbSize, height: orbSize, borderRadius: orbSize / 2, top: height * 0.1 }
 
   // ── Orb animation (pulsing blurred green glow) ──
   const orbScale   = useSharedValue(1)
@@ -105,8 +107,8 @@ export default function AuthScreen() {
   return (
     <View style={styles.container}>
       {/* Pulsing green orb behind everything */}
-      <Animated.View style={[styles.orb, orbStyle]} pointerEvents="none">
-        <BlurView intensity={80} tint="dark" style={styles.orbBlur} />
+      <Animated.View style={[styles.orb, orbBox, orbStyle]} pointerEvents="none">
+        <BlurView intensity={80} tint="dark" style={[styles.orbBlur, { borderRadius: orbSize / 2 }]} />
       </Animated.View>
 
       {/* Logo */}
@@ -152,7 +154,6 @@ export default function AuthScreen() {
   )
 }
 
-const ORB_SIZE = width * 0.9
 
 const styles = StyleSheet.create({
   container: {
@@ -167,11 +168,7 @@ const styles = StyleSheet.create({
   // Pulsing glow orb
   orb: {
     position:     'absolute',
-    width:         ORB_SIZE,
-    height:        ORB_SIZE,
-    borderRadius:  ORB_SIZE / 2,
     backgroundColor: Colors.greenPrimary,
-    top:           height * 0.1,
     alignSelf:     'center',
     ...GreenGlow,
     shadowRadius:  80,
@@ -179,7 +176,6 @@ const styles = StyleSheet.create({
   },
   orbBlur: {
     flex:         1,
-    borderRadius: ORB_SIZE / 2,
   },
 
   // Logo

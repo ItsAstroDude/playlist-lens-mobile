@@ -18,6 +18,8 @@ const KEYS = {
   nowPlayingPos: 'settings.nowPlayingPos',
   tribute:       'settings.tribute',
   cameraOutline: 'settings.cameraOutlinePx',   // panel px (the old dp key is ignored)
+  tabletop:      'settings.tabletop',
+  simulateFold:  'labs.simulateHalfFold',
 } as const
 
 // ── Haptics (default ON) ──
@@ -150,4 +152,26 @@ export function getCameraOutline(): CameraOutline {
 export function setCameraOutline(o: CameraOutline | null): void {
   if (o) storage.set(KEYS.cameraOutline, JSON.stringify(cleanOutline(o)))
   else   storage.remove(KEYS.cameraOutline)
+}
+
+// ── Half-folded (tabletop) Now Playing (default ON) — applies live ──
+// `simulateFold` (Labs) pretends the phone is half-folded so the layout can be checked
+// without the posture-aware APK. Both notify subscribers (hooks/usePosture, the view).
+const foldListeners = new Set<() => void>()
+const emitFold = () => foldListeners.forEach(cb => cb())
+export function onFoldSettings(cb: () => void): () => void {
+  foldListeners.add(cb)
+  return () => { foldListeners.delete(cb) }
+}
+export function tabletopEnabled(): boolean {
+  return storage.getBoolean(KEYS.tabletop) ?? true
+}
+export function setTabletopEnabled(on: boolean): void {
+  storage.set(KEYS.tabletop, on); emitFold()
+}
+export function simulateHalfFold(): boolean {
+  return storage.getBoolean(KEYS.simulateFold) ?? false
+}
+export function setSimulateHalfFold(on: boolean): void {
+  storage.set(KEYS.simulateFold, on); emitFold()
 }
