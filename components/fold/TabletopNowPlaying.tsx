@@ -15,6 +15,7 @@ import { useIsCover } from '@/hooks/useScreen'
 import { tabletopSplit } from '@/utils/posture'
 import { onFoldSettings, tabletopEnabled } from '@/utils/settings'
 import { UpNextStrip, UpNextTop, useUpNext } from './UpNext'
+import { topShift } from '@/utils/upNext'
 import { requestTabletop, setTabletopActive, useTabletopRequested } from '@/utils/coverMode'
 import { useNowPlayingModel } from '@/components/nowplaying/useNowPlayingModel'
 
@@ -93,8 +94,20 @@ export function TabletopNowPlaying() {
 
   // The standing half drops in from above, the flat half rises from below.
   const rootStyle = useAnimatedStyle(() => ({ opacity: Math.min(1, vis.value) }))
-  const topStyle = useAnimatedStyle(() => ({ transform: [{ translateY: reduced ? 0 : (1 - vis.value) * -56 }] }))
+  // Through the queue on a flat phone, the stats can need more than the bottom half:
+  // the top half slides up into its own empty space by that much (never under the
+  // close button). Half-folded the hinge stays put, and the stats drop their chart.
+  const [overflow, setOverflow] = useState(0)
+  const [topContent, setTopContent] = useState(0)
+  const shift = useSharedValue(0)
+  const topStyle = useAnimatedStyle(() => ({ transform: [{ translateY: (reduced ? 0 : (1 - vis.value) * -56) - shift.value }] }))
   const bottomStyle = useAnimatedStyle(() => ({ transform: [{ translateY: reduced ? 0 : (1 - vis.value) * 72 }] }))
+
+  const sNow = split ?? lastSplit.current
+  const want = sNow ? topShift(overflow, !foldSplit, sNow.top, insets.top + 56, topContent, Spacing.lg) : 0
+  useEffect(() => {
+    shift.value = reduced ? withTiming(want, { duration: 180 }) : withSpring(want, Spring.entrance)
+  }, [want])
 
   // Keep the last song's colours while the new cover's are worked out: dropping them
   // swapped the aurora for a plain fill and back, a grey flash on every song change.
@@ -105,6 +118,8 @@ export function TabletopNowPlaying() {
 
   const topH = s.top, bottomH = s.bottom
   const auroraColors = lastAurora.current
+  const padTop = insets.top + 56
+  const flat = !foldSplit
 
   return (
     <Animated.View style={[StyleSheet.absoluteFill, styles.root, rootStyle]} pointerEvents={show ? 'auto' : 'none'}
@@ -114,10 +129,11 @@ export function TabletopNowPlaying() {
         : <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.background }]} />}
 
       <Animated.View style={topStyle}>
-        <UpNextTop m={m} state={upNext.state} W={W} height={topH} padTop={insets.top + 56} skipFirst={false} />
+        <UpNextTop m={m} state={upNext.state} W={W} height={topH} padTop={padTop} skipFirst={false} onContentH={setTopContent} />
       </Animated.View>
       <Animated.View style={bottomStyle}>
-        <UpNextStrip m={m} state={upNext.state} refresh={upNext.refresh} W={W} height={bottomH} padBottom={Math.max(insets.bottom, Spacing.lg)} />
+        <UpNextStrip m={m} state={upNext.state} refresh={upNext.refresh} W={W} height={bottomH} padBottom={Math.max(insets.bottom, Spacing.lg)}
+          roomy={flat} onOverflow={setOverflow} />
       </Animated.View>
 
       {/* ── close, top right of the standing half ── */}

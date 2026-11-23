@@ -13,7 +13,7 @@ import { pokeNowPlaying } from '@/hooks/useNowPlaying'
 import { skipNext, classifyPlaybackError, transportErrorMessage } from '@/utils/playback'
 import { showToast } from '@/utils/dialog'
 import {
-  deckCards, dropSong, fetchUpNext, forgetDropped, inLabel, isDropped, onDropped, skipsTo, startsIn, visibleQueue,
+  deckCards, dropSong, fetchUpNext, statsOverflow, forgetDropped, inLabel, isDropped, onDropped, skipsTo, startsIn, visibleQueue,
   type UpNextTrack,
 } from '@/utils/upNext'
 import { fmtClock, type useNowPlayingModel } from '@/components/nowplaying/useNowPlayingModel'
@@ -64,10 +64,12 @@ export function useUpNext(songId: string | null | undefined, active: boolean) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Standing half
 
-export function UpNextTop({ m, state, W, height, padTop, skipFirst }: {
+export function UpNextTop({ m, state, W, height, padTop, skipFirst, onContentH }: {
   m: Model; state: UpNextState; W: number; height: number; padTop: number
   /** C+D 2 shows the next song on the pad, so the row starts after it. */
   skipFirst: boolean
+  /** The covers + title's own height: what's left above it is room to move up into. */
+  onContentH?: (h: number) => void
 }) {
   const queue = state.status === 'ok' ? visibleQueue(state.queue).filter(t => t.id !== m.item?.id) : []
   const remaining = Math.max(0, m.dur - m.liveMs)
@@ -78,6 +80,7 @@ export function UpNextTop({ m, state, W, height, padTop, skipFirst }: {
   const fades = [1, 0.6, 0.35]
   return (
     <View style={[styles.top, { height, paddingTop: padTop }]}>
+      <View style={styles.topContent} onLayout={e => onContentH?.(Math.round(e.nativeEvent.layout.height))}>
       <View style={styles.row}>
         {m.art ? <Image source={{ uri: m.art }} style={[styles.bigArt, { width: big, height: big }]} contentFit="cover" transition={200} />
                : <View style={[styles.bigArt, styles.artEmpty, { width: big, height: big }]} />}
@@ -93,6 +96,7 @@ export function UpNextTop({ m, state, W, height, padTop, skipFirst }: {
         <Text style={styles.overline}>{m.playing ? 'NOW PLAYING' : 'PAUSED'} · {fmtClock(m.liveMs)} / {fmtClock(m.dur)}</Text>
         <Text style={styles.title} numberOfLines={2}>{m.item?.name}</Text>
         {!!m.item?.artists?.length && <Text style={styles.artist} numberOfLines={1}>{m.item.artists.join(', ')}</Text>}
+      </View>
       </View>
     </View>
   )
@@ -319,7 +323,12 @@ function AgainLink({ again }: { again: () => void }) {
  * The song playing, above the seeker. `open` (through the queue): it grows upwards into
  * the song's stats — the details' height springs from 0 to what they measure.
  */
-function NowInfo({ m, open, again }: { m: Model; open: boolean; again?: () => void }) {
+function NowInfo({ m, open, again, chart = true, onDetailH }: {
+  m: Model; open: boolean; again?: () => void
+  /** The 12-month bars: left out half-folded, where the hinge leaves no room. */
+  chart?: boolean
+  onDetailH?: (h: number) => void
+}) {
   const reduced = useMotionReduced()
   const facts = useSongFacts(m)
   const depth = useSongDepth(m, open)
@@ -335,13 +344,13 @@ function NowInfo({ m, open, again }: { m: Model; open: boolean; again?: () => vo
   return (
     <View style={styles.info}>
       <Animated.View style={[styles.detailClip, detailStyle]} pointerEvents={open ? 'auto' : 'none'}>
-        <View style={styles.detail} onLayout={e => { h.value = e.nativeEvent.layout.height }}
+        <View style={styles.detail} onLayout={e => { h.value = e.nativeEvent.layout.height; onDetailH?.(e.nativeEvent.layout.height) }}
           accessible={open} accessibilityElementsHidden={!open} importantForAccessibility={open ? 'yes' : 'no-hide-descendants'}
           accessibilityLabel={`End of the queue. ${facts.headline}. ${facts.chips.map(c => `${c.v} ${c.l}`).join(', ')}`}>
           <Text style={[styles.overline, { color: Colors.pink }]}>THAT'S THE QUEUE · ABOUT THIS SONG</Text>
           <Text style={styles.aboutHead} numberOfLines={1}>{facts.headline}</Text>
           {facts.chips.length > 0 && <FactChips chips={facts.chips} />}
-          {depth && <SongYear depth={depth} artist={m.item?.artists?.[0] ?? ''} />}
+          {depth && <SongYear depth={depth} artist={m.item?.artists?.[0] ?? ''} chart={chart} />}
           {again && <AgainLink again={again} />}
         </View>
       </Animated.View>
@@ -359,9 +368,9 @@ function NowInfo({ m, open, again }: { m: Model; open: boolean; again?: () => vo
 }
 
 /** The song's last year as bars, and how its artist ranks for you. */
-function SongYear({ depth, artist }: { depth: SongDepth; artist: string }) {
+function SongYear({ depth, artist, chart }: { depth: SongDepth; artist: string; chart: boolean }) {
   const max = Math.max(1, ...depth.months)
-  const any = depth.months.some(n => n > 0)
+  const any = chart && depth.months.some(n => n > 0)
   return (
     <View style={styles.year}>
       {any && (
@@ -382,7 +391,7 @@ function SongYear({ depth, artist }: { depth: SongDepth; artist: string }) {
       {depth.artistPlays > 0 && (
         <Text style={styles.artistLine} numberOfLines={2}>
           <Text style={{ color: Colors.text }}>{artist}</Text>
-          {` · ${depth.artistPlays.toLocaleString()} plays${depth.artistRank ? ` · your #${depth.artistRank} artist` : ''}`}
+          {` · ${depth.artistPlays.toLocaleString()} ${depth.artistPlays === 1 ? 'play' : 'plays'}${depth.artistRank ? ` · your #${depth.artistRank} artist` : ''}`}
         </Text>
       )}
     </View>
@@ -432,8 +441,12 @@ export function ControlRow({ m, deck, fly, big = 76 }: {
 // ─────────────────────────────────────────────────────────────────────────────
 // Flat half: the deck, then Ctl A
 
-export function UpNextStrip({ m, state, refresh, W, height, padBottom }: {
+export function UpNextStrip({ m, state, refresh, W, height, padBottom, roomy = true, onOverflow }: {
   m: Model; state: UpNextState; refresh: () => void; W: number; height: number; padBottom: number
+  /** Flat phone: the top half can make room, so the stats get their 12-month bars. */
+  roomy?: boolean
+  /** How far the grown stats reach above this half (0 when they fit): the top half moves up by it. */
+  onOverflow?: (px: number) => void
 }) {
   const reduced = useMotionReduced()
   const deck = useDeck(state, m, refresh)
@@ -448,6 +461,14 @@ export function UpNextStrip({ m, state, refresh, W, height, padBottom }: {
     height: Math.max(0, (1 - k.value) * CARD_H),
     opacity: Math.min(1, Math.max(0, 1 - k.value * 1.6)),
   }))
+  // Through the queue, the stats can need more than this half has. Worked out from
+  // sizes that hold still (the controls' group before it grows, the stats' own height),
+  // not from the animation: the overflow is what the top half has to give up.
+  const [base, setBase] = useState(0)
+  const [detailH, setDetailH] = useState(0)
+  const room = height - Spacing.lg - padBottom - Spacing.md * 3     // 3 gaps: head, card area, spacer, group
+  const over = done ? statsOverflow(base, detailH, room) : 0
+  useEffect(() => { onOverflow?.(over) }, [over])
   return (
     <View style={[styles.flat, { height, paddingBottom: padBottom }]}>
       <View style={styles.headRow}>
@@ -459,9 +480,15 @@ export function UpNextStrip({ m, state, refresh, W, height, padBottom }: {
                    : !done ? <DeckEmpty state={state} deck={deck} m={m} /> : null}
       </Animated.View>
       <View style={{ flex: 1 }} />
-      <NowInfo m={m} open={done} again={deck.total > 0 ? deck.again : undefined} />
-      <Seeker m={m} />
-      <ControlRow m={m} deck={deck} fly={g.fly} />
+      <View style={styles.bottomGroup} onLayout={e => {
+        const hh = Math.round(e.nativeEvent.layout.height)
+        // Opened already through the queue: the stats are in this height, take them out.
+        if (!done) setBase(hh); else if (base === 0 && detailH > 0 && hh > detailH) setBase(hh - detailH)
+      }}>
+        <NowInfo m={m} open={done} again={deck.total > 0 ? deck.again : undefined} chart={roomy} onDetailH={setDetailH} />
+        <Seeker m={m} />
+        <ControlRow m={m} deck={deck} fly={g.fly} />
+      </View>
     </View>
   )
 }
@@ -470,6 +497,8 @@ const CARD_H = 168
 
 const styles = StyleSheet.create({
   cardArea:   { overflow: 'visible' },
+  bottomGroup: { gap: Spacing.md },
+  topContent: { gap: Spacing.lg },
   info:       { gap: Spacing.md },
   detailClip: { overflow: 'hidden' },
   detail:     { position: 'absolute', left: 0, right: 0, top: 0, gap: Spacing.sm, paddingHorizontal: 4 },

@@ -1,4 +1,4 @@
-import { _resetDropped, deckCards, dropSong, forgetDropped, inLabel, isDropped, skipsTo, startsIn, visibleQueue, type UpNextTrack } from '@/utils/upNext'
+import { statsOverflow, topShift, _resetDropped, deckCards, dropSong, forgetDropped, inLabel, isDropped, skipsTo, startsIn, visibleQueue, type UpNextTrack } from '@/utils/upNext'
 
 const t = (id: string, s = 180): UpNextTrack => ({ id, uri: `spotify:track:${id}`, name: id, duration_ms: s * 1000, artists: ['A'], image: null })
 const q = [t('a', 120), t('b', 200), t('c', 150), t('d')]
@@ -29,5 +29,14 @@ describe('up next', () => {
   it('labels the start', () => {
     expect(inLabel(5_000)).toBe('next')
     expect(inLabel(132_000)).toBe('in 2:12')
+  })
+  it('works out how far the grown stats reach, and how far the top half can give way', () => {
+    expect(statsOverflow(0, 300, 200)).toBe(0)            // not measured yet
+    expect(statsOverflow(220, 100, 400)).toBe(0)          // fits
+    expect(statsOverflow(220, 300, 400)).toBe(120)
+    expect(topShift(120, true, 480, 96, 300, 16)).toBe(68) // only the empty space above the covers
+    expect(topShift(50, true, 480, 96, 300, 16)).toBe(50)
+    expect(topShift(120, false, 480, 96, 300, 16)).toBe(0) // half-folded: the hinge stays
+    expect(topShift(120, true, 480, 96, 0, 16)).toBe(0)    // top not measured yet
   })
 })

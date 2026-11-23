@@ -84,3 +84,22 @@ export function inLabel(ms: number): string {
   const s = Math.round(ms / 1000)
   return `in ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
+
+/**
+ * After the queue, the stats grow into the flat half. How far past its top they reach
+ * (0 when they fit): `group` is the song row + seeker + controls before growing, `stats`
+ * the stats' own height, `room` the half's height less its padding and gaps.
+ */
+export function statsOverflow(group: number, stats: number, room: number): number {
+  return group > 0 ? Math.max(0, Math.ceil(group + stats - room)) : 0
+}
+
+/**
+ * How far the standing half slides up to make that room: no further than its empty
+ * space above the covers (`topH` less the close button's clearance, the content and
+ * the bottom padding). Half-folded the hinge can't move: 0.
+ */
+export function topShift(overflow: number, flat: boolean, topH: number, clearTop: number, content: number, padBottom: number): number {
+  if (!flat || content <= 0) return 0
+  return Math.min(overflow, Math.max(0, topH - clearTop - content - padBottom))
+}

@@ -19,6 +19,20 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.41',
+    name:    'Room to grow',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Up next: after the queue, the song\'s stats no longer run into the title. On a flat phone the top half moves up to make room. Half-folded, the 12-month bars are left out so it fits under the hinge.',
+          '"1 plays" now says "1 play".',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.40',
     name:    'All the games',
     date:    '2026-11-23',
