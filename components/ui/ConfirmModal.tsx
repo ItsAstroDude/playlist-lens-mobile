@@ -13,7 +13,7 @@ import { Icon, type IconName } from '@/components/ui/Icon'
  */
 export function ConfirmModal({
   visible, title, message, glyph, confirmLabel = 'OK', cancelLabel = 'Cancel',
-  onConfirm, onCancel, destructive,
+  onConfirm, onCancel, destructive, altLabel, onAlt,
 }: {
   visible:      boolean
   title:        string
@@ -25,6 +25,9 @@ export function ConfirmModal({
   onConfirm:    () => void
   onCancel:     () => void
   destructive?: boolean
+  /** Optional middle choice, shown as an outlined pill between cancel and confirm. */
+  altLabel?:    string
+  onAlt?:       () => void
 }) {
   const scale    = useSharedValue(0.9)
   const opacity  = useSharedValue(0)
@@ -81,6 +84,16 @@ export function ConfirmModal({
               <Text style={styles.cancelText}>{cancelLabel}</Text>
             </Pressable>
           )}
+          {altLabel ? (
+            <Pressable
+              style={({ pressed }) => [styles.altBtn, pressed && styles.pressed]}
+              onPress={() => { haptic.light(); onAlt?.() }}
+              accessibilityRole="button"
+              hitSlop={6}
+            >
+              <Text style={styles.altText}>{altLabel}</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             style={({ pressed }) => [styles.confirmBtn, { backgroundColor: accent }, pressed && styles.pressed]}
             onPress={() => { destructive ? haptic.warning() : haptic.success(); onConfirm() }}
@@ -114,9 +127,11 @@ const styles = StyleSheet.create({
   glyph: { fontSize: 30, marginBottom: Spacing.sm },
   title: { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, color: Colors.text, letterSpacing: -0.5 },
   message: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: Spacing.sm, lineHeight: FontSize.sm * 1.5 },
-  actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xl, justifyContent: 'flex-end' },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.xl, justifyContent: 'flex-end' },
   cancelBtn: { paddingVertical: Spacing.sm + 2, paddingHorizontal: Spacing.lg, borderRadius: Radius.full },
   cancelText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.textMuted },
+  altBtn: { paddingVertical: Spacing.sm + 1, paddingHorizontal: Spacing.lg, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.glassBorder },
+  altText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.text },
   confirmBtn: { paddingVertical: Spacing.sm + 2, paddingHorizontal: Spacing.xl, borderRadius: Radius.full },
   pressed: { opacity: 0.75, transform: [{ scale: 0.97 }] },
   confirmText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.background },

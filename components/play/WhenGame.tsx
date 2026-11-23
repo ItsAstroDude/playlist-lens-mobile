@@ -72,7 +72,7 @@ export function WhenGame({ onStart }: { onStart?: () => void }) {
   if (phase === 'loading') return <View style={g.center}><ActivityIndicator color={Colors.greenPrimary} /></View>
   if (phase === 'empty') {
     return <EmptyState icon="calendar-outline" title="Not enough history yet"
-      body="When? needs songs you've played a few times across months. Import your Spotify history in Labs › Wrapped to get the most out of it." />
+      body="When? needs songs you've played a few times across months. Import your Spotify history in Labs › Rewind to get the most out of it." />
   }
   if (phase === 'start') {
     return (

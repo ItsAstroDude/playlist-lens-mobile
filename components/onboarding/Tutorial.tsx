@@ -74,7 +74,7 @@ function buildSteps(): Step[] {
     {
       route: 'play', spotlight: true, glyph: 'game-controller', tint: Colors.lavender,
       title: 'Play',
-      body:  'More or less: did you play this song more or less than that one? A game on your own listening. Wrapped is being rebuilt meanwhile; find it in Settings › About › Labs.',
+      body:  'More or less: did you play this song more or less than that one? A game on your own listening. Rewind is being rebuilt meanwhile; find it in Settings › About › Labs.',
     },
     {
       route: 'swipe', spotlight: true, glyph: 'layers', tint: RAW_ACCENT,

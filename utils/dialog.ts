@@ -19,8 +19,11 @@ export interface DialogOptions {
   /** Secondary button label. Omit (or pass null) for a single-button info dialog. */
   cancelLabel?:  string | null
   destructive?:  boolean
+  /** Optional middle choice (e.g. "Keep tracking"). Cancel, backdrop and back still mean cancel. */
+  altLabel?:     string
   onConfirm?:    () => void
   onCancel?:     () => void
+  onAlt?:        () => void
 }
 
 export interface ToastOptions {
@@ -58,11 +61,12 @@ export function confirmDialog(opts: Omit<DialogOptions, 'cancelLabel'> & { cance
  * Resolve the open dialog. Called by the host — runs the matching callback AFTER
  * the dialog leaves the queue, so a callback that opens another dialog works.
  */
-export function resolveDialog(confirmed: boolean): void {
+export function resolveDialog(choice: boolean | 'alt'): void {
   const head = queue.shift()
   publish()
   if (!head) return
-  if (confirmed) head.onConfirm?.()
+  if (choice === 'alt') head.onAlt?.()
+  else if (choice) head.onConfirm?.()
   else head.onCancel?.()
 }
 

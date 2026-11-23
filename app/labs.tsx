@@ -28,7 +28,7 @@ export default function Labs() {
       <ScreenHeader title="labs" subtitle="Prototypes and testing tools. Things here may change or go away." />
 
       <Section label="prototypes">
-        <ListRow icon="disc-outline" tint="violet" label="Wrapped (work in progress)"
+        <ListRow icon="disc-outline" tint="violet" label="Rewind (work in progress)"
           hint="Being rebuilt to scroll smoothly. Its tab is the Play minigame for now"
           onPress={go('/wrapped')} />
         {/* Galaxy Z Flip only (Android): no cover screen or hinge on an iPhone */}

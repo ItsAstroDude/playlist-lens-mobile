@@ -78,3 +78,16 @@ describe('toast', () => {
     expect(cb).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('dialog middle choice', () => {
+  it('runs onAlt for the middle button, and cancel stays cancel', () => {
+    const onConfirm = jest.fn(), onCancel = jest.fn(), onAlt = jest.fn()
+    showDialog({ title: 'A', message: '', altLabel: 'Keep', onConfirm, onCancel, onAlt })
+    resolveDialog('alt')
+    showDialog({ title: 'B', message: '', altLabel: 'Keep', onConfirm, onCancel, onAlt })
+    resolveDialog(false)
+    expect(onAlt).toHaveBeenCalledTimes(1)
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+})

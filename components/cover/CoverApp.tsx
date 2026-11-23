@@ -271,7 +271,7 @@ function MoreSection() {
   return (
     <View style={styles.more}>
       <Text style={styles.big}>Everything else</Text>
-      <Text style={styles.muted}>Open the phone for Lenses, Queue, Play and Wrapped. It picks up right where you are.</Text>
+      <Text style={styles.muted}>Open the phone for Lenses, Queue, Play and Rewind. It picks up right where you are.</Text>
       <Pressable onPress={() => { haptic.medium(); setCoverFullApp(true) }} accessibilityRole="button"
         style={({ pressed }) => [styles.pill, pressed && { opacity: 0.7 }]}>
         <Icon name="expand-outline" size={16} color={OnDark.text} />

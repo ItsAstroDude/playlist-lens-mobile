@@ -21,6 +21,7 @@ const KEYS = {
   tabletop:      'settings.tabletop',
   flexPanel:     'settings.flexPanel',
   simulateFold:  'labs.simulateHalfFold',
+  errorReports:  'settings.errorReports',
 } as const
 
 // ── Haptics (default ON) ──
@@ -57,6 +58,16 @@ export function tributeEnabled(): boolean {
 }
 export function setTributeEnabled(on: boolean): void {
   storage.set(KEYS.tribute, on)
+}
+
+// ── Crash reports (default ON) — off = nothing is queued or sent to the server.
+// Survives logout (see flush() in utils/cache) so a privacy choice never silently resets. ──
+export function errorReportsEnabled(): boolean {
+  const v = storage.getBoolean(KEYS.errorReports)
+  return v === undefined ? true : v
+}
+export function setErrorReportsEnabled(on: boolean): void {
+  storage.set(KEYS.errorReports, on)
 }
 
 // ── Appearance (Expressive Expressions) — accent + font ──

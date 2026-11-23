@@ -8,7 +8,7 @@ describe('perf', () => {
     record('lenses', 50)
     const { rows } = summary()
     expect(rows.map(r => r.metric)).toEqual(['lenses', 'wrapped'])
-    expect(rows[1]).toMatchObject({ median: 200, last: 200, count: 3, label: 'Wrapped' })
+    expect(rows[1]).toMatchObject({ median: 200, last: 200, count: 3, label: 'Rewind' })
   })
 
   it('takes the mean of the middle two for an even count', () => {

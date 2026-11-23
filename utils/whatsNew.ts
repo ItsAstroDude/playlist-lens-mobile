@@ -19,6 +19,22 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.42',
+    name:    'Rewind',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Wrapped is now called Rewind. Same stats, still in Settings › About › Labs while it’s rebuilt.',
+          'Settings › About › Privacy policy: what playlist.lens stores, where, and how to delete it.',
+          'Settings › About › Send crash reports: switch it off and errors stay on your phone.',
+          'Logging out while listening tracking is on now asks whether to keep tracking or stop it and delete your saved plays from the server.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.41',
     name:    'Room to grow',
     date:    '2026-11-23',
@@ -351,7 +367,7 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'Improved',
         items: [
-          'Wrapped is being rebuilt to scroll smoothly. Until then it lives in Settings › About › Labs, and stories, recaps and history keep working as before.',
+          'Rewind is being rebuilt to scroll smoothly. Until then it lives in Settings › About › Labs, and stories, recaps and history keep working as before.',
         ],
       },
     ],
@@ -379,13 +395,13 @@ export const CHANGELOG: PatchEntry[] = [
   },
   {
     version: '2.0.18',
-    name:    'Smooth Wrapped',
+    name:    'Smooth Rewind',
     date:    '2026-11-21',
     sections: [
       {
         label: 'Fixed',
         items: [
-          'Wrapped Year and All time scroll smoothly. Once their rows, heatmap and numbers have finished animating in, they stop costing work on every scroll, here and on every other tab.',
+          'Rewind Year and All time scroll smoothly. Once their rows, heatmap and numbers have finished animating in, they stop costing work on every scroll, here and on every other tab.',
           'The app stops redrawing when nothing is moving. The now-playing progress line slides instead of resizing, and the hidden now-playing pill no longer animates out of sight.',
         ],
       },
@@ -542,7 +558,7 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'New',
         items: [
-          'Every top list has pictures now: artist photos and song and album covers, in Wrapped, Recaps and New to you. The first time they fill in over a minute or so, then they’re instant.',
+          'Every top list has pictures now: artist photos and song and album covers, in Rewind, Recaps and New to you. The first time they fill in over a minute or so, then they’re instant.',
           'The listening clock is in every view (week, month and year, not just All time), and month, year and All time show which weekday you listen most.',
         ],
       },
@@ -556,7 +572,7 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'Fixed',
         items: [
-          'Scrolling Wrapped no longer stutters, especially in Year and All time. Every card is now built right after the page opens, instead of the moment it scrolls into view.',
+          'Scrolling Rewind no longer stutters, especially in Year and All time. Every card is now built right after the page opens, instead of the moment it scrolls into view.',
         ],
       },
     ],
@@ -569,7 +585,7 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'Fixed',
         items: [
-          'Year and All time in Wrapped no longer hiccup when you open them. Adding up a whole year now happens in the background, and the calendar draws itself in over a few frames instead of all at once. The ripple looks exactly the same.',
+          'Year and All time in Rewind no longer hiccup when you open them. Adding up a whole year now happens in the background, and the calendar draws itself in over a few frames instead of all at once. The ripple looks exactly the same.',
         ],
       },
     ],
@@ -582,11 +598,11 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'Improved',
         items: [
-          'Wrapped, Recaps and History stay smooth while they add up your history. The heavy maths now runs on its own, so it never holds up what’s on screen.',
+          'Rewind, Recaps and History stay smooth while they add up your history. The heavy maths now runs on its own, so it never holds up what’s on screen.',
           'Searching History no longer stutters as you type, even across years of plays.',
           'Stats you’ve already seen open instantly, even after restarting the app, until a new play arrives.',
           'The calendar ripples in where you’re looking (around today) instead of starting in January.',
-          'History and Recaps have moved to two icons next to the Wrapped title, always one tap away.',
+          'History and Recaps have moved to two icons next to the Rewind title, always one tap away.',
         ],
       },
     ],
@@ -622,14 +638,14 @@ export const CHANGELOG: PatchEntry[] = [
         label: 'New',
         items: [
           'A calendar of your listening: every day of the year as a square, brighter the more you listened. Tap a day to see its total, then “See plays” to open that day in History.',
-          'Find it in Wrapped › Year, and in All time with every year you’ve listened.',
+          'Find it in Rewind › Year, and in All time with every year you’ve listened.',
           'Each year shows its longest streak of days with music.',
         ],
       },
       {
         label: 'Improved',
         items: [
-          'Wrapped, Recaps and Story mode now follow your own clock: days and weeks start at your midnight, and the listening clock shows your hours.',
+          'Rewind, Recaps and Story mode now follow your own clock: days and weeks start at your midnight, and the listening clock shows your hours.',
           'All time now includes everything tracked since your import, and works with listening tracking alone, no import needed.',
           'Recaps are built from every play you have, so they’re always current.',
         ],
@@ -644,7 +660,7 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'New',
         items: [
-          'History: every play you’ve ever had, newest first and grouped by day, with each day’s total. Open it from Wrapped, under Recaps.',
+          'History: every play you’ve ever had, newest first and grouped by day, with each day’s total. Open it from Rewind, under Recaps.',
           'Search it all (songs, artists, albums), even across years of imported history.',
           'Tap a play to see every play of that song, everything by that artist, or everything from that album.',
         ],
@@ -695,9 +711,9 @@ export const CHANGELOG: PatchEntry[] = [
         label: 'New',
         items: [
           'A whole new look: the app floats in the colours of the song you’re playing, on frosted glass, with a new reading typeface (Manrope) under the Syne headlines.',
-          'Playlists are glass tiles now, and Wrapped’s numbers float as bubbles.',
+          'Playlists are glass tiles now, and Rewind’s numbers float as bubbles.',
           'A new liquid tab bar: the highlight stretches between tabs like a drop of water.',
-          'Story mode: open Wrapped and tap “Play your week” to watch your week as full-screen slides.',
+          'Story mode: open Rewind and tap “Play your week” to watch your week as full-screen slides.',
           'Playlists open with their cover flying into place, and the cover collapses smoothly as you scroll.',
           'Numbers roll into place, lists come into focus, adding to the queue throws confetti, and the Now Playing sheet glows in the colours of the cover.',
           'Swipe has real physics now: throw cards, and the next one springs up.',
@@ -725,7 +741,7 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'New',
         items: [
-          'Settings › About › Load times: how fast cold start, Lenses, Wrapped and Recaps open on your phone. These are the numbers 2.0’s faster storage has to beat.',
+          'Settings › About › Load times: how fast cold start, Lenses, Rewind and Recaps open on your phone. These are the numbers 2.0’s faster storage has to beat.',
         ],
       },
       {
@@ -747,7 +763,7 @@ export const CHANGELOG: PatchEntry[] = [
           'Every sheet now works the same way: swipe the handle down, tap outside or press back to close. That includes the playlist lens and the start-queue sheet.',
           'The playlist lens keeps its cover and name while it slides away, instead of going blank.',
           'Lenses: your playlist count now sits in the header line (“42 playlists · …”) instead of a bare number beside Settings.',
-          'A fresh guided tour: Wrapped always gets its stop, each step says what the tab does today, and it shows which step you’re on.',
+          'A fresh guided tour: Rewind always gets its stop, each step says what the tab does today, and it shows which step you’re on.',
           'The login screen has an up-to-date tagline and a clearer line about what’s stored where.',
           'Playlist cards, the login screen, the tour and the start-queue buttons all match the rest of the app.',
         ],
@@ -769,7 +785,7 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'Fixed',
         items: [
-          'Removed the dark band under the header on Lenses, Queue, Wrapped and Swipe — lists now scroll cleanly, with the background glow running behind them.',
+          'Removed the dark band under the header on Lenses, Queue, Rewind and Swipe — lists now scroll cleanly, with the background glow running behind them.',
         ],
       },
     ],
@@ -782,7 +798,7 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'Improved',
         items: [
-          'Swipe down on a sheet’s handle to close it — playlist actions, now playing, Wrapped items and the cover fixer.',
+          'Swipe down on a sheet’s handle to close it — playlist actions, now playing, Rewind items and the cover fixer.',
           'Sheets keep their content while they slide away, instead of going blank mid-animation.',
           'Clearer text on the in-memoriam line and “Wrong image?” link.',
         ],
@@ -827,7 +843,7 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'New',
         items: [
-          'Wrapped now leads with this week — hours listened, plays, artists and tracks, a day-by-day chart, and your top artists, tracks and albums. Switch between Week, Month and Year, or All time for your imported lifetime stats.',
+          'Rewind now leads with this week — hours listened, plays, artists and tracks, a day-by-day chart, and your top artists, tracks and albums. Switch between Week, Month and Year, or All time for your imported lifetime stats.',
           'See how you compare: every period shows the change against the same point last week, month or year.',
           'Works without an import — your tracked plays are enough. Turn on listening tracking for complete stats.',
         ],
@@ -953,14 +969,14 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'New',
         items: [
-          'Recaps — your listening by week, month, season and year, each with its own top artists, tracks and albums. Keep a season as a keepsake, archive a year, and revisit any of them from the Wrapped tab.',
-          'Auto-updating Wrapped — your recent plays now top themselves up automatically, so your stats and the current week, month and season stay fresh between imports.',
+          'Recaps — your listening by week, month, season and year, each with its own top artists, tracks and albums. Keep a season as a keepsake, archive a year, and revisit any of them from the Rewind tab.',
+          'Auto-updating Rewind — your recent plays now top themselves up automatically, so your stats and the current week, month and season stay fresh between imports.',
         ],
       },
       {
         label: 'Improved',
         items: [
-          'Recaps open straight from the Wrapped tab, with a quick switch between week, month, season and year.',
+          'Recaps open straight from the Rewind tab, with a quick switch between week, month, season and year.',
         ],
       },
     ],
@@ -973,8 +989,8 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'New',
         items: [
-          'Real artist faces — Wrapped now shows actual artist photos instead of album-cover stand-ins.',
-          'Tap to go deeper, everywhere — open the full panel for any artist straight from your Taste profile and an expanded playlist, just like Wrapped already does.',
+          'Real artist faces — Rewind now shows actual artist photos instead of album-cover stand-ins.',
+          'Tap to go deeper, everywhere — open the full panel for any artist straight from your Taste profile and an expanded playlist, just like Rewind already does.',
         ],
       },
       {
@@ -1047,11 +1063,11 @@ export const CHANGELOG: PatchEntry[] = [
       {
         label: 'New',
         items: [
-          'Wrapped — import your lifetime Spotify history for all-time stats. Tap any artist, track or album for its own art panel.',
+          'Rewind — import your lifetime Spotify history for all-time stats. Tap any artist, track or album for its own art panel.',
           'Over-the-air updates — fixes and features now arrive without reinstalling the app.',
           'Drag-to-reorder your lenses, plus long-press for quick actions: Pin to top, Share, Re-analyze.',
           'Fix a wrong cover yourself: pick a candidate, re-search, or upload your own image.',
-          'New Settings: reduce motion, show artwork, clear Wrapped history, and a flagged-covers list.',
+          'New Settings: reduce motion, show artwork, clear Rewind history, and a flagged-covers list.',
         ],
       },
       {

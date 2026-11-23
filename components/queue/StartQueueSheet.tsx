@@ -185,7 +185,7 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
         return (
           <Notice
             title="Reconnect Spotify"
-            body="Grant playback control once to start queues. It also switches on auto-updating Wrapped."
+            body="Grant playback control once to start queues. It also switches on auto-updating Rewind."
             actionLabel="Reconnect Spotify"
             onAction={reconnect}
           />

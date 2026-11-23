@@ -34,7 +34,7 @@ export default function FlaggedCoversScreen() {
         <EmptyState
           icon="flag-outline"
           title="Nothing flagged"
-          body="Covers you report as wrong from Wrapped show up here."
+          body="Covers you report as wrong from Rewind show up here."
         />
       ) : (
         <Section

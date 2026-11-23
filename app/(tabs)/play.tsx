@@ -53,13 +53,13 @@ export default function PlayTab() {
 
           {/* The construction wall: Wrapped is being rebuilt, still reachable in Labs. */}
           <Pressable onPress={() => { haptic.light(); router.push('/wrapped') }} accessibilityRole="button"
-            accessibilityLabel="Wrapped is being rebuilt. Open the work-in-progress version">
+            accessibilityLabel="Rewind is being rebuilt. Open the work-in-progress version">
             <View style={styles.wall}>
               <View style={styles.tape} />
               <View style={styles.wallRow}>
                 <Icon name="construct-outline" size={18} color={Colors.warning} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.wallTitle}>Wrapped is being rebuilt</Text>
+                  <Text style={styles.wallTitle}>Rewind is being rebuilt</Text>
                   <Text style={styles.wallBody}>We're making it smooth. The work-in-progress version is in Labs, or tap here.</Text>
                 </View>
                 <Icon name="chevron-forward" size={16} color={Colors.textMuted} />

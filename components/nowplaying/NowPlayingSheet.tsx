@@ -115,7 +115,7 @@ export function NowPlayingSheet({ np, onClose }: {
           <Text style={styles.hint}>
             {stats?.imported
               ? 'No plays for this one in your imported history — first listen?'
-              : 'Import your lifetime history in Wrapped to see your stats for this song.'}
+              : 'Import your lifetime history in Rewind to see your stats for this song.'}
           </Text>
         )}
 

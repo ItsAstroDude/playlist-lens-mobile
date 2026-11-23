@@ -77,7 +77,7 @@ export default function QueueTab() {
 
             {count === 0 ? (
               <Text style={styles.hint}>
-                Empty for now. Tap the <Icon name="add-circle" inline size={FontSize.sm + 2} color={Colors.greenPrimary} /> on any track — in a suggestion below, or on your Wrapped top tracks — to build a queue.
+                Empty for now. Tap the <Icon name="add-circle" inline size={FontSize.sm + 2} color={Colors.greenPrimary} /> on any track — in a suggestion below, or on your Rewind top tracks — to build a queue.
               </Text>
             ) : (
               <>
@@ -126,8 +126,8 @@ export default function QueueTab() {
               <EmptyState
                 icon="sparkles-outline"
                 title="Rediscover your library"
-                body="Import your listening history in Wrapped to unlock smart suggestions — fading favorites, second chances and a time machine to past seasons."
-                actionLabel="Go to Wrapped"
+                body="Import your listening history in Rewind to unlock smart suggestions — fading favorites, second chances and a time machine to past seasons."
+                actionLabel="Go to Rewind"
                 onAction={() => router.navigate('/wrapped')}
               />
             </Card>

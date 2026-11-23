@@ -17,7 +17,7 @@ export function ThisWeekWidget({ data }: { data: WidgetData }) {
   return (
     <FlexWidget
       {...OPEN}
-      accessibilityLabel="This week in music — open Wrapped"
+      accessibilityLabel="This week in music — open Rewind"
       style={{
         height: 'match_parent', width: 'match_parent',
         backgroundColor: BG, borderRadius: 24,

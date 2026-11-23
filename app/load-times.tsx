@@ -33,7 +33,7 @@ export default function LoadTimes() {
 
       {data.rows.length === 0 ? (
         <EmptyState icon="timer-outline" title="Nothing measured yet"
-          body="Close the app fully, reopen it, then visit Lenses, Wrapped and Recaps. The numbers land here." />
+          body="Close the app fully, reopen it, then visit Lenses, Rewind and Recaps. The numbers land here." />
       ) : (
         <>
           {screens.length > 0 && (

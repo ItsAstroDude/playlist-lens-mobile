@@ -81,9 +81,14 @@ export function clearCaches(): void {
 }
 
 // ─── flush() — wipes everything on logout ────────────────────────────────────
+// Privacy choices outlive a logout: wiping them would quietly switch reporting back on.
+const KEEP_ON_LOGOUT = ['settings.errorReports'] as const
+
 export async function flush(): Promise<void> {
+  const kept = KEEP_ON_LOGOUT.map(k => [k, storage.getBoolean(k)] as const)
   // Clear all MMKV cache
   storage.clearAll()
+  for (const [k, v] of kept) if (v !== undefined) storage.set(k, v)
   // Clear secure token vault
   await Promise.all([
     SecureStore.deleteItemAsync(SecureKeys.accessToken),

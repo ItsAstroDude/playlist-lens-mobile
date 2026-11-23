@@ -231,8 +231,8 @@ export default function HistoryScreen() {
             <EmptyState
               icon="time-outline"
               title="No plays yet"
-              body="Import your Spotify history in Wrapped, or turn on listening tracking — every play shows up here."
-              actionLabel="Open Wrapped"
+              body="Import your Spotify history in Rewind, or turn on listening tracking — every play shows up here."
+              actionLabel="Open Rewind"
               onAction={() => router.push('/wrapped')}
             />
           )}
