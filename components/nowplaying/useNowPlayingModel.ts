@@ -49,16 +49,15 @@ export function fmtClock(ms: number): string {
  * optimistic transport, your lifetime stats for it and the cover's colours. Shared by
  * the Now Playing sheet (normal + cover-screen layouts) and the half-folded tabletop view.
  *
- * `active` gates the per-second clock and the stats lookup (closed views do no work);
- * `withStats: false` skips the lookup altogether (the spot: the lookup parses MBs of history).
+ * `active` gates the per-second clock and the stats lookup (closed views do no work).
  */
-export function useNowPlayingModel(np: NowPlaying | null, active: boolean, withStats = true) {
+export function useNowPlayingModel(np: NowPlaying | null, active: boolean) {
   const item = np?.item ?? null
 
   // Personal stats — resolved once per track while the view is up.
   const stats = useMemo(
-    () => (item && active && withStats ? findStats(item.uri, item.name, item.artists) : null),
-    [item?.uri, item?.name, active, withStats],
+    () => (item && active ? findStats(item.uri, item.name, item.artists) : null),
+    [item?.uri, item?.name, active],
   )
 
   // Live mm:ss — ticks locally between polls (np.receivedAt anchors the clock).

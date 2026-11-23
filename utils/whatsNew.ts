@@ -19,23 +19,14 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
-    version: '2.0.24',
-    name:    'The spot',
+    version: '2.0.25',
+    name:    'Back to the bar',
     date:    '2026-11-23',
     sections: [
       {
-        label: 'New',
-        items: [
-          'The spot: a small glowing dot that floats over the app. Drag it anywhere and let go: it springs to the nearest side and remembers where you left it.',
-          'It stays a dot until it has something to say, then opens into a card right where it sits: toasts, the server waking up, or Spotify needing a reconnect.',
-          'Tap the spot for the song playing (play/pause, skip, or tap the song to open Now playing). It takes the colour of the cover, and sends out a ripple when a new song starts.',
-        ],
-      },
-      {
         label: 'Improved',
         items: [
-          'The top island from 2.0.23 is gone: the tips strip is back on Lenses, and Now playing can live in the home strip again.',
-          'Flip cover screen: the spot keeps clear of the cameras. In stories it stays hidden unless it has news.',
+          'The floating spot is gone for now: the now-playing bar, toasts and the server wake-up banner are back as they were in 2.0.22. A better idea is being worked out first.',
         ],
       },
     ],

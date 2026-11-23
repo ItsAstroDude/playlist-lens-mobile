@@ -439,22 +439,17 @@ where it was and its background holds still meanwhile.
       as half-opened on One UI.
 - [ ] Next: other screens in tabletop (stories with the controls below, the Play game).
 
-## The spot — 2.0.24 (2026-11-23)
-A floating dot (`components/spot/Spot.tsx`, geometry in `utils/spot.ts`, tested) that
-opens only when it has something to say. It replaced the 2.0.23 top island (a black pill
-round the selfie camera: rejected on the phone, "doesn't feel natural").
-- Owns toasts (2.6 s), the server wake-up (says it once, then pulses until awake) and
-  the reconnect prompt (once a session). The floating wake-up banner and toast layer are
-  gone; the Lenses tips strip and the Home strip placement are back as in 2.0.22.
-- Drag anywhere; release springs to the nearest side edge (a flick counts) on
-  `Spring.bouncy` with the release velocity, stretching along the drag and wobbling as it
-  lands. Rest side + height saved per phone. Opens into a card from where it sits on
-  `Spring.bouncy`, closes on `Spring.default`.
-- Tap: the song (play/pause, next, tap = Now playing), plus anything pending.
-- Colour follows the cover; a new song = one ripple. No idle motion (nothing runs per
-  frame while it rests, except the pulse during a wake-up).
-- Cover screen: rests clear of the cameras. Hidden in stories and the cover lab unless open.
-- [ ] Check on the phone: default spot (right edge, 20% down) clear of headers' buttons.
+## Tried and rolled back (2026-11-23): top island, floating spot
+Two takes on "one living thing that speaks up when it matters" — both rejected on the
+phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
+- 2.0.23 **top island**: black pill round the selfie camera holding toasts, wake-up, the
+  song and the tips lines. Verdict: "doesn't feel natural".
+- 2.0.24 **spot**: a floating draggable dot that opened into a card for news. Verdict:
+  "meh"; also it should *replace the now-playing bar* (the home-strip slot), not float.
+  Code kept in git (`f83fa93`: components/spot, utils/spot.ts + tests).
+- [ ] Next: prototype in the Motion lab first, not on the live app. Candidates: a dot in
+      the bar's slot that spreads into the pill with news; a dot that rides the top while
+      scrolling; an edge droplet.
 
 ---
 

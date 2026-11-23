@@ -13,7 +13,7 @@
  *   • any HTTP answer from the server → awake again
  *   • every tracked request gave up (offline) → stop claiming we're waking it
  *
- * The spot (components/spot) and the Lenses header render this state.
+ * `ServerWakeBanner` (root) and the Lenses strip render this state.
  */
 
 export const WAKE_THRESHOLD_MS = 3000

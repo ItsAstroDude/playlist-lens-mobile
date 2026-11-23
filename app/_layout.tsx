@@ -36,7 +36,7 @@ import { Tutorial } from '@/components/onboarding/Tutorial'
 import { WhatsNew } from '@/components/onboarding/WhatsNew'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { DialogHost } from '@/components/ui/DialogHost'
-import { Spot } from '@/components/spot/Spot'
+import { ServerWakeBanner } from '@/components/ui/ServerWakeBanner'
 import { warmUp } from '@/utils/api'
 import { QueueCartTray } from '@/components/queue/QueueCartTray'
 import { StartQueueSheet } from '@/components/queue/StartQueueSheet'
@@ -278,8 +278,8 @@ export default function RootLayout() {
       {isAuthenticated && <CoverHost />}
       {isAuthenticated && <TabletopNowPlaying />}
       {/* showDialog() / showToast() from anywhere — kept last so it sits on top */}
+      <ServerWakeBanner />
       <DialogHost />
-      <Spot authed={isAuthenticated} />
     </GestureHandlerRootView>
   )
 }

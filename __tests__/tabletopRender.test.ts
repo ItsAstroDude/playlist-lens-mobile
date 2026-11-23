@@ -1,8 +1,8 @@
 /**
- * Smoke tests: the spot and the tabletop view render in each state without throwing.
+ * Smoke tests: the half-folded tabletop view renders, and only when it should.
  */
 import React from 'react'
-import { render, act, fireEvent } from '@testing-library/react-native'
+import { render, act } from '@testing-library/react-native'
 
 require('react-native-gesture-handler/jestSetup')
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'))
@@ -37,51 +37,11 @@ jest.mock('@/hooks/useNowPlaying', () => ({
   pokeNowPlaying: jest.fn(),
 }))
 
-import { Spot } from '@/components/spot/Spot'
 import { TabletopNowPlaying } from '@/components/fold/TabletopNowPlaying'
-import { showToast } from '@/utils/dialog'
 import { setSimulateHalfFold } from '@/utils/settings'
 
 beforeEach(() => { jest.useFakeTimers(); mockNp = null; mockWaking = null; mockCover = false; mockPath = '/' })
 afterEach(() => { jest.useRealTimers() })
-
-describe('Spot', () => {
-  it('rests as a dot, then opens for a toast and closes again', () => {
-    const r = render(React.createElement(Spot, { authed: true }))
-    expect(r.getByLabelText(/Spot\. Tap to open/)).toBeTruthy()
-    act(() => { showToast('Added to queue', 'checkmark') })
-    expect(r.getByText('Added to queue')).toBeTruthy()
-    act(() => { jest.advanceTimersByTime(3000) })
-    expect(r.getByLabelText(/Spot\. Tap to open/)).toBeTruthy()
-    r.unmount()
-  })
-  it('opens the song panel on tap', () => {
-    mockNp = track
-    const r = render(React.createElement(Spot, { authed: true }))
-    fireEvent(r.getByLabelText(/Song is playing/), 'accessibilityTap')
-    expect(r.getByText('Song')).toBeTruthy()
-    expect(r.getByLabelText('Pause')).toBeTruthy()
-    r.unmount()
-  })
-  it('says the server is waking, logged out and on the cover screen', () => {
-    mockWaking = 12
-    const r = render(React.createElement(Spot, { authed: false }))
-    expect(r.getByText(/Waking up the server/)).toBeTruthy()
-    r.unmount()
-    mockCover = true
-    const c = render(React.createElement(Spot, { authed: true }))
-    expect(c.getByText(/Waking up the server/)).toBeTruthy()
-    c.unmount()
-  })
-  it('stays out of stories unless it has news', () => {
-    mockPath = '/story'
-    const r = render(React.createElement(Spot, { authed: true }))
-    expect(r.queryByLabelText(/Spot\./)).toBeNull()
-    act(() => { showToast('Saved') })
-    expect(r.getByText('Saved')).toBeTruthy()
-    r.unmount()
-  })
-})
 
 describe('TabletopNowPlaying', () => {
   it('appears when simulated half-folded with a song playing', () => {
