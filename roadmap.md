@@ -477,6 +477,12 @@ phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
   below). Kept: folded, the cover button opens the full view (`requestTabletop`);
   auto-open on fold back ON by default. [ ] A better half-fold idea for Lenses / when
   nothing plays — design first, on the board.
+- **Instant (Instagram-style)** — 2.0.36: `readCache` (stale-while-revalidate; nothing is
+  deleted for age) in playlists, tracks and analysis; Lenses hides the wake card when it
+  has a saved list; `utils/outbox` for Swipe's create/trim (optimistic done screen,
+  backoff 2 s → 5 min, persisted, backup step remembered). Playback stays live.
+- **Up next: layout 1 kept**, layout 2 removed (2.0.36). [ ] Controls rework + Flex panel
+  rework: options on the board (Ctl A/B/C, F1/F2/F3), waiting for a pick.
 - **Flex panel = the folded state** — 2.0.35 (picked over bedside / stories theatre /
   keep-as-is). Root layout: folded, the Stack lives in the standing half
   (`ContentHeightContext` for sheets, bottom inset 0) and `FlexPanel` fills the flat half:

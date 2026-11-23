@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.36',
+    name:    'Instant',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Everything you\'ve seen before shows up straight away, even after days away, and refreshes quietly behind the scenes. No more skeletons while the server wakes up.',
+          'Swipe: saving your keeps as a new playlist, or trimming the original, is done the moment you tap. It goes to Spotify in the background and keeps trying (even after a restart) until it lands.',
+          'Now playing full screen: one up-next layout (the card over the touch strip). The switch is now · up next.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.35',
     name:    'Flex panel',
     date:    '2026-11-23',

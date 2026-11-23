@@ -24,3 +24,13 @@ publish an OTA update.
 playlist.lens's animations are **perfectly tuned as they are**: playful and bouncy on
 purpose. Don't retune, damp or "calm" its springs, and don't port Soundwave's calmer
 motion settings here. (Soundwave is deliberately calmer; the two apps differ.)
+
+## Instant, like Instagram (from Andrei, 2026-11-23)
+
+Things that depend on the server should feel instant; only the things that must be live
+are allowed to wait (playback: skip, pause, the queue).
+- **Reads:** show whatever is saved straight away, however old (`readCache` in
+  utils/cache), and refresh quietly behind it. A loading state only when nothing is
+  saved. A failed refresh keeps what's on screen.
+- **Writes that can wait** (playlist changes and the like): show them as done at once and
+  send them through the outbox (`enqueue` in utils/outbox), which retries across restarts.

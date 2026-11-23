@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { api, ApiError } from '@/utils/api'
-import { getCache, setCache, deleteCache, CacheKeys } from '@/utils/cache'
+import { getCache, setCache, deleteCache, CacheKeys, readCache } from '@/utils/cache'
 import { buildAnalysis, isPlaylistAnalysis } from '@/utils/analyze'
 import type {
   SpotifyTrack,
@@ -30,16 +30,18 @@ export function useAnalysis() {
     palette:      PlaylistPalette | null,
     opts?:        { onColdStart?: () => void; onGone?: () => void },
   ) => {
-    // MMKV cache hit — instant. Self-heal poisoned entries (see isPlaylistAnalysis).
+    // MMKV cache hit — instant, however old (an old one re-analyses quietly behind it).
+    // Self-heal poisoned entries (see isPlaylistAnalysis).
     const cacheKey = CacheKeys.playlistAnalysis(playlistId)
-    const cached   = getCache<PlaylistAnalysis>(cacheKey)
-    if (cached && isPlaylistAnalysis(cached)) {
+    const saved    = readCache<PlaylistAnalysis>(cacheKey)
+    const cached   = saved && isPlaylistAnalysis(saved.data) ? saved.data : null
+    if (saved && !cached) deleteCache(cacheKey)   // malformed — drop it and re-analyze
+    if (cached) {
       setState({ status: 'success', data: cached, error: null, partial: null })
-      return cached
+      if (!saved!.stale) return cached
+    } else {
+      setState({ status: 'loading', data: null, error: null, partial: null })
     }
-    if (cached) deleteCache(cacheKey)   // malformed — drop it and re-analyze
-
-    setState({ status: 'loading', data: null, error: null, partial: null })
 
     try {
       // ── 1. Fetch all tracks (backend paginates up to 500) ──
@@ -114,7 +116,8 @@ export function useAnalysis() {
         setState(s => ({ ...s, status: 'error', error: 'This playlist no longer exists on Spotify.' }))
         return null
       }
-      setState(s => ({ ...s, status: 'error', error: err.message ?? 'Analysis failed.' }))
+      // An old analysis on screen: keep it rather than swapping it for an error.
+      setState(s => (s.data ? s : { ...s, status: 'error', error: err.message ?? 'Analysis failed.' }))
       return null
     }
   }, [])

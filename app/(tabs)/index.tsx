@@ -265,7 +265,8 @@ export default function PlaylistsTab() {
   // the quotes jump/skip on refresh. Only re-derives during a server wake-up.
   const listHeader = useMemo(() => (
     <>
-      {wakeSecs !== null ? <ColdStartOverlay elapsed={wakeSecs} /> : cover ? null : <RotatingStrip />}
+      {/* waking the server: only worth saying when there's nothing saved to show meanwhile */}
+      {wakeSecs !== null && !data?.length ? <ColdStartOverlay elapsed={wakeSecs} /> : cover ? null : <RotatingStrip />}
       {cover ? <CoverBento /> : (
       <>
       <TouchableOpacity
@@ -287,7 +288,7 @@ export default function PlaylistsTab() {
       </>
       )}
     </>
-  ), [wakeSecs, openTaste, cover])
+  ), [wakeSecs, openTaste, cover, !!data?.length])
 
   const ListEmpty = () => {
     if (searching && orderedData.length > 0) {

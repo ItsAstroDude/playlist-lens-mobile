@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { api } from '@/utils/api'
-import { getCache, setCache, CacheKeys } from '@/utils/cache'
+import { getCache, readCache, setCache, CacheKeys } from '@/utils/cache'
 import type {
   SpotifyPlaylist,
   SpotifyTrack,
@@ -17,15 +17,17 @@ export function usePlaylists() {
   // `force` (pull-to-refresh) skips the cache but leaves it in place until fresh
   // data arrives — so a failed refresh still has the saved list to fall back on.
   const fetch = useCallback(async (opts?: { onColdStart?: () => void; force?: boolean }) => {
-    // Try cache first
-    const cached = opts?.force ? null : getCache<SpotifyPlaylist[]>(CacheKeys.playlists)
-    if (cached) {
-      setState({ status: 'success', data: cached, error: null, partial: null })
-      return cached
+    // Saved list first, however old: on screen at once. Fresh → done; old → refresh it
+    // quietly behind (no skeletons, no spinner; a failed refresh keeps the saved list).
+    const saved = readCache<SpotifyPlaylist[]>(CacheKeys.playlists)
+    if (saved && !opts?.force) {
+      setState({ status: 'success', data: saved.data, error: null, partial: null })
+      if (!saved.stale) return saved.data
     }
+    const quiet = !!saved || !!opts?.force
 
-    // A forced refresh keeps the current list on screen (RefreshControl shows progress).
-    if (!opts?.force) setState(s => ({ ...s, status: 'loading' }))
+    // Nothing saved at all: then (only then) a loading state.
+    if (!quiet) setState(s => ({ ...s, status: 'loading' }))
     try {
       const res = await api.get<{ items: SpotifyPlaylist[] }>(
         '/api/playlists',
@@ -36,7 +38,8 @@ export function usePlaylists() {
       setState({ status: 'success', data: items, error: null, partial: null })
       return items
     } catch (err: any) {
-      setState(s => ({ ...s, status: 'error', error: err.message }))
+      // Something on screen already: keep it and stay quiet.
+      setState(s => (s.data ? s : { ...s, status: 'error', error: err.message }))
       return null
     }
   }, [])
@@ -65,13 +68,14 @@ export function usePlaylistTracks() {
     opts?: { onColdStart?: () => void; onRetry?: (n: number) => void }
   ) => {
     const cacheKey = CacheKeys.playlistTracks(plId)
-    const cached = getCache<SpotifyTrack[]>(cacheKey)
-    if (cached) {
-      setState({ status: 'success', data: cached, error: null, partial: null })
-      return cached
+    // Saved tracks first, however old; refresh quietly behind when they're old.
+    const saved = readCache<SpotifyTrack[]>(cacheKey)
+    if (saved) {
+      setState({ status: 'success', data: saved.data, error: null, partial: null })
+      if (!saved.stale) return saved.data
+    } else {
+      setState(s => ({ ...s, status: 'loading' }))
     }
-
-    setState(s => ({ ...s, status: 'loading' }))
     try {
       const res = await api.get<{ items: Array<{ track: SpotifyTrack }> }>(
         `/api/playlist/${plId}/tracks`,
@@ -82,7 +86,7 @@ export function usePlaylistTracks() {
       setState({ status: 'success', data: tracks, error: null, partial: null })
       return tracks
     } catch (err: any) {
-      setState(s => ({ ...s, status: 'error', error: err.message }))
+      setState(s => (s.data ? s : { ...s, status: 'error', error: err.message }))
       return null
     }
   }, [])

@@ -17,16 +17,24 @@ export function setCache<T>(key: string, value: T): void {
   storage.set(key, JSON.stringify(entry))
 }
 
+/** Fresh data only (younger than a day). An older entry is kept — readCache() still
+ *  serves it, so a screen can show it at once while it refreshes. */
 export function getCache<T>(key: string): T | null {
+  const entry = readCache<T>(key)
+  return entry && !entry.stale ? entry.data : null
+}
+
+/**
+ * Whatever is saved, however old (2.0.36, "instant like Instagram"): show it straight
+ * away, and refresh behind it when `stale`. Never deletes: an old copy beats a spinner
+ * while the free-tier server wakes up.
+ */
+export function readCache<T>(key: string): { data: T; stale: boolean; ts: number } | null {
   const raw = storage.getString(key)
   if (!raw) return null
   try {
     const entry: CacheEntry<T> = JSON.parse(raw)
-    if (Date.now() - entry.ts > CACHE_TTL_MS) {
-      storage.remove(key)
-      return null
-    }
-    return entry.data
+    return { data: entry.data, ts: entry.ts, stale: Date.now() - entry.ts > CACHE_TTL_MS }
   } catch {
     storage.remove(key)
     return null

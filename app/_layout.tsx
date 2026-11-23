@@ -45,6 +45,7 @@ import { QueueCartTray } from '@/components/queue/QueueCartTray'
 import { StartQueueSheet } from '@/components/queue/StartQueueSheet'
 import type { QueueItem } from '@/utils/queueCart'
 import { checkForUpdate, applyUpdate } from '@/utils/updates'
+import { startOutbox } from '@/utils/outbox'
 import {
   shouldShowTutorial, markTutorialSeen, shouldShowWhatsNew, markWhatsNewSeen,
 } from '@/utils/whatsNew'
@@ -126,6 +127,8 @@ export default function RootLayout() {
 
   // Best-effort auto-Wrapped refresh (keeps recaps fresh; no-ops when logged out).
   useAutoWrapped(isAuthenticated)
+  // Changes waiting to reach Spotify (the outbox) go out once signed in, and on every return.
+  useEffect(() => { if (isAuthenticated) startOutbox() }, [isAuthenticated])
 
   // Flex panel (2.0.35): folded, the screens live in the standing half and the flat half
   // is a music remote. Screens see the half's height (sheets) and no bottom inset (the
