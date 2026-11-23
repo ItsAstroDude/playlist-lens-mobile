@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Platform } from 'react-native'
 import { router } from 'expo-router'
 import { Screen, ScreenHeader, Section, ListRow, ToggleRow } from '@/components/ui'
 import { haptic } from '@/constants/animation'
@@ -32,14 +33,18 @@ export default function Labs() {
         <ListRow icon="disc-outline" tint="violet" label="Wrapped (work in progress)"
           hint="Being rebuilt to scroll smoothly. Its tab is the Play minigame for now"
           onPress={go('/wrapped')} />
-        <ListRow icon="phone-portrait-outline" tint="sky" label="Cover screen lab"
-          hint="A ring round the cameras on the Flip's cover screen"
-          onPress={go('/cover-lab')} />
+        {/* Galaxy Z Flip only (Android): no cover screen or hinge on an iPhone */}
+        {Platform.OS === 'android' && (
+          <ListRow icon="phone-portrait-outline" tint="sky" label="Cover screen lab"
+            hint="A ring round the cameras on the Flip's cover screen"
+            onPress={go('/cover-lab')} />
+        )}
         <ListRow icon="sparkles-outline" tint="violet" label="Motion lab"
           hint="Try the 2.0 animations one by one"
           onPress={go('/motion-lab')} last />
       </Section>
 
+      {Platform.OS === 'android' && (
       <Section label="half-folded">
         <ToggleRow icon="laptop-outline" tint="sky" label="Tabletop Now Playing"
           hint="Half-fold the phone while a song plays: cover on top, controls on the flat half"
@@ -53,6 +58,7 @@ export default function Labs() {
         <ListRow icon="analytics-outline" tint="violet" label="Fold right now"
           value={fold} last />
       </Section>
+      )}
 
       <Section label="testing">
         <ListRow icon="git-commit-outline" tint="amber" label="Update details"

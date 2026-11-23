@@ -499,13 +499,14 @@ OTAs still work). Ad hoc needs every iPhone's UDID registered first.
   go to the `production` branch (Android stays on `preview`).
 
 **Before the first iOS build (code, no account):**
-- [ ] Recap notifications: `utils/notifications.ts` returns early off Android — ask for
-      permission and schedule on iOS too.
-- [ ] Save image (`utils/saveImage.ts` is Android-only): save to Photos on iOS
-      (expo-media-library, new native module → part of the first iOS build anyway).
-- [ ] Hide Android-only rows on iOS: widget, Flip cover/fold Labs, app-icon picker if
-      the icons aren't set up for iOS.
-- [ ] Spotify sign-in round trip on iOS (scheme `playlistlens`, backend allow-list).
+- [x] Recap notifications: already cross-platform (only the Android channel is skipped on iOS).
+- [x] Save image: iOS already falls back to the share sheet (its "Save Image" saves to
+      Photos) — no new native module, so the Android fingerprint stays put.
+- [x] Android-only bits hidden on iOS: Flip cover/fold Labs rows, the app-icon picker
+      (until iOS icon images are added to the plugin config — next APK + first iOS build);
+      the widget has no iOS UI and its library isn't loaded there.
+- [x] Spotify sign-in: `Linking.createURL('/callback')` = `playlistlens://callback` in a
+      standalone build, which the server allows. [ ] Confirm on a real iPhone.
 - [ ] Check the header, tab bar and sheets round the notch / Dynamic Island.
 
 **Build day:** `eas build -p ios --profile production` → `eas submit -p ios` →
