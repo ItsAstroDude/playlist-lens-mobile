@@ -11,6 +11,10 @@ export EXPO_TOKEN=dummy-token-proxy-injects                  # the proxy injects
 npx eas-cli@latest update --branch preview --platform android --message "..." --non-interactive
 ```
 
+**Installed APK (from 2026-11-23): versionCode 5, runtime
+`b0b14760bcffaa123ab3b80282ceb5669f662b6b`.** Publish OTAs for this runtime only; older
+APKs (versionCode 4 and below) no longer get updates.
+
 Only build a new APK when a change touches native code (a new native dependency, a config
 plugin, app.json native fields, `modules/`), and say so before building. "Push" means
 publish an OTA update.
