@@ -1,10 +1,10 @@
+require('react-native-gesture-handler/jestSetup')
 /**
  * Smoke tests: the half-folded tabletop view renders, and only when it should.
  */
 import React from 'react'
 import { render, act } from '@testing-library/react-native'
 
-require('react-native-gesture-handler/jestSetup')
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'))
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 40, bottom: 24, left: 0, right: 0 }),
@@ -37,8 +37,20 @@ jest.mock('@/hooks/useNowPlaying', () => ({
   pokeNowPlaying: jest.fn(),
 }))
 
+jest.mock('@/utils/api', () => {
+  class ApiError extends Error { mockStatus = 0 }
+  const img = null
+  return {
+    ApiError,
+    api: { get: jest.fn(() => Promise.resolve({ current: null, queue: [
+      { id: 'n1', uri: 'spotify:track:n1', name: 'Lovesick Girls', duration_ms: 182000, artists: ['Moe Shop'], image: img },
+      { id: 'n2', uri: 'spotify:track:n2', name: 'Hitorinbo Envy', duration_ms: 228000, artists: ['25-ji'], image: img },
+    ] })) },
+  }
+})
+
 import { TabletopNowPlaying } from '@/components/fold/TabletopNowPlaying'
-import { setSimulateHalfFold } from '@/utils/settings'
+import { setSimulateHalfFold, setTabletopLayout } from '@/utils/settings'
 
 beforeEach(() => { jest.useFakeTimers(); mockNp = null; mockWaking = null; mockCover = false; mockPath = '/' })
 afterEach(() => { jest.useRealTimers() })
@@ -52,6 +64,22 @@ describe('TabletopNowPlaying', () => {
     expect(r.getByLabelText('Close tabletop view')).toBeTruthy()
     expect(r.getByText('Song')).toBeTruthy()
     r.unmount()
+    setSimulateHalfFold(false)
+  })
+  it('shows up next as a deck in both C+D layouts', async () => {
+    mockNp = track
+    setSimulateHalfFold(true)
+    for (const layout of ['strip', 'pad'] as const) {
+      setTabletopLayout(layout)
+      const r = render(React.createElement(TabletopNowPlaying))
+      await act(async () => { jest.advanceTimersByTime(800); await Promise.resolve(); await Promise.resolve() })
+      expect(r.getByLabelText(/Up next: Lovesick Girls/)).toBeTruthy()
+      expect(r.getByLabelText('Up next: deck over a touch strip')).toBeTruthy()
+      if (layout === 'strip') expect(r.getByLabelText(/Touch strip/)).toBeTruthy()
+      else expect(r.getByText(/tap the pad/)).toBeTruthy()
+      r.unmount()
+    }
+    setTabletopLayout('now')
     setSimulateHalfFold(false)
   })
   it('stays away when flat', () => {

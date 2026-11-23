@@ -465,8 +465,15 @@ phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
   CoverPlayer.tsx`, replaces the compact sheet on the cover). Missing vs Samsung: seek,
   shuffle, save (✓) — the backend has no endpoints for them yet (needs /api/playback/seek,
   /shuffle and a library save + the user-library-modify scope).
-- **Half-folded H2** — round 4 on the board: C + D combined (1: deck over a touch strip,
-  2: deck on the pad); waiting for a pick.
+- **Half-folded H2 → both C+D layouts built** — 2.0.28, to choose between on the phone:
+  `components/fold/UpNext.tsx` ('strip' = C+D 1, 'pad' = C+D 2), switch in the view
+  (now · 1 · 2) and in Labs (`settings.tabletopLayout`). Queue from the new server route
+  GET /api/playback/upnext (playlist-lens-web branch ccr-fb44cf78-jfekr9 — **live only
+  once merged to master**; until then the deck says the server needs updating).
+  Spotify can't remove queue items, so "drop" = skip it when it starts (watcher in
+  NowPlayingBar, `utils/upNext.ts`, tested); "play now" = skip ahead to it.
+- **Drop card open/close** — 2.0.28: unfolds from the button (top-right corner held,
+  content fades in), folds back in; anchor corrected for the status bar.
 
 ---
 

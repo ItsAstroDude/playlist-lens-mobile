@@ -19,6 +19,7 @@ const KEYS = {
   tribute:       'settings.tribute',
   cameraOutline: 'settings.cameraOutlinePx',   // panel px (the old dp key is ignored)
   tabletop:      'settings.tabletop',
+  tabletopLayout: 'settings.tabletopLayout',
   simulateFold:  'labs.simulateHalfFold',
 } as const
 
@@ -174,4 +175,15 @@ export function simulateHalfFold(): boolean {
 }
 export function setSimulateHalfFold(on: boolean): void {
   storage.set(KEYS.simulateFold, on); emitFold()
+}
+
+/** What the half-folded view shows: Now playing (H1), or up next as a swipe deck over a
+ *  touch strip (C+D 1) or sitting on a touch pad (C+D 2). Switchable in the view itself. */
+export type TabletopLayout = 'now' | 'strip' | 'pad'
+export function tabletopLayout(): TabletopLayout {
+  const v = storage.getString(KEYS.tabletopLayout)
+  return v === 'now' || v === 'strip' || v === 'pad' ? v : 'strip'
+}
+export function setTabletopLayout(v: TabletopLayout): void {
+  storage.set(KEYS.tabletopLayout, v); emitFold()
 }

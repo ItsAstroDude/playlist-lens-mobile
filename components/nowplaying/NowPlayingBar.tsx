@@ -20,6 +20,8 @@ import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { useAuth } from '@/hooks/useAuth'
 import { onOpenNowPlaying } from '@/utils/overlayEvents'
 import { NowPlayingSheet } from './NowPlayingSheet'
+import { forgetDropped, isDropped } from '@/utils/upNext'
+import { skipNext } from '@/utils/playback'
 
 // ─── Live now-playing bar (v1.3 "Pulse") ─────────────────────────────────────
 // Slim glass pill docked just above the floating tab bar, on every tab. Shows
@@ -98,6 +100,15 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
   // The stats sheet lives HERE (always mounted at the layout level) no matter
   // the placement — the cover-screen ring opens it via this event.
   useEffect(() => onOpenNowPlaying(() => setSheetOpen(true)), [])
+
+  // A song dropped from up next (half-folded deck) is skipped the moment it starts:
+  // Spotify's API can't take songs out of the queue, so this is how "drop" works.
+  const songId = np?.item?.id ?? null
+  useEffect(() => {
+    if (!songId || !isDropped(songId) || !np?.is_playing) return
+    forgetDropped(songId)
+    skipNext().catch(() => {})
+  }, [songId, np?.is_playing])
 
   const isTrack = !!np?.item && np.type === 'track'
   const showReconnect = needsReconnect && !dismissed

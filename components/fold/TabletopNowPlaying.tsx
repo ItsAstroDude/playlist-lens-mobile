@@ -16,7 +16,8 @@ import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { usePosture } from '@/hooks/usePosture'
 import { useIsCover } from '@/hooks/useScreen'
 import { tabletopSplit } from '@/utils/posture'
-import { onFoldSettings, tabletopEnabled } from '@/utils/settings'
+import { onFoldSettings, setTabletopLayout, tabletopEnabled, tabletopLayout, type TabletopLayout } from '@/utils/settings'
+import { UpNextPad, UpNextStrip, UpNextTop, useUpNext } from './UpNext'
 import { setTabletopActive } from '@/utils/coverMode'
 import { fmtClock, useNowPlayingModel } from '@/components/nowplaying/useNowPlayingModel'
 
@@ -77,6 +78,11 @@ export function TabletopNowPlaying() {
   if (split) lastSplit.current = split
   const m = useNowPlayingModel(isTrack ? np : lastNp.current, mounted)
 
+  // Which layout: Now playing, or up next as C+D 1 (deck + strip) / C+D 2 (deck on pad).
+  const [layout, setLayout] = useState<TabletopLayout>(tabletopLayout)
+  useEffect(() => onFoldSettings(() => setLayout(tabletopLayout())), [])
+  const upNext = useUpNext(m.item?.id, mounted && layout !== 'now')
+
   // A new song: the cover pops in on the bouncy spring.
   const pop = useSharedValue(1)
   useEffect(() => {
@@ -107,6 +113,18 @@ export function TabletopNowPlaying() {
         ? <Aurora colors={auroraColors} base={Colors.background} dim={0.48} style={StyleSheet.absoluteFill} />
         : <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.background }]} />}
 
+      {layout !== 'now' ? (
+        <>
+          <Animated.View style={topStyle}>
+            <UpNextTop m={m} state={upNext.state} W={W} height={topH} padTop={insets.top + 56} skipFirst={layout === 'pad'} />
+          </Animated.View>
+          <Animated.View style={bottomStyle}>
+            {layout === 'strip'
+              ? <UpNextStrip m={m} state={upNext.state} refresh={upNext.refresh} W={W} height={bottomH} padBottom={Math.max(insets.bottom, Spacing.lg)} />
+              : <UpNextPad m={m} state={upNext.state} refresh={upNext.refresh} W={W} height={bottomH} padBottom={Math.max(insets.bottom, Spacing.lg)} />}
+          </Animated.View>
+        </>
+      ) : (<>
       {/* ── the half that stands up ── */}
       <Animated.View style={[styles.top, { height: topH, paddingTop: insets.top + Spacing.md }, topStyle]}>
         <Animated.View style={[styles.artWrap, { width: artSize, height: artSize, shadowColor: accent }, artStyle]}>
@@ -121,12 +139,6 @@ export function TabletopNowPlaying() {
         <Text style={styles.kind}>{playing ? 'NOW PLAYING' : 'PAUSED'}</Text>
         <Text style={styles.name} numberOfLines={2}>{item?.name}</Text>
         {!!item?.artists?.length && <Text style={styles.artist} numberOfLines={1}>{item.artists.join(', ')}</Text>}
-
-        <Pressable onPress={() => { haptic.light(); setDismissed(true) }} hitSlop={12}
-          style={[styles.close, { top: insets.top + Spacing.sm }]}
-          accessibilityRole="button" accessibilityLabel="Close tabletop view">
-          <Ionicons name="chevron-down" size={22} color={Colors.textSecondary} />
-        </Pressable>
       </Animated.View>
 
       {/* ── the half lying flat: controls within thumb reach ── */}
@@ -177,9 +189,36 @@ export function TabletopNowPlaying() {
           <Text style={styles.spotifyText}>open in spotify</Text>
         </Pressable>
       </Animated.View>
+      </>)}
+
+      {/* ── layout switch + close, top right of the standing half ── */}
+      <View style={[styles.chrome, { top: insets.top + Spacing.sm }]}>
+        <View style={styles.switch} accessibilityRole="radiogroup" accessibilityLabel="Half-folded layout">
+          {LAYOUTS.map(o => {
+            const on = layout === o.id
+            return (
+              <Pressable key={o.id} onPress={() => { if (!on) { haptic.light(); setTabletopLayout(o.id) } }}
+                style={[styles.switchItem, on && styles.switchItemOn]} accessibilityRole="radio"
+                accessibilityState={{ selected: on }} accessibilityLabel={o.label}>
+                <Text style={[styles.switchText, on && styles.switchTextOn]}>{o.short}</Text>
+              </Pressable>
+            )
+          })}
+        </View>
+        <Pressable onPress={() => { haptic.light(); setDismissed(true) }} hitSlop={12} style={styles.close}
+          accessibilityRole="button" accessibilityLabel="Close tabletop view">
+          <Ionicons name="chevron-down" size={22} color={Colors.textSecondary} />
+        </Pressable>
+      </View>
     </Animated.View>
   )
 }
+
+const LAYOUTS: { id: TabletopLayout; short: string; label: string }[] = [
+  { id: 'now',   short: 'now', label: 'Now playing' },
+  { id: 'strip', short: '1',   label: 'Up next: deck over a touch strip' },
+  { id: 'pad',   short: '2',   label: 'Up next: deck on the pad' },
+]
 
 const styles = StyleSheet.create({
   root:    { zIndex: 60, elevation: 60 },
@@ -193,7 +232,13 @@ const styles = StyleSheet.create({
   kind:    { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 2 },
   name:    { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, color: Colors.text, textAlign: 'center', letterSpacing: -0.5, marginTop: 2 },
   artist:  { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, marginTop: 2 },
-  close:   { position: 'absolute', right: Spacing.lg, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.glass },
+  close:   { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.glass },
+  chrome:  { position: 'absolute', right: Spacing.lg, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, zIndex: 5 },
+  switch:  { flexDirection: 'row', padding: 3, gap: 2, borderRadius: Radius.full, backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder },
+  switchItem:   { minWidth: 36, height: 34, paddingHorizontal: 10, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  switchItemOn: { backgroundColor: Colors.text },
+  switchText:   { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.textSecondary },
+  switchTextOn: { color: Colors.background },
 
   bottom:  { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, justifyContent: 'space-evenly' },
   progress: { gap: 6 },

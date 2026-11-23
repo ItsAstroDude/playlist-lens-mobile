@@ -3,7 +3,7 @@ import { router } from 'expo-router'
 import { Screen, ScreenHeader, Section, ListRow, ToggleRow } from '@/components/ui'
 import { haptic } from '@/constants/animation'
 import { updateDetails } from '@/utils/updates'
-import { onFoldSettings, setSimulateHalfFold, setTabletopEnabled, simulateHalfFold, tabletopEnabled } from '@/utils/settings'
+import { onFoldSettings, setSimulateHalfFold, setTabletopEnabled, setTabletopLayout, simulateHalfFold, tabletopEnabled, tabletopLayout, type TabletopLayout } from '@/utils/settings'
 import { postureSupported, usePosture } from '@/hooks/usePosture'
 
 const go = (path: Parameters<typeof router.push>[0]) => () => { haptic.light(); router.push(path) }
@@ -17,7 +17,10 @@ export default function Labs() {
   const posture = usePosture()
   const [tabletop, setTabletop] = useState(tabletopEnabled)
   const [simulate, setSimulate] = useState(simulateHalfFold)
-  useEffect(() => onFoldSettings(() => { setTabletop(tabletopEnabled()); setSimulate(simulateHalfFold()) }), [])
+  const [foldLayout, setFoldLayout] = useState(tabletopLayout)
+  useEffect(() => onFoldSettings(() => { setTabletop(tabletopEnabled()); setSimulate(simulateHalfFold()); setFoldLayout(tabletopLayout()) }), [])
+  const nextLayout: Record<TabletopLayout, TabletopLayout> = { now: 'strip', strip: 'pad', pad: 'now' }
+  const layoutName: Record<TabletopLayout, string> = { now: 'Now playing', strip: 'Up next · 1 (strip)', pad: 'Up next · 2 (pad)' }
   const fold = posture.state === 'none'
     ? (postureSupported ? 'no fold here' : 'needs the new APK')
     : `${posture.state === 'half' ? 'half-folded' : 'flat'} · hinge at ${Math.round(posture.top)} dp${posture.source === 'simulated' ? ' (simulated)' : ''}`
@@ -41,6 +44,9 @@ export default function Labs() {
         <ToggleRow icon="laptop-outline" tint="sky" label="Tabletop Now Playing"
           hint="Half-fold the phone while a song plays: cover on top, controls on the flat half"
           value={tabletop} onValueChange={v => { haptic.light(); setTabletopEnabled(v) }} />
+        <ListRow icon="layers-outline" tint="violet" label="Half-folded shows"
+          hint="Tap to switch. Also switchable in the view itself (now · 1 · 2, top right)"
+          value={layoutName[foldLayout]} onPress={() => { haptic.light(); setTabletopLayout(nextLayout[foldLayout]) }} />
         <ToggleRow icon="contrast-outline" tint="amber" label="Simulate half-folded"
           hint="Pretend the phone is folded halfway, to try the layout flat on the table"
           value={simulate} onValueChange={v => { haptic.light(); setSimulateHalfFold(v) }} />

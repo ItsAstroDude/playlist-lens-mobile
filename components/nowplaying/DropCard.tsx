@@ -7,8 +7,9 @@ import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import Svg, { Circle } from 'react-native-svg'
 import { useFocusEffect } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
-  runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming,
+  Easing, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
@@ -85,6 +86,8 @@ export function NowPlayingButton() {
   const item = np?.item ?? null
   const isTrack = !!item && np?.type === 'track'
   const art = item?.album?.images?.[0]?.url ?? null
+  // While the card is open the button has become the card: hide it.
+  const opened = useStore(() => isOpen)
 
   // The ring advances on its own between polls (a step every 2 s is plenty for a ring).
   const [, tick] = useState(0)
@@ -114,7 +117,7 @@ export function NowPlayingButton() {
   return (
     <Pressable ref={ref} onLayout={measure} hitSlop={4}
       onPress={() => { haptic.light(); measure(); setOpen(true) }}
-      style={styles.btn} accessibilityRole="button"
+      style={[styles.btn, opened && { opacity: 0 }]} accessibilityRole="button"
       accessibilityLabel={`Now playing: ${item?.name ?? ''}${item?.artists?.length ? ` by ${item.artists.join(', ')}` : ''}`}
       accessibilityHint="Opens playback controls">
       <Svg width={BTN} height={BTN} style={StyleSheet.absoluteFill}>
@@ -179,12 +182,16 @@ export function DropCardHost() {
   // Leaving Lenses closes it.
   useFocusEffect(useCallback(() => () => setOpen(false), []))
 
+  const insets = useSafeAreaInsets()
   if (!active) return null
-  const a = anchor ?? { x: W - Spacing.lg - BTN * 2 - Spacing.sm, y: 60, w: BTN, h: BTN }
+  const raw = anchor ?? { x: W - Spacing.lg - BTN * 2 - Spacing.sm, y: insets.top + Spacing.sm, w: BTN, h: BTN }
+  // Android can measure from below the status bar while this layer starts above it; the
+  // button always sits below the status bar, so a y inside it means it was measured that way.
+  const a = raw.y < insets.top ? { ...raw, y: raw.y + insets.top } : raw
   return (
     <>
       <NewsCard news={open ? null : news} a={a} W={W} reduced={reduced} />
-      <OpenCard open={open && !!item} a={a} reduced={reduced} lately={lately} />
+      <OpenCard open={open && !!item} a={a} W={W} top={insets.top + Spacing.sm} reduced={reduced} lately={lately} />
     </>
   )
 }
@@ -225,50 +232,77 @@ function NewsCard({ news, a, W, reduced }: { news: DropNews | null; a: Anchor; W
   )
 }
 
-// ── the whole card, grown out of the button ──
-function OpenCard({ open, a, reduced, lately }: { open: boolean; a: Anchor; reduced: boolean; lately: DropNews[] }) {
+// ── the whole card, unfolding out of the button ──
+// The card grows from the button's circle to its full size with its top-right corner
+// held where the button is (the cover sits there), so the button looks like it opens
+// up; closing folds it back in. Content fades in once there's room for it.
+function OpenCard({ open, a, W, top, reduced, lately }: {
+  open: boolean; a: Anchor; W: number; top: number; reduced: boolean; lately: DropNews[]
+}) {
   const { np } = useNowPlaying()
   const [mounted, setMounted] = useState(open)
   const m = useNowPlayingModel(np, mounted)
+  const [h, setH] = useState(460)                 // measured content height
   const k = useSharedValue(0)
   useEffect(() => {
     if (open) {
       setMounted(true)
       k.value = reduced ? withTiming(1, { duration: 180 }) : withSpring(1, Spring.default)
     } else {
-      k.value = withTiming(0, { duration: 180 }, done => { if (done) runOnJS(setMounted)(false) })
+      k.value = withTiming(0, { duration: reduced ? 160 : 240, easing: Easing.inOut(Easing.cubic) },
+        done => { if (done) runOnJS(setMounted)(false) })
     }
   }, [open])
-  const backdrop = useAnimatedStyle(() => ({ opacity: Math.min(1, k.value) }))
-  const card = useAnimatedStyle(() => ({
-    opacity: Math.min(1, k.value * 1.6),
-    transform: [{ scale: 0.35 + 0.65 * k.value }],
-  }))
+
+  const cw = W - Spacing.lg * 2                    // final width
+  const right = Spacing.lg                         // final right edge inset
+  const fromRight = W - (a.x + a.w)                // the button's right inset
+  const backdrop = useAnimatedStyle(() => ({ opacity: Math.min(1, Math.max(0, k.value)) }))
+  const card = useAnimatedStyle(() => {
+    const t = k.value, c = Math.min(1, Math.max(0, t))
+    return {
+      top: a.y + (top - a.y) * t,
+      right: fromRight + (right - fromRight) * t,
+      width: Math.max(BTN * 0.6, BTN + (cw - BTN) * t),
+      height: Math.max(BTN * 0.6, BTN + (h - BTN) * t),
+      borderTopLeftRadius: BTN / 2 + (Radius['2xl'] - BTN / 2) * c,
+      borderBottomLeftRadius: BTN / 2 + (Radius['2xl'] - BTN / 2) * c,
+      borderBottomRightRadius: BTN / 2 + (Radius['2xl'] - BTN / 2) * c,
+      borderTopRightRadius: BTN / 2 + (26 - BTN / 2) * c,
+    }
+  })
+  const content = useAnimatedStyle(() => ({ opacity: Math.min(1, Math.max(0, (k.value - 0.35) / 0.45)) }))
+  const coverIn = useAnimatedStyle(() => ({ opacity: Math.min(1, Math.max(0, k.value * 3)) }))
   if (!mounted) return null
   const close = () => { haptic.light(); setOpen(false) }
   const { item, stats, dur, liveMs, playing, busy, art, initial } = m
   const pct = dur > 0 ? Math.min(liveMs / dur, 1) : 0
+  // The song already on the card isn't news in the list under it.
+  const recent = lately.filter(n => !(n.kind === 'song' && n.title === item?.name))
 
   return (
     <>
       <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdrop]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityRole="button" accessibilityLabel="Close" />
       </Animated.View>
-      <Animated.View accessibilityViewIsModal
-        style={[styles.card, { top: Math.max(a.y - 4, Spacing.md), transformOrigin: 'top right' }, card]}>
+      <Animated.View accessibilityViewIsModal style={[styles.card, card]}>
+        {/* laid out at the final width, held to the top-right corner while it grows */}
+        <View style={[styles.cardBody, { width: cw }]} onLayout={e => setH(Math.round(e.nativeEvent.layout.height))}>
         <View style={styles.head}>
-          <View style={styles.headText}>
+          <Animated.View style={[styles.headText, content]}>
             <Text style={styles.overline}>{playing ? 'NOW PLAYING' : 'PAUSED'}</Text>
             <Text style={styles.title} numberOfLines={2}>{item?.name}</Text>
             {!!item?.artists?.length && <Text style={styles.artist} numberOfLines={1}>{item.artists.join(', ')}</Text>}
-          </View>
-          <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close" style={styles.coverWrap}>
+          </Animated.View>
+          <AnimatedPressable onPress={close} accessibilityRole="button" accessibilityLabel="Close" style={[styles.coverWrap, coverIn]}>
             {art ? <Image source={{ uri: art }} style={styles.cover} contentFit="cover" transition={150} />
                  : <LinearGradient colors={[alpha(Colors.greenPrimary, 0.33), alpha(Colors.greenPrimary, 0.07)]} style={[styles.cover, styles.coverEmpty]}>
                      <Text style={styles.initial}>{initial}</Text>
                    </LinearGradient>}
-          </Pressable>
+          </AnimatedPressable>
         </View>
+
+        <Animated.View style={[styles.rest, content]}>
 
         {dur > 0 && (
           <View style={styles.progress}>
@@ -289,10 +323,10 @@ function OpenCard({ open, a, reduced, lately }: { open: boolean; a: Anchor; redu
           </Pressable>
         </View>
 
-        {lately.length > 0 && (
+        {recent.length > 0 && (
           <View style={styles.lately}>
             <Text style={[styles.overline, styles.latelyLabel]}>LATELY</Text>
-            {lately.map(n => (
+            {recent.map(n => (
               <View key={n.id} style={styles.latelyRow}>
                 <Icon name={n.kind === 'song' ? 'musical-note' : (n.glyph ?? 'checkmark')} size={14} color={n.kind === 'song' ? Colors.textSecondary : Colors.greenPrimary} />
                 <Text style={styles.latelyText} numberOfLines={1}>{n.kind === 'song' ? `${n.title}${n.sub ? ` · ${n.sub}` : ''}` : n.title}</Text>
@@ -312,10 +346,14 @@ function OpenCard({ open, a, reduced, lately }: { open: boolean; a: Anchor; redu
             <Text style={styles.link}>Open in Spotify</Text>
           </Pressable>
         </View>
+        </Animated.View>
+        </View>
       </Animated.View>
     </>
   )
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
 const styles = StyleSheet.create({
   btn:          { width: BTN, height: BTN, borderRadius: BTN / 2, alignItems: 'center', justifyContent: 'center' },
@@ -339,12 +377,12 @@ const styles = StyleSheet.create({
 
   backdrop:  { zIndex: 41, elevation: 41, backgroundColor: 'rgba(0,0,0,0.55)' },
   card: {
-    position: 'absolute', left: Spacing.lg, right: Spacing.lg, zIndex: 42, elevation: 42,
-    padding: Spacing.lg, gap: Spacing.lg,
-    borderTopLeftRadius: Radius['2xl'], borderTopRightRadius: 26, borderBottomLeftRadius: Radius['2xl'], borderBottomRightRadius: Radius['2xl'],
+    position: 'absolute', zIndex: 42, elevation: 42, overflow: 'hidden',
     borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.4), backgroundColor: Colors.sheet,
     shadowColor: '#000', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.5, shadowRadius: 30,
   },
+  cardBody:  { position: 'absolute', top: 0, right: 0, padding: Spacing.lg, gap: Spacing.lg },
+  rest:      { gap: Spacing.lg },
   head:      { flexDirection: 'row', gap: Spacing.md, alignItems: 'flex-start' },
   headText:  { flex: 1, minWidth: 0, paddingTop: 4 },
   overline:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, letterSpacing: 2, color: Colors.textMuted },

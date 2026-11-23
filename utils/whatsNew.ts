@@ -19,6 +19,26 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.28',
+    name:    'Up next, folded',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Half-folded: two new "up next" layouts to try, switchable in the view (now · 1 · 2, top right) or in Labs. The half that stands up shows the song and what plays next, with when each one starts. On the flat half the next song is a card: swipe it left to drop it, right to keep it, up to play it now.',
+          'Layout 1 puts a touch strip under the card (tap to pause, swipe to skip). Layout 2 puts the card on a touch pad: touch round the card for playback, the card itself for the queue.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Drop card: it now opens out of the cover button and folds back into it, stays below the status bar, and its "lately" list no longer repeats the song that\'s playing.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.27',
     name:    'Cover player',
     date:    '2026-11-23',
