@@ -21,8 +21,8 @@ export default function Labs() {
   const [foldLayout, setFoldLayout] = useState(tabletopLayout)
   const [flexOn, setFlexOn] = useState(flexPanelEnabled)
   useEffect(() => onFoldSettings(() => { setTabletop(tabletopEnabled()); setSimulate(simulateHalfFold()); setFoldLayout(tabletopLayout()); setFlexOn(flexPanelEnabled()) }), [])
-  const nextLayout: Record<TabletopLayout, TabletopLayout> = { now: 'strip', strip: 'pad', pad: 'now' }
-  const layoutName: Record<TabletopLayout, string> = { now: 'Now playing', strip: 'Up next · 1 (strip)', pad: 'Up next · 2 (pad)' }
+  const nextLayout: Record<TabletopLayout, TabletopLayout> = { now: 'strip', strip: 'now' }
+  const layoutName: Record<TabletopLayout, string> = { now: 'Now playing', strip: 'Up next' }
   const fold = posture.state === 'none'
     ? (postureSupported ? 'no fold here' : 'needs the new APK')
     : `${posture.state === 'half' ? 'half-folded' : 'flat'} · hinge at ${Math.round(posture.top)} dp${posture.source === 'simulated' ? ' (simulated)' : ''}`
@@ -54,7 +54,7 @@ export default function Labs() {
           hint="Folding while a song plays opens Now playing full screen instead"
           value={tabletop} onValueChange={v => { haptic.light(); setTabletopEnabled(v) }} />
         <ListRow icon="layers-outline" tint="violet" label="Half-folded shows"
-          hint="Now playing full screen: tap to switch. Also in the screen itself (now · 1 · 2)"
+          hint="Now playing full screen: tap to switch. Also in the screen itself (now · up next)"
           value={layoutName[foldLayout]} onPress={() => { haptic.light(); setTabletopLayout(nextLayout[foldLayout]) }} />
         <ToggleRow icon="contrast-outline" tint="amber" label="Simulate half-folded"
           hint="Pretend the phone is folded halfway, to try the layout flat on the table"

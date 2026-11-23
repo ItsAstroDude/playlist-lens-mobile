@@ -182,10 +182,11 @@ export function setSimulateHalfFold(on: boolean): void {
 
 /** What the half-folded view shows: Now playing (H1), or up next as a swipe deck over a
  *  touch strip (C+D 1) or sitting on a touch pad (C+D 2). Switchable in the view itself. */
-export type TabletopLayout = 'now' | 'strip' | 'pad'
+/** 'pad' (C+D 2) was removed in 2.0.36 — a stored 'pad' reads as 'strip'. */
+export type TabletopLayout = 'now' | 'strip'
 export function tabletopLayout(): TabletopLayout {
   const v = storage.getString(KEYS.tabletopLayout)
-  return v === 'now' || v === 'strip' || v === 'pad' ? v : 'strip'
+  return v === 'now' ? 'now' : 'strip'
 }
 export function setTabletopLayout(v: TabletopLayout): void {
   storage.set(KEYS.tabletopLayout, v); emitFold()

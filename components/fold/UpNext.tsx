@@ -25,10 +25,8 @@ type Model = ReturnType<typeof useNowPlayingModel>
  *    away to the right, each with when it starts.
  *  · Flat half: the next song as a card you swipe — left drops it (skipped when it comes
  *    up), right keeps it (shows the one after), up plays it now (skips ahead to it).
- *      'strip' (C+D 1): card + ✕ / Play now / ✓, and a touch strip under it.
- *      'pad'   (C+D 2): the card sits on a touch pad; touch the pad round the card for
- *                       playback, the card for the queue.
- *    Touch strip / pad: tap = play/pause, swipe left = next, right = previous.
+ *      'strip' (C+D 1, the one kept): card + ✕ / Play now / ✓, and a touch strip under it
+ *      (tap = play/pause, swipe left = next, right = previous). C+D 2 removed in 2.0.36.
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -279,51 +277,6 @@ export function UpNextStrip({ m, state, refresh, W, height, padBottom }: {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Flat half, C+D 2: the deck on the pad
-
-export function UpNextPad({ m, state, refresh, W, height, padBottom }: {
-  m: Model; state: UpNextState; refresh: () => void; W: number; height: number; padBottom: number
-}) {
-  const deck = useDeck(state, m, refresh)
-  const g = useCardGestures(deck, W)
-  const pad = usePadGestures(m, deck.card ? { pan: g.pan, tap: g.tap } : undefined)
-  const pct = m.dur > 0 ? Math.min(m.liveMs / m.dur, 1) : 0
-  return (
-    <View style={[styles.flat, { height, paddingBottom: padBottom }]}>
-      <GestureDetector gesture={pad}>
-        <View style={styles.pad} accessible={false}>
-          <View style={[styles.padFill, { width: `${pct * 100}%` }]} />
-          <View style={styles.padHint}>
-            <Ionicons name={m.playing ? 'pause' : 'play'} size={12} color={Colors.greenPrimary} />
-            <Text style={styles.hint}>tap the pad to {m.playing ? 'pause' : 'play'} · swipe it to skip</Text>
-          </View>
-          <Pressable onPress={m.onPrev} style={[styles.side, { left: 4 }]} accessibilityRole="button" accessibilityLabel="Previous track">
-            <Ionicons name="chevron-back" size={22} color={alpha(Colors.text, 0.45)} />
-          </Pressable>
-          <Pressable onPress={m.onNext} style={[styles.side, { right: 4 }]} accessibilityRole="button" accessibilityLabel="Next track">
-            <Ionicons name="chevron-forward" size={22} color={alpha(Colors.text, 0.45)} />
-          </Pressable>
-          <View style={styles.padCard}>
-            {deck.card ? <DeckCard deck={deck} cardStyle={g.style} gesture={Gesture.Simultaneous(g.pan, g.tap)} compact /> : <DeckEmpty state={state} deck={deck} />}
-          </View>
-          {deck.card && (
-            <View style={styles.padLegend}>
-              <Text style={styles.hint}>card ← drop</Text>
-              <Text style={styles.hint}>↑ play now</Text>
-              <Text style={styles.hint}>keep →</Text>
-            </View>
-          )}
-        </View>
-      </GestureDetector>
-      <Pressable onPress={m.onOpenSpotify} style={styles.spotify} accessibilityRole="link">
-        <Ionicons name="open-outline" size={14} color={Colors.textSecondary} />
-        <Text style={styles.hint}>open in spotify</Text>
-      </Pressable>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   top:        { paddingLeft: Spacing.xl, paddingBottom: Spacing.lg, justifyContent: 'flex-end', gap: Spacing.lg },
   row:        { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.md },
@@ -371,11 +324,4 @@ const styles = StyleSheet.create({
   stripFill:  { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: alpha(Colors.greenPrimary, 0.14) },
   stripMid:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   stripPlay:  { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.greenPrimary },
-  pad:        { flex: 1, borderRadius: 36, borderWidth: 1, borderColor: Colors.glassBorder, backgroundColor: 'rgba(255,255,255,0.03)', overflow: 'hidden' },
-  padFill:    { position: 'absolute', left: 0, top: 0, height: 4, backgroundColor: Colors.greenPrimary },
-  padHint:    { position: 'absolute', left: 0, right: 0, top: 18, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  side:       { position: 'absolute', top: '50%', marginTop: -32, width: 52, height: 64, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
-  padCard:    { position: 'absolute', left: 60, right: 60, top: 52, bottom: 64 },
-  padLegend:  { position: 'absolute', left: Spacing.lg, right: Spacing.lg, bottom: Spacing.lg, flexDirection: 'row', justifyContent: 'space-between' },
-  spotify:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44 },
 })

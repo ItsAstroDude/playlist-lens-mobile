@@ -17,7 +17,7 @@ import { usePosture } from '@/hooks/usePosture'
 import { useIsCover } from '@/hooks/useScreen'
 import { tabletopSplit } from '@/utils/posture'
 import { onFoldSettings, setTabletopLayout, tabletopEnabled, tabletopLayout, type TabletopLayout } from '@/utils/settings'
-import { UpNextPad, UpNextStrip, UpNextTop, useUpNext } from './UpNext'
+import { UpNextStrip, UpNextTop, useUpNext } from './UpNext'
 import { requestTabletop, setTabletopActive, useTabletopRequested } from '@/utils/coverMode'
 import { fmtClock, useNowPlayingModel } from '@/components/nowplaying/useNowPlayingModel'
 
@@ -134,12 +134,10 @@ export function TabletopNowPlaying() {
       {layout !== 'now' ? (
         <>
           <Animated.View style={topStyle}>
-            <UpNextTop m={m} state={upNext.state} W={W} height={topH} padTop={insets.top + 56} skipFirst={layout === 'pad'} />
+            <UpNextTop m={m} state={upNext.state} W={W} height={topH} padTop={insets.top + 56} skipFirst={false} />
           </Animated.View>
           <Animated.View style={bottomStyle}>
-            {layout === 'strip'
-              ? <UpNextStrip m={m} state={upNext.state} refresh={upNext.refresh} W={W} height={bottomH} padBottom={Math.max(insets.bottom, Spacing.lg)} />
-              : <UpNextPad m={m} state={upNext.state} refresh={upNext.refresh} W={W} height={bottomH} padBottom={Math.max(insets.bottom, Spacing.lg)} />}
+            <UpNextStrip m={m} state={upNext.state} refresh={upNext.refresh} W={W} height={bottomH} padBottom={Math.max(insets.bottom, Spacing.lg)} />
           </Animated.View>
         </>
       ) : (<>
@@ -234,8 +232,7 @@ export function TabletopNowPlaying() {
 
 const LAYOUTS: { id: TabletopLayout; short: string; label: string }[] = [
   { id: 'now',   short: 'now', label: 'Now playing' },
-  { id: 'strip', short: '1',   label: 'Up next: deck over a touch strip' },
-  { id: 'pad',   short: '2',   label: 'Up next: deck on the pad' },
+  { id: 'strip', short: 'up next', label: 'Up next' },
 ]
 
 const styles = StyleSheet.create({

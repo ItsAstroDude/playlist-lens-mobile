@@ -82,19 +82,16 @@ describe('TabletopNowPlaying', () => {
     r.unmount()
     setSimulateHalfFold(false)
   })
-  it('shows up next as a deck in both C+D layouts', async () => {
+  it('shows up next as a deck over the touch strip', async () => {
     mockNp = track
     setSimulateHalfFold(true)
-    for (const layout of ['strip', 'pad'] as const) {
-      setTabletopLayout(layout)
-      const r = render(React.createElement(TabletopNowPlaying))
-      await act(async () => { jest.advanceTimersByTime(800); await Promise.resolve(); await Promise.resolve() })
-      expect(r.getByLabelText(/Up next: Lovesick Girls/)).toBeTruthy()
-      expect(r.getByLabelText('Up next: deck over a touch strip')).toBeTruthy()
-      if (layout === 'strip') expect(r.getByLabelText(/Touch strip/)).toBeTruthy()
-      else expect(r.getByText(/tap the pad/)).toBeTruthy()
-      r.unmount()
-    }
+    setTabletopLayout('strip')
+    const r = render(React.createElement(TabletopNowPlaying))
+    await act(async () => { jest.advanceTimersByTime(800); await Promise.resolve(); await Promise.resolve() })
+    expect(r.getByLabelText(/Up next: Lovesick Girls/)).toBeTruthy()
+    expect(r.getByLabelText(/Touch strip/)).toBeTruthy()
+    expect(r.getByLabelText('Up next')).toBeTruthy()
+    r.unmount()
     setTabletopLayout('now')
     setSimulateHalfFold(false)
   })
