@@ -3,7 +3,7 @@ require('react-native-gesture-handler/jestSetup')
  * Smoke tests: the half-folded tabletop view renders, and only when it should.
  */
 import React from 'react'
-import { render, act } from '@testing-library/react-native'
+import { render, act, fireEvent } from '@testing-library/react-native'
 
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'))
 jest.mock('react-native-safe-area-context', () => ({
@@ -112,6 +112,29 @@ describe('TabletopNowPlaying', () => {
     mockNp = track
     const r = render(React.createElement(TabletopNowPlaying))
     expect(r.queryByLabelText('Close tabletop view')).toBeNull()
+    r.unmount()
+  })
+})
+
+import { FlexPanel } from '@/components/fold/FlexPanel'
+import { tabletopRequested } from '@/utils/coverMode'
+
+describe('FlexPanel', () => {
+  it('is a remote for the song, and opens Now playing full screen', () => {
+    mockNp = track
+    const r = render(React.createElement(FlexPanel, { height: 480 }))
+    expect(r.getByText('Song')).toBeTruthy()
+    expect(r.getByLabelText(/Remote\. Playing/)).toBeTruthy()
+    fireEvent.press(r.getByLabelText('Open Now playing full screen'))
+    expect(tabletopRequested()).toBe(true)
+    requestTabletop(false)
+    r.unmount()
+  })
+  it('offers to resume when nothing plays', () => {
+    mockNp = null
+    const r = render(React.createElement(FlexPanel, { height: 480 }))
+    expect(r.getByText('Nothing playing')).toBeTruthy()
+    expect(r.queryByLabelText('Open Now playing full screen')).toBeNull()
     r.unmount()
   })
 })

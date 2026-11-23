@@ -20,6 +20,7 @@ const KEYS = {
   cameraOutline: 'settings.cameraOutlinePx',   // panel px (the old dp key is ignored)
   tabletop:      'settings.tabletop',
   tabletopLayout: 'settings.tabletopLayout',
+  flexPanel:     'settings.flexPanel',
   simulateFold:  'labs.simulateHalfFold',
 } as const
 
@@ -165,9 +166,9 @@ export function onFoldSettings(cb: () => void): () => void {
   return () => { foldListeners.delete(cb) }
 }
 export function tabletopEnabled(): boolean {
-  // On by default: folding while a song plays opens the full half-folded view. (2.0.31
-  // turned it off for a split Lenses layout; that layout was rejected and removed in 2.0.32.)
-  return storage.getBoolean(KEYS.tabletop) ?? true
+  // Off by default (2.0.35): folding brings up the Flex panel instead; Now playing's full
+  // screen opens from the cover button. On = folding while a song plays opens it.
+  return storage.getBoolean(KEYS.tabletop) ?? false
 }
 export function setTabletopEnabled(on: boolean): void {
   storage.set(KEYS.tabletop, on); emitFold()
@@ -188,4 +189,13 @@ export function tabletopLayout(): TabletopLayout {
 }
 export function setTabletopLayout(v: TabletopLayout): void {
   storage.set(KEYS.tabletopLayout, v); emitFold()
+}
+
+/** Flex panel (2.0.35, default on): folded, the app moves to the standing half and the
+ *  flat half becomes a music remote. */
+export function flexPanelEnabled(): boolean {
+  return storage.getBoolean(KEYS.flexPanel) ?? true
+}
+export function setFlexPanelEnabled(on: boolean): void {
+  storage.set(KEYS.flexPanel, on); emitFold()
 }

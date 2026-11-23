@@ -4,7 +4,7 @@ import { router } from 'expo-router'
 import { Screen, ScreenHeader, Section, ListRow, ToggleRow } from '@/components/ui'
 import { haptic } from '@/constants/animation'
 import { updateDetails } from '@/utils/updates'
-import { onFoldSettings, setSimulateHalfFold, setTabletopEnabled, setTabletopLayout, simulateHalfFold, tabletopEnabled, tabletopLayout, type TabletopLayout } from '@/utils/settings'
+import { flexPanelEnabled, onFoldSettings, setFlexPanelEnabled, setSimulateHalfFold, setTabletopEnabled, setTabletopLayout, simulateHalfFold, tabletopEnabled, tabletopLayout, type TabletopLayout } from '@/utils/settings'
 import { postureSupported, usePosture } from '@/hooks/usePosture'
 
 const go = (path: Parameters<typeof router.push>[0]) => () => { haptic.light(); router.push(path) }
@@ -19,7 +19,8 @@ export default function Labs() {
   const [tabletop, setTabletop] = useState(tabletopEnabled)
   const [simulate, setSimulate] = useState(simulateHalfFold)
   const [foldLayout, setFoldLayout] = useState(tabletopLayout)
-  useEffect(() => onFoldSettings(() => { setTabletop(tabletopEnabled()); setSimulate(simulateHalfFold()); setFoldLayout(tabletopLayout()) }), [])
+  const [flexOn, setFlexOn] = useState(flexPanelEnabled)
+  useEffect(() => onFoldSettings(() => { setTabletop(tabletopEnabled()); setSimulate(simulateHalfFold()); setFoldLayout(tabletopLayout()); setFlexOn(flexPanelEnabled()) }), [])
   const nextLayout: Record<TabletopLayout, TabletopLayout> = { now: 'strip', strip: 'pad', pad: 'now' }
   const layoutName: Record<TabletopLayout, string> = { now: 'Now playing', strip: 'Up next · 1 (strip)', pad: 'Up next · 2 (pad)' }
   const fold = posture.state === 'none'
@@ -46,11 +47,14 @@ export default function Labs() {
 
       {Platform.OS === 'android' && (
       <Section label="half-folded">
-        <ToggleRow icon="laptop-outline" tint="sky" label="Tabletop Now Playing"
-          hint="Half-fold the phone while a song plays and the full half-folded view opens by itself"
+        <ToggleRow icon="laptop-outline" tint="sky" label="Flex panel"
+          hint="Folded, the app moves to the top half and the flat half becomes a music remote"
+          value={flexOn} onValueChange={v => { haptic.light(); setFlexPanelEnabled(v) }} />
+        <ToggleRow icon="expand-outline" tint="violet" label="Open Now playing when you fold"
+          hint="Folding while a song plays opens Now playing full screen instead"
           value={tabletop} onValueChange={v => { haptic.light(); setTabletopEnabled(v) }} />
         <ListRow icon="layers-outline" tint="violet" label="Half-folded shows"
-          hint="Tap to switch. Also switchable in the view itself (now · 1 · 2, top right)"
+          hint="Now playing full screen: tap to switch. Also in the screen itself (now · 1 · 2)"
           value={layoutName[foldLayout]} onPress={() => { haptic.light(); setTabletopLayout(nextLayout[foldLayout]) }} />
         <ToggleRow icon="contrast-outline" tint="amber" label="Simulate half-folded"
           hint="Pretend the phone is folded halfway, to try the layout flat on the table"

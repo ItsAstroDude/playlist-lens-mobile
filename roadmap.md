@@ -477,6 +477,12 @@ phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
   below). Kept: folded, the cover button opens the full view (`requestTabletop`);
   auto-open on fold back ON by default. [ ] A better half-fold idea for Lenses / when
   nothing plays — design first, on the board.
+- **Flex panel = the folded state** — 2.0.35 (picked over bedside / stories theatre /
+  keep-as-is). Root layout: folded, the Stack lives in the standing half
+  (`ContentHeightContext` for sheets, bottom inset 0) and `FlexPanel` fills the flat half:
+  song + progress + expand (→ Now playing full screen) and a touch pad (tap = play/pause,
+  swipe = skip). Bottom pill hides while folded. Auto-open of the full screen on fold:
+  Labs, off. [ ] Check every screen in the half (sheets, story, keyboard).
 - **The half-fold screen IS Now playing's expanded state** — 2.0.34 (Andrei's idea). The
   Lenses cover button opens `TabletopNowPlaying` full screen on a flat phone too (split at
   the middle; at the hinge when folded). The drop card's own open card is gone; its news

@@ -1,6 +1,9 @@
 // First import: starts the JS-side load-time clock (utils/perf).
 import { CoverHost } from '@/components/cover/CoverHost'
 import { TabletopNowPlaying } from '@/components/fold/TabletopNowPlaying'
+import { FlexPanel } from '@/components/fold/FlexPanel'
+import { ContentHeightContext, useFlexSplit } from '@/hooks/useFlex'
+import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context'
 import '@/utils/perf'
 import React, { useEffect, useRef, useState } from 'react'
 import { Stack, router, usePathname, type ErrorBoundaryProps } from 'expo-router'
@@ -124,6 +127,12 @@ export default function RootLayout() {
   // Best-effort auto-Wrapped refresh (keeps recaps fresh; no-ops when logged out).
   useAutoWrapped(isAuthenticated)
 
+  // Flex panel (2.0.35): folded, the screens live in the standing half and the flat half
+  // is a music remote. Screens see the half's height (sheets) and no bottom inset (the
+  // system bar is under the panel, not under them).
+  const flex = useFlexSplit()
+  const insets = useSafeAreaInsets()
+
   const [fontsLoaded] = useFonts({
     DMMono_400Regular,
     DMMono_500Medium,
@@ -231,6 +240,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <StatusBar style={activeThemeMode() === 'light' ? 'dark' : 'light'} />
+      <View style={flex ? { height: flex.top, overflow: 'hidden' } : styles.fill}>
+      <ContentHeightContext.Provider value={flex ? flex.top : null}>
+      <SafeAreaInsetsContext.Provider value={flex ? { ...insets, bottom: 0 } : insets}>
       <Stack screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <>
@@ -257,6 +269,10 @@ export default function RootLayout() {
         {/* OAuth redirect landing — always reachable, regardless of auth state */}
         <Stack.Screen name="callback" options={{ animation: 'fade' }} />
       </Stack>
+      </SafeAreaInsetsContext.Provider>
+      </ContentHeightContext.Provider>
+      </View>
+      {isAuthenticated && flex && <FlexPanel height={flex.bottom} />}
 
       {/* Root-mounted overlays (above the whole navigator) */}
       {isAuthenticated && <LiquidTintFeeder />}
@@ -286,6 +302,7 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
+  fill: { flex: 1 },
   splash: { flex: 1, backgroundColor: Colors.background },
   crash:        { alignItems: 'center', justifyContent: 'center', padding: Spacing['3xl'], gap: Spacing.md },
   crashTitle:   { ...Type.title, textAlign: 'center' },

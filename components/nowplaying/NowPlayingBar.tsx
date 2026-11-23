@@ -1,4 +1,5 @@
 import { useIsCover } from '@/hooks/useScreen'
+import { useFlexSplit } from '@/hooks/useFlex'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { BlurView } from 'expo-blur'
@@ -115,7 +116,9 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
   // On the Flip cover screen the camera ring shows progress and a tap on the cameras
   // opens the sheet, so the pill stays out of the way (its sheet still lives here).
   const cover = useIsCover()
-  const visible = !cover && pos === 'bottom' && (showReconnect || isTrack)
+  // Folded with the Flex panel: the panel is the remote, so the pill stands down too.
+  const flex = useFlexSplit()
+  const visible = !cover && !flex && pos === 'bottom' && (showReconnect || isTrack)
 
   // Sits just above whichever navbar variant is active.
   const bottom = useMemo(() => {

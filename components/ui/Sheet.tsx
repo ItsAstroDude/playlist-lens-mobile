@@ -5,6 +5,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing, runOnJS } from 'react-native-reanimated'
 import { Colors, Spacing, Radius, Type } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
+import { useContentHeight } from '@/hooks/useFlex'
 
 const CLOSE_DISTANCE = 110
 const CLOSE_VELOCITY = 900
@@ -43,8 +44,9 @@ export function Sheet({
   style?:       StyleProp<ViewStyle>
 }) {
   const insets = useSafeAreaInsets()
-  // The live window height (the Flip's cover screen is about half the main one's).
-  const { height: SH } = useWindowDimensions()
+  // The height the screens really have: the live window (the Flip's cover screen is about
+  // half the main one's), or the standing half while folded with the Flex panel.
+  const SH = useContentHeight()
   const y = useSharedValue(SH)
   const backdrop = useSharedValue(0)
 

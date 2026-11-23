@@ -19,6 +19,26 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.35',
+    name:    'Flex panel',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Fold the Flip like a laptop and whatever you\'re looking at moves to the top half. The bottom half becomes a music remote: the song, its progress, and a big touch pad (tap to pause, swipe to skip). The expand button opens Now playing full screen.',
+          'Nothing playing? Tap the pad to pick up where Spotify left off.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Folding no longer jumps straight to Now playing full screen (the cover button and the panel\'s expand button open it). Prefer the old way? Settings › About › Labs › Open Now playing when you fold.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.34',
     name:    'Now playing, full screen',
     date:    '2026-11-23',
