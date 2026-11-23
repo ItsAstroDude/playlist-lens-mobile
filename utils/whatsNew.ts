@@ -19,6 +19,19 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.29',
+    name:    'Drop card, smoother',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Drop card: the cover now travels from the little round button to its place on the card (and back when it closes), the words and then the controls rise in after it, and the button only comes back once the card has folded into it.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.28',
     name:    'Up next, folded',
     date:    '2026-11-23',

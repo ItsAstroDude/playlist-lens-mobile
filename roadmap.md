@@ -474,6 +474,9 @@ phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
   NowPlayingBar, `utils/upNext.ts`, tested); "play now" = skip ahead to it.
 - **Drop card open/close** — 2.0.28: unfolds from the button (top-right corner held,
   content fades in), folds back in; anchor corrected for the status bar.
+  2.0.29: the cover is a shared element (button art → card cover, `Spring.default` open,
+  240 ms in-out close), words then controls stagger in, the button hides until it has
+  folded back.
 
 ---
 

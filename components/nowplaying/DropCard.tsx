@@ -43,11 +43,15 @@ const RING = 3
 const NEWS_W = 252
 const TOAST_MS = 2600
 const SONG_MS = 3500
+/** The cover's size on the open card. */
+const COVER = 112
 
 // ── shared state between the button (in the header) and the host (over the screen) ──
 type Anchor = { x: number; y: number; w: number; h: number }
 let anchor: Anchor | null = null
 let isOpen = false
+let cardShown = false
+function setCardShown(v: boolean) { if (v !== cardShown) { cardShown = v; emit() } }
 const subs = new Set<() => void>()
 const emit = () => subs.forEach(cb => cb())
 function setOpen(v: boolean) { if (v !== isOpen) { isOpen = v; emit() } }
@@ -86,8 +90,8 @@ export function NowPlayingButton() {
   const item = np?.item ?? null
   const isTrack = !!item && np?.type === 'track'
   const art = item?.album?.images?.[0]?.url ?? null
-  // While the card is open the button has become the card: hide it.
-  const opened = useStore(() => isOpen)
+  // While the card is up (and until it has folded back in) the button IS the card: hide it.
+  const opened = useStore(() => cardShown)
 
   // The ring advances on its own between polls (a step every 2 s is plenty for a ring).
   const [, tick] = useState(0)
@@ -244,6 +248,7 @@ function OpenCard({ open, a, W, top, reduced, lately }: {
   const m = useNowPlayingModel(np, mounted)
   const [h, setH] = useState(460)                 // measured content height
   const k = useSharedValue(0)
+  useEffect(() => { setCardShown(mounted); return () => setCardShown(false) }, [mounted])
   useEffect(() => {
     if (open) {
       setMounted(true)
@@ -271,8 +276,28 @@ function OpenCard({ open, a, W, top, reduced, lately }: {
       borderTopRightRadius: BTN / 2 + (26 - BTN / 2) * c,
     }
   })
-  const content = useAnimatedStyle(() => ({ opacity: Math.min(1, Math.max(0, (k.value - 0.35) / 0.45)) }))
-  const coverIn = useAnimatedStyle(() => ({ opacity: Math.min(1, Math.max(0, k.value * 3)) }))
+  // The words, then the controls: each fades and rises in as the card makes room.
+  const phase = (from: number, span: number) => {
+    'worklet'
+    return Math.min(1, Math.max(0, (k.value - from) / span))
+  }
+  const content = useAnimatedStyle(() => ({ opacity: phase(0.35, 0.4), transform: [{ translateY: (1 - phase(0.35, 0.4)) * 10 }] }))
+  const rest = useAnimatedStyle(() => ({ opacity: phase(0.55, 0.4), transform: [{ translateY: (1 - phase(0.55, 0.4)) * 14 }] }))
+
+  // The cover travels: from the round art in the button to its corner of the card.
+  const fromArt = BTN - RING * 2 - 4
+  const from = { x: a.x + (a.w - fromArt) / 2, y: a.y + (a.h - fromArt) / 2, s: fromArt, r: fromArt / 2 }
+  const to = { x: W - Spacing.lg * 2 - COVER - 1, y: top + Spacing.lg + 1, s: COVER, r: Radius.xl }
+  const flying = useAnimatedStyle(() => {
+    const t = k.value, c = Math.min(1, Math.max(0, t))
+    return {
+      left: from.x + (to.x - from.x) * t,
+      top: from.y + (to.y - from.y) * t,
+      width: from.s + (to.s - from.s) * t,
+      height: from.s + (to.s - from.s) * t,
+      borderRadius: from.r + (to.r - from.r) * c,
+    }
+  })
   if (!mounted) return null
   const close = () => { haptic.light(); setOpen(false) }
   const { item, stats, dur, liveMs, playing, busy, art, initial } = m
@@ -294,15 +319,11 @@ function OpenCard({ open, a, W, top, reduced, lately }: {
             <Text style={styles.title} numberOfLines={2}>{item?.name}</Text>
             {!!item?.artists?.length && <Text style={styles.artist} numberOfLines={1}>{item.artists.join(', ')}</Text>}
           </Animated.View>
-          <AnimatedPressable onPress={close} accessibilityRole="button" accessibilityLabel="Close" style={[styles.coverWrap, coverIn]}>
-            {art ? <Image source={{ uri: art }} style={styles.cover} contentFit="cover" transition={150} />
-                 : <LinearGradient colors={[alpha(Colors.greenPrimary, 0.33), alpha(Colors.greenPrimary, 0.07)]} style={[styles.cover, styles.coverEmpty]}>
-                     <Text style={styles.initial}>{initial}</Text>
-                   </LinearGradient>}
-          </AnimatedPressable>
+          {/* the cover's place; the cover itself flies in on top (below) */}
+          <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close" style={styles.coverSlot} />
         </View>
 
-        <Animated.View style={[styles.rest, content]}>
+        <Animated.View style={[styles.rest, rest]}>
 
         {dur > 0 && (
           <View style={styles.progress}>
@@ -349,11 +370,15 @@ function OpenCard({ open, a, W, top, reduced, lately }: {
         </Animated.View>
         </View>
       </Animated.View>
+      <Animated.View pointerEvents="none" style={[styles.flying, flying]}>
+        {art ? <Image source={{ uri: art }} style={StyleSheet.absoluteFill} contentFit="cover" />
+             : <LinearGradient colors={[alpha(Colors.greenPrimary, 0.33), alpha(Colors.greenPrimary, 0.07)]} style={[StyleSheet.absoluteFill, styles.coverEmpty]}>
+                 <Text style={styles.initial}>{initial}</Text>
+               </LinearGradient>}
+      </Animated.View>
     </>
   )
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
 const styles = StyleSheet.create({
   btn:          { width: BTN, height: BTN, borderRadius: BTN / 2, alignItems: 'center', justifyContent: 'center' },
@@ -388,6 +413,8 @@ const styles = StyleSheet.create({
   overline:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, letterSpacing: 2, color: Colors.textMuted },
   title:     { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, letterSpacing: -0.5, lineHeight: 26, color: Colors.text, marginTop: 4 },
   artist:    { fontFamily: FontFamily.mono, fontSize: FontSize.base, color: Colors.textSecondary, marginTop: 4 },
+  coverSlot: { width: COVER, height: COVER },
+  flying:    { position: 'absolute', zIndex: 43, elevation: 43, overflow: 'hidden', backgroundColor: Colors.card },
   coverWrap: { borderRadius: Radius.xl, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.45, shadowRadius: 20, elevation: 10 },
   cover:     { width: 112, height: 112 },
   coverEmpty: { alignItems: 'center', justifyContent: 'center' },
