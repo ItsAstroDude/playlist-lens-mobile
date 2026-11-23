@@ -86,3 +86,26 @@ describe('When?', () => {
     expect(rounds[0]).toMatchObject({ name: 'Peak', peak: { y: 2024, m: 2 } })
   })
 })
+
+import { songDepthJob } from '@/utils/stats'
+describe('songDepthJob', () => {
+  it('counts the last 12 months and ranks the artist', () => {
+    _resetForTests()
+    const now = new Date(2026, 10, 23, 12)
+    const at = (y: number, m: number, d: number) => Math.floor(new Date(y, m, d, 12).getTime() / 1000)
+    const r = (t: number, track: string, artist: string) => ({ ts: fromT(t), master_metadata_track_name: track, master_metadata_album_artist_name: artist, spotify_track_uri: `spotify:track:${track}`, ms_played: 1000 })
+    insertPlays([
+      r(at(2026, 10, 1), 'Song', 'DECO'), r(at(2026, 10, 2), 'Song', 'DECO'), r(at(2026, 0, 5), 'Song', 'DECO'),
+      r(at(2025, 5, 5), 'Song', 'DECO'),                                   // older than 12 months
+      r(at(2026, 3, 1), 'Other', 'DECO'),
+      ...[1, 2, 3, 4, 5, 6].map(d => r(at(2026, 4, d), 'Hit', 'TAK')),     // TAK has more plays
+    ] as any, 'import')
+    const d = runSync(songDepthJob('Song', 'DECO', now, -now.getTimezoneOffset() * 60))
+    expect(d.months).toHaveLength(12)
+    expect(d.months[11]).toBe(2)                     // this month
+    expect(d.months[1]).toBe(1)                      // January
+    expect(d.monthLabels[11]).toBe('N')
+    expect(d.artistPlays).toBe(5)
+    expect(d.artistRank).toBe(2)
+  })
+})

@@ -5,36 +5,34 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
-import { TabHeader, IconButton, Chip } from '@/components/ui'
+import { TabHeader, IconButton } from '@/components/ui'
 import { Icon } from '@/components/ui/Icon'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
-import { storage } from '@/utils/cache'
 import { MoreOrLess } from '@/components/play/MoreOrLess'
 import { BlindFive } from '@/components/play/BlindFive'
 import { RankIt } from '@/components/play/RankIt'
 import { WhenGame } from '@/components/play/WhenGame'
 
 type GameId = 'more' | 'blind' | 'rank' | 'when'
-const GAMES: { id: GameId; label: string }[] = [
-  { id: 'more',  label: 'More or less' },
-  { id: 'blind', label: 'Blind five' },
-  { id: 'rank',  label: 'Rank it' },
-  { id: 'when',  label: 'When?' },
-]
-const GAME_KEY = 'game.tab'
+const GAMES: GameId[] = ['more', 'blind', 'rank', 'when']
 
 /**
  * The Play tab: minigames on your own listening, in Wrapped's old slot while Wrapped is
- * rebuilt (it lives in Settings › About › Labs for now). 2.0.39: four games behind a
- * row of chips — More or less, Blind five, Rank it, When? (components/play).
+ * rebuilt (it lives in Settings › About › Labs for now). Four games (components/play),
+ * one under the other (2.0.40; chips in 2.0.39): press Play on one and it has the screen
+ * to itself, with "all games" to come back.
  */
 export default function PlayTab() {
   const gutter = useNowPlayingGutter()
-  const [game, setGame] = useState<GameId>(() => {
-    const v = storage.getString(GAME_KEY)
-    return GAMES.some(x => x.id === v) ? (v as GameId) : 'more'
-  })
-  const pick = (id: GameId) => { if (id !== game) { haptic.light(); storage.set(GAME_KEY, id); setGame(id) } }
+  const [active, setActive] = useState<GameId | null>(null)
+  // Back to all games: the game left starts over at its own card (a new key remounts it).
+  const [gen, setGen] = useState<Record<GameId, number>>({ more: 0, blind: 0, rank: 0, when: 0 })
+  const back = () => {
+    if (!active) return
+    haptic.light()
+    setGen(x => ({ ...x, [active]: x[active] + 1 }))
+    setActive(null)
+  }
 
   return (
     <View style={styles.container}>
@@ -69,18 +67,20 @@ export default function PlayTab() {
             </View>
           </Pressable>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}
-            accessibilityRole="tablist">
-            {GAMES.map(x => <Chip key={x.id} label={x.label} selected={x.id === game} onPress={() => pick(x.id)} />)}
-          </ScrollView>
-
-          {/* Keyed: switching games starts the new one fresh. */}
-          <View key={game} style={{ gap: Spacing.md }}>
-            {game === 'more' && <MoreOrLess />}
-            {game === 'blind' && <BlindFive />}
-            {game === 'rank' && <RankIt />}
-            {game === 'when' && <WhenGame />}
-          </View>
+          {active && (
+            <Pressable onPress={back} hitSlop={8} style={styles.back} accessibilityRole="button" accessibilityLabel="All games">
+              <Icon name="chevron-back" size={16} color={Colors.textSecondary} />
+              <Text style={styles.backText}>all games</Text>
+            </Pressable>
+          )}
+          {GAMES.map(id => (active == null || active === id) && (
+            <View key={`${id}-${gen[id]}`} style={{ gap: Spacing.md }}>
+              {id === 'more' && <MoreOrLess onStart={() => setActive('more')} />}
+              {id === 'blind' && <BlindFive onStart={() => setActive('blind')} />}
+              {id === 'rank' && <RankIt onStart={() => setActive('rank')} />}
+              {id === 'when' && <WhenGame onStart={() => setActive('when')} />}
+            </View>
+          ))}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -90,7 +90,8 @@ export default function PlayTab() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   safe:      { flex: 1 },
-  chips:     { gap: Spacing.sm, paddingVertical: 2 },
+  back:      { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', minHeight: 32 },
+  backText:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.textSecondary },
 
   wall:      { borderRadius: Radius.lg, borderWidth: 1, borderColor: alpha(Colors.warning, 0.45), backgroundColor: alpha(Colors.warning, 0.08), overflow: 'hidden' },
   tape:      { height: 6, backgroundColor: alpha(Colors.warning, 0.55) },

@@ -52,6 +52,7 @@ jest.mock('@/utils/api', () => {
 import { TabletopNowPlaying } from '@/components/fold/TabletopNowPlaying'
 import { setSimulateHalfFold, setTabletopEnabled } from '@/utils/settings'
 import { requestTabletop } from '@/utils/coverMode'
+import { _resetDropped, isDropped } from '@/utils/upNext'
 
 beforeEach(() => { jest.useFakeTimers(); mockNp = null; mockWaking = null; mockCover = false; mockPath = '/' })
 afterEach(() => { jest.useRealTimers() })
@@ -109,6 +110,23 @@ describe('TabletopNowPlaying', () => {
     expect(r.queryByLabelText(/Up next:/)).toBeNull()
     expect(r.getByLabelText(/^End of the queue\. A first listen/)).toBeTruthy()
     expect(r.getByLabelText('Drop')).toBeTruthy()          // drop / keep rest with no card
+    r.unmount()
+    setSimulateHalfFold(false)
+  })
+  it('a drop still counts in "x of N", and comes back (marked) when you look again', async () => {
+    _resetDropped()
+    mockNp = track
+    setSimulateHalfFold(true)
+    const r = render(React.createElement(TabletopNowPlaying))
+    await act(async () => { jest.advanceTimersByTime(800); await Promise.resolve(); await Promise.resolve() })
+    expect(r.getByText('UP NEXT · 1 OF 2')).toBeTruthy()
+    fireEvent.press(r.getByLabelText('Take Lovesick Girls out of the queue'))
+    expect(r.getByText('UP NEXT · 2 OF 2')).toBeTruthy()
+    fireEvent.press(r.getByLabelText('Keep Hitorinbo Envy and see the next one'))
+    fireEvent.press(r.getByText('↺ look at the queue again'))
+    expect(r.getByLabelText(/^Dropped: Lovesick Girls/)).toBeTruthy()
+    fireEvent.press(r.getByLabelText('Keep Lovesick Girls after all'))
+    expect(isDropped('n1')).toBe(false)
     r.unmount()
     setSimulateHalfFold(false)
   })

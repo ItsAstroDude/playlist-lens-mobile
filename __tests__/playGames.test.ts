@@ -61,8 +61,11 @@ it('Blind five plays a clip and scores an answer', async () => {
 })
 
 it('Rank it deals five, moves one, and locks in', async () => {
-  const r = render(React.createElement(RankIt))
+  const onStart = jest.fn()
+  const r = render(React.createElement(RankIt, { onStart }))
   await flush()
+  fireEvent.press(r.getByText("Play today's five"))
+  expect(onStart).toHaveBeenCalled()
   expect(r.getByText("TODAY'S FIVE")).toBeTruthy()
   const rows = r.getAllByLabelText(/^\d\. Artist \d$/)
   expect(rows).toHaveLength(5)

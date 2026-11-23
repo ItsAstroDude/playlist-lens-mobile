@@ -19,6 +19,26 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.40',
+    name:    'All the games',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Play: the four games sit one under the other now. Press Play on one and it gets the screen, with "all games" to go back.',
+          'Up next: after the queue, the song\'s stats fill the space. You get your last 12 months with it as bars, and how its artist ranks for you. Dates no longer get cut off.',
+        ],
+      },
+      {
+        label: 'Fixed',
+        items: [
+          'Up next: dropping a song no longer shrinks the count ("2 of 10" stays out of 10), and "look at the queue again" brings dropped songs back, marked, so you can keep them after all.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.39',
     name:    'Game night',
     date:    '2026-11-23',

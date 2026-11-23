@@ -17,7 +17,7 @@ type Phase = 'loading' | 'empty' | 'start' | 'round' | 'over'
  * a month; the right month is 200, every month off costs 40. Five songs. Reads tracked
  * and imported plays (the more history, the better the game).
  */
-export function WhenGame() {
+export function WhenGame({ onStart }: { onStart?: () => void }) {
   const [phase, setPhase] = useState<Phase>('loading')
   const [top, setTop] = useState<Ranked[]>([])
   const [rounds, setRounds] = useState<WhenRound[]>([])
@@ -39,6 +39,7 @@ export function WhenGame() {
 
   const start = useCallback(async () => {
     haptic.medium()
+    onStart?.()
     setPhase('loading')
     try {
       const rs = await runAsync(whenRoundsJob(top, localOffsetSec(), WHEN_ROUNDS))
@@ -47,7 +48,7 @@ export function WhenGame() {
       setYear(years[years.length - 1] ?? null)
       setPhase('round')
     } catch { setPhase('empty') }
-  }, [top, years])
+  }, [top, years, onStart])
 
   const r = rounds[i]
   const pts = r && year != null && month != null ? whenPoints({ y: year, m: month }, r.peak) : 0

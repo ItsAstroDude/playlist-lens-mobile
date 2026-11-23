@@ -44,11 +44,13 @@ export function onDropped(cb: () => void): () => void { subs.add(cb); return () 
 export function _resetDropped(): void { dropped.clear(); emit() }
 
 /**
- * The cards still to decide on: the queue minus dropped songs and the ones already
- * kept (swiped right) this time round. Order is Spotify's.
+ * The cards still to decide on: every queued song not yet kept or dropped this time
+ * round (`seen`). Order is Spotify's. A song dropped in an earlier round comes back as
+ * a card — marked dropped — so "look at the queue again" can undo it (2.0.40: before,
+ * a drop took the song out of the deck and the count for good).
  */
-export function deckCards(queue: UpNextTrack[], kept: ReadonlySet<string>): UpNextTrack[] {
-  return queue.filter(t => !!t.id && !isDropped(t.id) && !kept.has(t.id))
+export function deckCards(queue: UpNextTrack[], seen: ReadonlySet<string>): UpNextTrack[] {
+  return queue.filter(t => !!t.id && !seen.has(t.id))
 }
 
 /** The queue as it will actually play (dropped songs left out). */

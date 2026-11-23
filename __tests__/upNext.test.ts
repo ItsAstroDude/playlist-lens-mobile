@@ -6,9 +6,10 @@ const q = [t('a', 120), t('b', 200), t('c', 150), t('d')]
 beforeEach(() => _resetDropped())
 
 describe('up next', () => {
-  it('deck leaves out dropped and kept songs, in Spotify order', () => {
+  it('deck leaves out the songs decided this round; dropped ones come back next round', () => {
     dropSong('b')
-    expect(deckCards(q, new Set(['a'])).map(x => x.id)).toEqual(['c', 'd'])
+    expect(deckCards(q, new Set(['a', 'b'])).map(x => x.id)).toEqual(['c', 'd'])
+    expect(deckCards(q, new Set()).map(x => x.id)).toEqual(['a', 'b', 'c', 'd'])
     expect(visibleQueue(q).map(x => x.id)).toEqual(['a', 'c', 'd'])
   })
   it('a dropped song is forgotten once skipped', () => {

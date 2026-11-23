@@ -5,7 +5,7 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 
 import { Ionicons } from '@expo/vector-icons'
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
-import { ArtThumb, Button, EmptyState } from '@/components/ui'
+import { ArtThumb, Button, Card, EmptyState } from '@/components/ui'
 import { cachedAsync } from '@/utils/sqlJob'
 import { periodStatsJob, type Ranked } from '@/utils/stats'
 import { storage } from '@/utils/cache'
@@ -15,14 +15,14 @@ import { ScoreLine, g } from './shared'
 const ROW = 72          // row height + gap
 const DAY_KEY = 'game.rank.day'
 const BEST_KEY = 'game.rank.best'
-type Phase = 'loading' | 'empty' | 'rank' | 'done'
+type Phase = 'loading' | 'empty' | 'start' | 'rank' | 'done'
 
 /**
  * Rank it (2.0.39): five of your artists, the same five all day. Drag them into the
  * order you played them this year (all time when the year is still thin), lock it in,
  * and see the real counts. After today's, "another five" is just for practice.
  */
-export function RankIt() {
+export function RankIt({ onStart }: { onStart?: () => void }) {
   const [phase, setPhase] = useState<Phase>('loading')
   const [order, setOrder] = useState<RankItem[]>([])
   const [scope, setScope] = useState<'this year' | 'all time'>('this year')
@@ -54,7 +54,12 @@ export function RankIt() {
     if (!five) { setPhase('empty'); return }
     setOrder(five); setScope(sc); setDaily(isDaily); setPhase('rank')
   }, [pool])
-  useEffect(() => { if (pool) deal(seeded(today), played == null) }, [pool])
+  useEffect(() => { if (pool) setPhase(rankFive(pool.year) || rankFive(pool.all) ? 'start' : 'empty') }, [pool])
+  const begin = useCallback(() => {
+    haptic.medium()
+    onStart?.()
+    if (played == null) deal(seeded(today), true); else deal(Math.random, false)
+  }, [played, deal, today, onStart])
 
   const lock = useCallback(() => {
     const s = rankScore(order)
@@ -79,6 +84,21 @@ export function RankIt() {
   if (phase === 'empty') {
     return <EmptyState icon="podium-outline" title="Not enough artists yet"
       body="Rank it needs five artists you've played different amounts. Turn on tracking in Settings, or import your history in Labs › Wrapped." />
+  }
+
+  if (phase === 'start') {
+    return (
+      <Card padded>
+        <Text style={g.title}>Rank it</Text>
+        <Text style={g.rules}>
+          Five of your artists, a new five every day. Put them in order of how much you played them this year, then see the real counts.
+        </Text>
+        {played != null
+          ? <Text style={g.best}>Today's: {played} / 5 · a new five tomorrow</Text>
+          : best > 0 ? <Text style={g.best}>Your best: {best} / 5</Text> : null}
+        <Button label={played != null ? 'Practice five' : 'Play today\'s five'} icon="play" onPress={begin} />
+      </Card>
+    )
   }
 
   const done = phase === 'done'

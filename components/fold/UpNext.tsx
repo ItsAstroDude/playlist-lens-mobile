@@ -13,12 +13,14 @@ import { pokeNowPlaying } from '@/hooks/useNowPlaying'
 import { skipNext, classifyPlaybackError, transportErrorMessage } from '@/utils/playback'
 import { showToast } from '@/utils/dialog'
 import {
-  deckCards, dropSong, fetchUpNext, inLabel, onDropped, skipsTo, startsIn, visibleQueue,
+  deckCards, dropSong, fetchUpNext, forgetDropped, inLabel, isDropped, onDropped, skipsTo, startsIn, visibleQueue,
   type UpNextTrack,
 } from '@/utils/upNext'
 import { fmtClock, type useNowPlayingModel } from '@/components/nowplaying/useNowPlayingModel'
 import { songPlays } from '@/utils/playDb'
 import { fmtMinutesShort } from '@/utils/wrapped'
+import { runAsync } from '@/utils/sqlJob'
+import { songDepthJob, type SongDepth } from '@/utils/stats'
 
 type Model = ReturnType<typeof useNowPlayingModel>
 
@@ -100,28 +102,32 @@ export function UpNextTop({ m, state, W, height, padTop, skipFirst }: {
 // The deck
 
 export function useDeck(state: UpNextState, m: Model, refresh: () => void) {
-  const [kept, setKept] = useState<Set<string>>(() => new Set())
+  // Songs decided (kept or dropped) this time round. A drop still counts in "x of N",
+  // and "look at the queue again" brings dropped songs back (marked) to undo.
+  const [seen, setSeen] = useState<Set<string>>(() => new Set())
   // Spotify's queue can lag a song behind: never offer the song that's already playing.
   const nowId = m.item?.id ?? null
   const queue = state.status === 'ok' ? state.queue.filter(t => t.id !== nowId) : []
-  // Not memoised: a drop changes the dropped set, not these inputs, and a memo kept
-  // showing the dropped card (it came straight back).
-  const cards = deckCards(queue, kept)
+  // Not memoised: a drop changes the dropped set, not these inputs.
+  const cards = deckCards(queue, seen)
   const remaining = Math.max(0, m.dur - m.liveMs)
   const card = cards[0] ?? null
   const vq = visibleQueue(queue)
   const at = card ? startsIn(vq, remaining)[vq.findIndex(t => t.id === card.id)] ?? 0 : 0
+  const see = (id: string | null) => setSeen(prev => { const n = new Set(prev); if (id) n.add(id); return n })
 
-  const drop = useCallback((t: UpNextTrack) => { haptic.medium(); dropSong(t.id) }, [])
+  const drop = useCallback((t: UpNextTrack) => { haptic.medium(); dropSong(t.id); see(t.id) }, [])
   const keep = useCallback((t: UpNextTrack) => {
     haptic.light()
-    setKept(prev => { const n = new Set(prev); if (t.id) n.add(t.id); return n })
+    if (t.id && isDropped(t.id)) forgetDropped(t.id)     // ✓ on a dropped card = undo the drop
+    see(t.id)
   }, [])
   const playNow = useCallback(async (t: UpNextTrack) => {
     if (!t.id) return
     haptic.medium()
+    if (isDropped(t.id)) forgetDropped(t.id)
     // It's about to play: off the deck now, not after the next refresh.
-    setKept(prev => { const n = new Set(prev); n.add(t.id!); return n })
+    see(t.id)
     const n = skipsTo(queue, t.id)
     try {
       for (let i = 0; i < n; i++) {
@@ -134,8 +140,9 @@ export function useDeck(state: UpNextState, m: Model, refresh: () => void) {
     }
     setTimeout(() => { pokeNowPlaying(); refresh() }, 500)
   }, [queue, refresh])
-  const again = useCallback(() => setKept(new Set()), [])
-  return { card, at, count: cards.length, total: vq.length, drop, keep, playNow, again }
+  const again = useCallback(() => setSeen(new Set()), [])
+  const total = queue.filter(t => !!t.id).length
+  return { card, at, count: cards.length, total, dropped: !!card && isDropped(card.id), drop, keep, playNow, again }
 }
 
 export type Deck = ReturnType<typeof useDeck>
@@ -196,15 +203,19 @@ export function DeckCard({ deck, cardStyle, gesture, compact, artSize }: {
       <View style={[styles.ghost, styles.ghost2]} />
       <View style={[styles.ghost, styles.ghost1]} />
       <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.card, compact && styles.cardCompact, cardStyle]}
-          accessible accessibilityLabel={`Up next: ${t.name} by ${t.artists.join(', ')}, ${inLabel(deck.at)}. Swipe left to drop it, right to keep it, up to play it now.`}>
+        <Animated.View style={[styles.card, compact && styles.cardCompact, deck.dropped && styles.cardDropped, cardStyle]}
+          accessible accessibilityLabel={deck.dropped
+            ? `Dropped: ${t.name} by ${t.artists.join(', ')}, skipped when it starts. Swipe right to keep it after all, left to leave it dropped.`
+            : `Up next: ${t.name} by ${t.artists.join(', ')}, ${inLabel(deck.at)}. Swipe left to drop it, right to keep it, up to play it now.`}>
           {compact && <Text style={[styles.overline, { color: Colors.pink }]}>UP NEXT</Text>}
           {t.image ? <Image source={{ uri: t.image }} style={{ width: art, height: art, borderRadius: Radius.lg }} contentFit="cover" />
                    : <View style={[{ width: art, height: art, borderRadius: Radius.lg }, styles.artEmpty]} />}
           <View style={compact ? styles.cardTextCompact : styles.cardText}>
             <Text style={styles.cardTitle} numberOfLines={2}>{t.name}</Text>
             <Text style={styles.cardSub} numberOfLines={1}>{t.artists.join(', ')}</Text>
-            <Text style={styles.cardMeta}>{inLabel(deck.at)}</Text>
+            {deck.dropped
+              ? <Text style={[styles.cardMeta, { color: Colors.error }]}>dropped · skipped when it starts · ✓ to keep</Text>
+              : <Text style={styles.cardMeta}>{inLabel(deck.at)}</Text>}
           </View>
         </Animated.View>
       </GestureDetector>
@@ -223,6 +234,24 @@ function DeckEmpty({ state, deck, m }: { state: UpNextState; deck: Deck; m: Mode
 
 /** What there is to say about the song playing: plays (tracked + imported), time
  *  listened, plays this past week, when you first heard it, its all-time rank. */
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** "Jul '24": fits a chip (the long form was cut off). */
+function shortMonth(d: Date): string { return `${MON[d.getMonth()]} '${String(d.getFullYear()).slice(2)}` }
+
+/** The song's last 12 months and its artist's standing, worked out off the UI thread. */
+function useSongDepth(m: Model, active: boolean): SongDepth | null {
+  const [depth, setDepth] = useState<SongDepth | null>(null)
+  const name = m.item?.name, artist = m.item?.artists?.[0]
+  useEffect(() => {
+    setDepth(null)
+    if (!active || !name || !artist) return
+    let alive = true
+    runAsync(songDepthJob(name, artist)).then(d => { if (alive) setDepth(d) }).catch(() => {})
+    return () => { alive = false }
+  }, [active, name, artist])
+  return depth
+}
+
 export function useSongFacts(m: Model) {
   const item = m.item
   const sp = useMemo(() => {
@@ -232,7 +261,7 @@ export function useSongFacts(m: Model) {
   }, [item?.uri, item?.name])
   const plays = Math.max(sp?.plays ?? 0, m.stats?.stat?.plays ?? 0)
   const ms = Math.max(sp?.ms ?? 0, m.stats?.stat?.ms ?? 0)
-  const first = sp?.firstT ? new Date(sp.firstT * 1000).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : null
+  const first = sp?.firstT ? shortMonth(new Date(sp.firstT * 1000)) : null
   const headline = plays === 0 ? 'A first listen' : plays === 1 ? 'Your 2nd time with it' : `Play number ${(plays + 1).toLocaleString()}`
   /** Short, for the song row: which play this is. */
   const badge = plays === 0 ? 'first listen' : `play #${(plays + 1).toLocaleString()}`
@@ -267,7 +296,7 @@ function FactChips({ chips }: { chips: { v: string; l: string }[] }) {
     <View style={styles.aboutChips}>
       {chips.map(c => (
         <View key={c.l} style={styles.aboutChip}>
-          <Text style={styles.aboutVal} numberOfLines={1}>{c.v}</Text>
+          <Text style={styles.aboutVal} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{c.v}</Text>
           <Text style={styles.cardMeta}>{c.l}</Text>
         </View>
       ))}
@@ -293,6 +322,7 @@ function AgainLink({ again }: { again: () => void }) {
 function NowInfo({ m, open, again }: { m: Model; open: boolean; again?: () => void }) {
   const reduced = useMotionReduced()
   const facts = useSongFacts(m)
+  const depth = useSongDepth(m, open)
   const k = useSharedValue(open ? 1 : 0)
   const h = useSharedValue(0)
   useEffect(() => {
@@ -311,6 +341,7 @@ function NowInfo({ m, open, again }: { m: Model; open: boolean; again?: () => vo
           <Text style={[styles.overline, { color: Colors.pink }]}>THAT'S THE QUEUE · ABOUT THIS SONG</Text>
           <Text style={styles.aboutHead} numberOfLines={1}>{facts.headline}</Text>
           {facts.chips.length > 0 && <FactChips chips={facts.chips} />}
+          {depth && <SongYear depth={depth} artist={m.item?.artists?.[0] ?? ''} />}
           {again && <AgainLink again={again} />}
         </View>
       </Animated.View>
@@ -323,6 +354,37 @@ function NowInfo({ m, open, again }: { m: Model; open: boolean; again?: () => vo
         </View>
         <View style={styles.badge}><Text style={styles.badgeText}>{facts.badge}</Text></View>
       </View>
+    </View>
+  )
+}
+
+/** The song's last year as bars, and how its artist ranks for you. */
+function SongYear({ depth, artist }: { depth: SongDepth; artist: string }) {
+  const max = Math.max(1, ...depth.months)
+  const any = depth.months.some(n => n > 0)
+  return (
+    <View style={styles.year}>
+      {any && (
+        <View>
+          <Text style={styles.yearLabel}>YOUR LAST 12 MONTHS WITH IT</Text>
+          <View style={styles.yearBars} accessible
+            accessibilityLabel={`Plays by month, the last 12 months: ${depth.months.join(', ')}`}>
+            {depth.months.map((n, i) => (
+              <View key={i} style={styles.yearCol}>
+                <View style={[styles.yearBar, { height: 3 + 41 * (n / max), opacity: n ? 1 : 0.25 },
+                  i === depth.months.length - 1 && { backgroundColor: Colors.pink }]} />
+                <Text style={styles.yearMonth}>{depth.monthLabels[i]}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+      {depth.artistPlays > 0 && (
+        <Text style={styles.artistLine} numberOfLines={2}>
+          <Text style={{ color: Colors.text }}>{artist}</Text>
+          {` · ${depth.artistPlays.toLocaleString()} plays${depth.artistRank ? ` · your #${depth.artistRank} artist` : ''}`}
+        </Text>
+      )}
     </View>
   )
 }
@@ -346,7 +408,7 @@ export function ControlRow({ m, deck, fly, big = 76 }: {
   return (
     <View style={styles.ctlRow}>
       <Pressable onPress={() => fly('drop')} disabled={!t} style={[styles.circle, styles.dropBtn, !t && styles.off]}
-        accessibilityRole="button" accessibilityState={{ disabled: !t }} accessibilityLabel={t ? `Take ${t.name} out of the queue` : 'Drop'}>
+        accessibilityRole="button" accessibilityState={{ disabled: !t }} accessibilityLabel={t ? (deck.dropped ? `Leave ${t.name} dropped` : `Take ${t.name} out of the queue`) : 'Drop'}>
         <Ionicons name="close" size={20} color={Colors.error} />
       </Pressable>
       <Pressable onPress={m.onPrev} disabled={m.busy} hitSlop={6} style={styles.skipBtn} accessibilityRole="button" accessibilityLabel="Previous track">
@@ -360,7 +422,7 @@ export function ControlRow({ m, deck, fly, big = 76 }: {
         <Ionicons name="play-skip-forward" size={26} color={Colors.text} />
       </Pressable>
       <Pressable onPress={() => fly('keep')} disabled={!t} style={[styles.circle, styles.keepBtn, !t && styles.off]}
-        accessibilityRole="button" accessibilityState={{ disabled: !t }} accessibilityLabel={t ? `Keep ${t.name} and see the next one` : 'Keep'}>
+        accessibilityRole="button" accessibilityState={{ disabled: !t }} accessibilityLabel={t ? (deck.dropped ? `Keep ${t.name} after all` : `Keep ${t.name} and see the next one`) : 'Keep'}>
         <Ionicons name="checkmark" size={20} color={Colors.greenPrimary} />
       </Pressable>
     </View>
@@ -389,7 +451,7 @@ export function UpNextStrip({ m, state, refresh, W, height, padBottom }: {
   return (
     <View style={[styles.flat, { height, paddingBottom: padBottom }]}>
       <View style={styles.headRow}>
-        <Text style={styles.overline}>{deck.card ? `UP NEXT${deck.total ? ` · ${deck.total - deck.count + 1} OF ${deck.total}` : ''}` : done ? 'NOW PLAYING' : 'UP NEXT'}</Text>
+        {!done && <Text style={styles.overline}>{deck.card ? `UP NEXT${deck.total ? ` · ${deck.total - deck.count + 1} OF ${deck.total}` : ''}` : 'UP NEXT'}</Text>}
         {!!deck.card && <Text style={styles.hint}>swipe the card ← drop · keep →</Text>}
       </View>
       <Animated.View style={[styles.cardArea, cardArea]} pointerEvents={done ? 'none' : 'auto'}>
@@ -417,6 +479,13 @@ const styles = StyleSheet.create({
   infoTitle:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.base, color: Colors.text },
   badge:      { paddingHorizontal: Spacing.sm + 2, paddingVertical: 5, borderRadius: Radius.full, borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.35), backgroundColor: alpha(Colors.greenPrimary, 0.08) },
   badgeText:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.greenPrimary },
+  year:       { gap: Spacing.md, marginTop: Spacing.xs },
+  yearLabel:  { fontFamily: FontFamily.monoMedium, fontSize: 10, letterSpacing: 1.5, color: Colors.textMuted, marginBottom: 6 },
+  yearBars:   { flexDirection: 'row', alignItems: 'flex-end', gap: 5, height: 60 },
+  yearCol:    { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
+  yearBar:    { width: '100%', borderRadius: 3, backgroundColor: Colors.greenPrimary },
+  yearMonth:  { fontFamily: FontFamily.mono, fontSize: 9, color: Colors.textMuted },
+  artistLine: { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary },
   seeker:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + 2, paddingHorizontal: 4 },
   seekClock:  { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textSecondary, minWidth: 32, textAlign: 'center' },
   seekTrack:  { flex: 1, height: 4, borderRadius: 2, backgroundColor: alpha(Colors.greenPrimary, 0.18), overflow: 'hidden' },
@@ -449,6 +518,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg, borderRadius: Radius.xl, borderWidth: 1, borderColor: alpha(Colors.pink, 0.4), backgroundColor: Colors.sheet,
     shadowColor: '#000', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.45, shadowRadius: 30, elevation: 12,
   },
+  cardDropped: { borderColor: alpha(Colors.error, 0.45), opacity: 0.85 },
   cardCompact: { flexDirection: 'column', justifyContent: 'center', gap: Spacing.sm, padding: Spacing.md },
   cardText:   { flex: 1, minWidth: 0 },
   cardTextCompact: { alignItems: 'center' },

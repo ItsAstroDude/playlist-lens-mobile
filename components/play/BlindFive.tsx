@@ -28,7 +28,7 @@ type Clip = 'starting' | 'playing' | 'done'
  * right = 100, plus up to 100 for speed. Ten rounds. When it's over you can go back to
  * the song you were playing before, where you left it.
  */
-export function BlindFive() {
+export function BlindFive({ onStart }: { onStart?: () => void }) {
   const { np } = useNowPlaying()
   const [pool, setPool] = useState<BlindSong[]>([])
   const [phase, setPhase] = useState<Phase>('loading')
@@ -45,7 +45,8 @@ export function BlindFive() {
   const t0 = useRef<number | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const before = useRef<{ uri: string; name: string; ms: number } | null>(null)
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+  // Leaving mid-clip (back to all games): stop the clip too.
+  useEffect(() => () => { if (timer.current) { clearTimeout(timer.current); pausePlayback().catch(() => {}) } }, [])
 
   useEffect(() => {
     let alive = true
@@ -68,11 +69,12 @@ export function BlindFive() {
     }
     if (!again) t0.current = Date.now()
     setClip('playing')
-    timer.current = setTimeout(() => { pausePlayback().catch(() => {}); setClip('done') }, CLIP_MS)
+    timer.current = setTimeout(() => { timer.current = null; pausePlayback().catch(() => {}); setClip('done') }, CLIP_MS)
   }, [])
 
   const start = useCallback(() => {
     haptic.medium()
+    onStart?.()
     // Remember what was on, to offer it back at the end.
     if (np?.item && np.type === 'track' && np.item.uri) {
       const ms = (np.progress_ms ?? 0) + (np.is_playing ? Date.now() - (np.receivedAt ?? Date.now()) : 0)
@@ -82,7 +84,7 @@ export function BlindFive() {
     setRounds(rs); setI(0); setScore(0); setRight(0); setStreak(0); setPicked(null); setReplayed(false)
     setPhase('round')
     play(rs[0])
-  }, [pool, np, play])
+  }, [pool, np, play, onStart])
 
   const r = rounds[i]
   const answer = useCallback((s: BlindSong) => {
@@ -96,7 +98,7 @@ export function BlindFive() {
   }, [r, picked])
 
   const next = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current)
+    if (timer.current) { clearTimeout(timer.current); timer.current = null }
     if (i + 1 >= rounds.length) {
       pausePlayback().catch(() => {})
       setClip('done')

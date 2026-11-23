@@ -20,7 +20,7 @@ const REVEAL_MS = 1100
 type Phase = 'loading' | 'empty' | 'start' | 'guess' | 'reveal' | 'over'
 
 /** "More or less" (the first Play game): is the second one played more or less? */
-export function MoreOrLess() {
+export function MoreOrLess({ onStart }: { onStart?: () => void }) {
   const reduced = useMotionReduced()
 
   const [pool, setPool] = useState<GameItem[]>([])
@@ -53,6 +53,7 @@ export function MoreOrLess() {
     const p = firstPair(pool)
     if (!p) { setPhase('empty'); return }
     haptic.medium()
+    onStart?.()
     recent.current = [itemKey(p[0]), itemKey(p[1])]
     setPair(p); setScore(0); setRound(r => r + 1); setLastRight(null); setNewBest(false)
     setPhase('guess')
