@@ -538,7 +538,7 @@ export default function SettingsScreen() {
               <View style={styles.segment}>
                 {([
                   { id: 'bottom', icon: 'chevron-down-circle-outline', label: 'Above nav' },
-                  { id: 'top',    icon: 'chevron-up-circle-outline',   label: 'Home strip' },
+                  { id: 'top',    icon: 'chevron-up-circle-outline',   label: 'Header button' },
                 ] as Array<{ id: NowPlayingPos; icon: IconName; label: string }>).map(o => {
                   const active = npPos === o.id
                   return (
@@ -556,7 +556,7 @@ export default function SettingsScreen() {
                 })}
               </View>
               <Text style={styles.quoteHint}>
-                Where the live bar lives — docked above the nav, or up in the home tips strip.
+                Where the live bar lives — docked above the nav, or as a cover button by settings on Lenses (news drops out of it; tap it for controls).
               </Text>
             </View>
             <View style={[styles.appearanceBlock, !appearanceDirty && { borderBottomWidth: 0 }]}>

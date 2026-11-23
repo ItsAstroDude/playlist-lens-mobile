@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.26',
+    name:    'Drop card',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Now playing › Header button (it replaces Home strip): on Lenses the song becomes a cover button next to settings, with a ring that fills as it plays. When something happens — a new song, "added to queue" — a small card drops out of it, says it, and goes back in.',
+          'Tap the cover button and it opens into the whole card: the song, controls, your numbers for it, and what happened lately.',
+          'Flip cover screen: Lenses is a bento. A big tile for the song playing (tap it for Now playing, or play/pause right there), this week\'s hours and plays, your top artist and streak, then your playlists three across.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.25',
     name:    'Back to the bar',
     date:    '2026-11-23',

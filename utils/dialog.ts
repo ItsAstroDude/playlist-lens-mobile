@@ -75,7 +75,20 @@ export function onDialog(cb: DialogCb): () => void {
 /** Show a brief, non-blocking confirmation pill. */
 export function showToast(message: string, glyph?: IconName, duration?: number): void {
   const t: ToastOptions = { message, glyph, duration }
+  // A screen can take toasts over (Lenses: they drop out of the header's cover button).
+  if (toastSink) { toastSink(t); return }
   toastSubs.forEach(c => c(t))
+}
+
+/**
+ * While set, toasts go here instead of the top pill (the drop card on Lenses claims them
+ * while that screen is in front). Returns a release function; only the current claimer
+ * releases.
+ */
+let toastSink: ToastCb | null = null
+export function claimToasts(cb: ToastCb): () => void {
+  toastSink = cb
+  return () => { if (toastSink === cb) toastSink = null }
 }
 
 export function onToast(cb: ToastCb): () => void {

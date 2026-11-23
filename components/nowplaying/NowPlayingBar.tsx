@@ -91,12 +91,12 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
   // User-selectable placement (Settings → Appearance) — applies live. When the
-  // user parks now-playing in the home strip, this bottom pill stands down.
+  // user puts now-playing in the Lenses header (drop card), this bottom pill stands down.
   const [pos, setPos] = useState(getNowPlayingPos)
   useEffect(() => onNowPlayingPos(setPos), [])
 
   // The stats sheet lives HERE (always mounted at the layout level) no matter
-  // the placement — the home strip opens it via this event.
+  // the placement — the cover-screen ring opens it via this event.
   useEffect(() => onOpenNowPlaying(() => setSheetOpen(true)), [])
 
   const isTrack = !!np?.item && np.type === 'track'

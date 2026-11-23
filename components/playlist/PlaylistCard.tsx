@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react'
 import { View, Text, Pressable, StyleSheet, Dimensions, useWindowDimensions } from 'react-native'
 import { isCoverWindow } from '@/hooks/useCoverScreen'
+import { BENTO_GAP, BENTO_PAD, bentoSizes } from '@/utils/bento'
 import { Image } from 'expo-image'
 import Animated, {
   useSharedValue,
@@ -38,8 +39,9 @@ interface PlaylistCardProps {
   /** `rect` = the cover's frame in window coordinates (for the open transition). */
   onPress:       (playlist: SpotifyPlaylist, rect?: { x: number; y: number; w: number; h: number }) => void
   onLongPress?:  (playlist: SpotifyPlaylist) => void
-  /** 'full' (default) = glass row, cover left · 'grid' = glass tile, cover on top */
-  layout?:       'full' | 'grid'
+  /** 'full' (default) = glass row, cover left · 'grid' = glass tile, cover on top ·
+   *  'tile' = bare cover + name, three across (the cover screen's bento) */
+  layout?:       'full' | 'grid' | 'tile'
 }
 
 export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, layout = 'full' }: PlaylistCardProps) {
@@ -83,6 +85,36 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, l
     if (!onLongPress) return
     haptic.heavy()
     onLongPress(playlist)
+  }
+
+  // Cover screen: a bare cover and its name, lined up with the bento above it.
+  if (layout === 'tile') {
+    const { tile } = bentoSizes(W)
+    const col = index % 3
+    const marginLeft = BENTO_PAD + col * (tile + BENTO_GAP) - col * (W / 3)
+    return (
+      <Animated.View style={[{ width: tile, marginLeft, marginBottom: Spacing.md }, entranceStyle]}>
+        <AnimatedPressable
+          onPressIn={() => { scale.value = withSpring(0.96, Spring.snappy) }}
+          onPressOut={() => { scale.value = withSpring(1, Spring.snappy) }}
+          onPress={handlePress}
+          onLongPress={handleLongPress}
+          delayLongPress={300}
+          style={pressStyle}
+          accessibilityRole="button"
+          accessibilityLabel={`${playlist.name}, ${playlist.tracks.total} tracks`}
+          accessibilityHint={onLongPress ? 'Opens the lens. Long-press for more actions.' : 'Opens the lens.'}
+        >
+          <View style={[styles.coverTile, { width: tile, height: tile }]}>
+            {coverUrl
+              ? <Image source={{ uri: coverUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={300} recyclingKey={playlist.id} />
+              : <View style={[StyleSheet.absoluteFill, styles.coverFallback]} />}
+            <View ref={probe} collapsable={false} pointerEvents="none" style={StyleSheet.absoluteFill} />
+          </View>
+          <Text style={styles.nameTile} numberOfLines={1}>{playlist.name}</Text>
+        </AnimatedPressable>
+      </Animated.View>
+    )
   }
 
   // The tile's edge picks up the cover's own colour.
@@ -153,6 +185,8 @@ const styles = StyleSheet.create({
   coverRow:      { width: ROW_COVER, height: ROW_COVER, borderRadius: COVER_RADIUS, overflow: 'hidden' },
   coverGrid:     { width: '100%', aspectRatio: 1, borderRadius: COVER_RADIUS, overflow: 'hidden' },
   coverFallback: { backgroundColor: Colors.card },
+  coverTile:     { borderRadius: COVER_RADIUS, overflow: 'hidden' },
+  nameTile:      { ...Type.caption, fontSize: 11, color: Colors.text, marginTop: 6, paddingHorizontal: 2 },
 
   metaRow:  { flex: 1, minWidth: 0, gap: 3, paddingRight: Spacing.sm },
   metaGrid: { gap: 2, paddingHorizontal: 4, paddingBottom: 4 },

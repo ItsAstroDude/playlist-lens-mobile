@@ -24,7 +24,10 @@ import { PlaylistCard, GRID_W, GRID_GAP, COVER_RADIUS } from '@/components/playl
 import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
 import { useServerWaking } from '@/hooks/useServerWaking'
-import { HomeTopStrip } from '@/components/nowplaying/NowPlayingStrip'
+import { RotatingStrip } from '@/components/ui/RotatingStrip'
+import { NowPlayingButton, DropCardHost, useHeaderPlacement } from '@/components/nowplaying/DropCard'
+import { CoverBento } from '@/components/cover/CoverBento'
+import { useIsCover } from '@/hooks/useScreen'
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist'
 import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet'
 import { loadOrder, saveOrder, applyOrder, pinToTop } from '@/utils/playlistOrder'
@@ -47,6 +50,10 @@ export default function PlaylistsTab() {
   const { palettes, extract }          = usePalette()
 
   const [refreshing, setRefreshing]     = useState(false)
+  // Settings › Now playing › Header button: the song lives by the settings button (drop card).
+  const headerNowPlaying = useHeaderPlacement()
+  // Flip cover screen: a bento (now playing + this week) over playlist tiles, three across.
+  const cover = useIsCover()
   const wakeSecs = useServerWaking()   // app-wide server wake-up (utils/serverStatus)
   const [selectedPlaylist, setSelected] = useState<SpotifyPlaylist | null>(null)
   const gutter = useNowPlayingGutter()
@@ -65,6 +72,8 @@ export default function PlaylistsTab() {
       return next
     })
   }, [])
+
+  const listLayout = cover && !reorderMode ? 'tile' as const : layout
 
   const orderedData = useMemo(() => applyOrder(data ?? [], order), [data, order])
 
@@ -215,9 +224,9 @@ export default function PlaylistsTab() {
       index={index}
       onPress={handleCardPress}
       onLongPress={openActions}
-      layout={layout}
+      layout={listLayout}
     />
-  ), [palettes, handleCardPress, openActions, layout])
+  ), [palettes, handleCardPress, openActions, listLayout])
 
   // Reorder mode — same card, but long-press starts a drag instead of opening actions.
   const renderDraggable = useCallback(({ item, drag, isActive }: RenderItemParams<SpotifyPlaylist>) => (
@@ -256,7 +265,9 @@ export default function PlaylistsTab() {
   // the quotes jump/skip on refresh. Only re-derives during a server wake-up.
   const listHeader = useMemo(() => (
     <>
-      {wakeSecs !== null ? <ColdStartOverlay elapsed={wakeSecs} /> : <HomeTopStrip />}
+      {wakeSecs !== null ? <ColdStartOverlay elapsed={wakeSecs} /> : cover ? null : <RotatingStrip />}
+      {cover ? <CoverBento /> : (
+      <>
       <TouchableOpacity
         style={styles.tastePill}
         onPress={openTaste}
@@ -273,8 +284,10 @@ export default function PlaylistsTab() {
         </View>
         <Icon name="arrow-forward" style={styles.tastePillArrow} />
       </TouchableOpacity>
+      </>
+      )}
     </>
-  ), [wakeSecs, openTaste])
+  ), [wakeSecs, openTaste, cover])
 
   const ListEmpty = () => {
     if (searching && orderedData.length > 0) {
@@ -322,6 +335,7 @@ export default function PlaylistsTab() {
 
         <TabHeader
           title={reorderMode ? 'reorder' : 'your lenses'}
+          actions={headerNowPlaying ? <NowPlayingButton /> : undefined}
           subtitle={
             searchOpen && !reorderMode ? undefined
             : reorderMode ? 'Long-press a lens and drag to arrange.'
@@ -399,13 +413,13 @@ export default function PlaylistsTab() {
           />
         ) : (
           <FlashList
-            key={layout}   // numColumns changes need a clean remount
+            key={listLayout}   // numColumns changes need a clean remount
             data={visibleData}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             renderItem={renderItem}
             keyExtractor={keyExtractor}
-            numColumns={layout === 'grid' ? 2 : 1}
+            numColumns={listLayout === 'tile' ? 3 : listLayout === 'grid' ? 2 : 1}
             contentContainerStyle={[styles.listContent, { paddingBottom: 130 + gutter }]}
             showsVerticalScrollIndicator={false}
             onScroll={onScroll}
@@ -442,6 +456,9 @@ export default function PlaylistsTab() {
 
       {/* Cover flying from the tapped card into the opening lens (above the sheet) */}
       <CoverFlight flight={flight} onLanded={() => setCoverHidden(false)} onDone={() => { setFlight(null); setCoverHidden(false) }} />
+
+      {/* Header button placement: news drops out of the cover button; tap = the whole card */}
+      <DropCardHost />
     </View>
   )
 }

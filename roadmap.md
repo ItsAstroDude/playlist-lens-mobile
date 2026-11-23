@@ -451,6 +451,19 @@ phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
       the bar's slot that spreads into the pill with news; a dot that rides the top while
       scrolling; an edge droplet.
 
+## Designs picked (2026-11-23, design board "Flip: cover, pill, half-folded")
+- **Pill → P2 "Drop card"** — 2.0.26. Settings › Now playing › Header button (the old
+  Home strip value): a cover button with a progress ring by settings on Lenses
+  (`components/nowplaying/DropCard.tsx`). Toasts (while Lenses is in front, via
+  `claimToasts` in utils/dialog) and new songs drop out of it as a small card (2.6 s /
+  3.5 s, `Spring.bouncy`); tap = the whole card (song, controls, stats, LATELY from
+  `utils/dropCard.ts`, tested). The tips strip stays.
+- **Cover → C2+ B "Bento"** — 2.0.26. On the cover screen Lenses shows `CoverBento`
+  (now-playing tile 2×2, this week, top artist + streak) over playlist tiles three across
+  (`PlaylistCard` layout 'tile'; sizes in `utils/bento.ts`, tested).
+- **Half-folded H2** — round 3 on the board (C queue row + touch pad, D swipe deck,
+  E bedside "what plays when"); waiting for a pick.
+
 ---
 
 # The family — Spark + a sister player (planned 2026-11-18)
