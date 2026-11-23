@@ -461,8 +461,12 @@ phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
 - **Cover → C2+ B "Bento"** — 2.0.26. On the cover screen Lenses shows `CoverBento`
   (now-playing tile 2×2, this week, top artist + streak) over playlist tiles three across
   (`PlaylistCard` layout 'tile'; sizes in `utils/bento.ts`, tested).
-- **Half-folded H2** — round 3 on the board (C queue row + touch pad, D swipe deck,
-  E bedside "what plays when"); waiting for a pick.
+- **Cover Now playing → after Samsung's open Now Bar** — 2.0.27 (`components/cover/
+  CoverPlayer.tsx`, replaces the compact sheet on the cover). Missing vs Samsung: seek,
+  shuffle, save (✓) — the backend has no endpoints for them yet (needs /api/playback/seek,
+  /shuffle and a library save + the user-library-modify scope).
+- **Half-folded H2** — round 4 on the board: C + D combined (1: deck over a touch strip,
+  2: deck on the pad); waiting for a pick.
 
 ---
 

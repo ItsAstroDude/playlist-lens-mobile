@@ -19,6 +19,25 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.27',
+    name:    'Cover player',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Flip cover screen: Now playing fills the screen, like Samsung\'s Now Bar. The cover behind everything, the device that\'s playing on top, the title scrolling when it\'s long, a progress line with times and big round controls. Your numbers for the song sit beside the cameras. Close it with the arrow, back, or a swipe down.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Cover screen Lenses: with nothing tracked yet, the week tiles become one tile with a way into Settings instead of an empty box.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.26',
     name:    'Drop card',
     date:    '2026-11-23',

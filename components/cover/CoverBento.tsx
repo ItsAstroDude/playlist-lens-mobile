@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
+import { router } from 'expo-router'
 import { ArtThumb } from '@/components/ui'
 import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { useNowPlayingModel, fmtClock } from '@/components/nowplaying/useNowPlayingModel'
@@ -93,15 +94,21 @@ function WeekTiles({ size, gap }: { size: number; gap: number }) {
   }, [])
 
   const box = { width: size, height: size }
+  // Nothing tracked yet: one tall tile (not an empty one under it) with the way in.
   if (!loaded || !week || !week.plays) {
     return (
-      <>
-        <View style={[styles.tile, box]}>
-          <Text style={styles.overline}>THIS WEEK</Text>
-          <Text style={styles.tileHint}>{loaded ? 'Nothing tracked yet. Turn on tracking in Settings.' : 'Adding up…'}</Text>
+      <View style={[styles.tile, { width: size, height: size * 2 + gap }]}>
+        <Text style={styles.overline}>THIS WEEK</Text>
+        <View style={{ gap: Spacing.md }}>
+          <Text style={styles.tileHint}>{loaded ? 'Nothing tracked yet. Turn on tracking to see your hours, top artist and streak here.' : 'Adding up…'}</Text>
+          {loaded && (
+            <Pressable onPress={() => { haptic.light(); router.push('/settings') }} style={styles.cta}
+              accessibilityRole="button" accessibilityLabel="Open Settings to turn on tracking">
+              <Text style={styles.ctaText}>Settings</Text>
+            </Pressable>
+          )}
         </View>
-        <View style={[styles.tile, box]} />
-      </>
+      </View>
     )
   }
   const artist = week.topArtists[0]
@@ -142,6 +149,8 @@ const styles = StyleSheet.create({
   nowTrack:  { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: 'rgba(255,255,255,0.22)' },
   nowFill:   { height: 3, backgroundColor: '#fff' },
   tile:      { borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.glassBorder, backgroundColor: Colors.glass, padding: Spacing.md, justifyContent: 'space-between' },
+  cta:       { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center', paddingHorizontal: Spacing.md, borderRadius: Radius.full, borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.4), backgroundColor: alpha(Colors.greenPrimary, 0.08) },
+  ctaText:   { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.greenPrimary },
   tileHint:  { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
   big:       { fontFamily: FontFamily.syneBold, fontSize: 30, letterSpacing: -1, lineHeight: 32, color: Colors.text },
   tileSub:   { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },

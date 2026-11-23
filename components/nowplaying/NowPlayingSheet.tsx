@@ -11,15 +11,15 @@ import { fmtMinutesShort } from '@/utils/wrapped'
 import type { NowPlaying } from '@/hooks/useNowPlaying'
 import { useIsCover } from '@/hooks/useScreen'
 import { fmtClock, useNowPlayingModel } from './useNowPlayingModel'
+import { CoverPlayer } from '@/components/cover/CoverPlayer'
 
 // ─── Now-playing stats sheet (v1.3 "Pulse") ──────────────────────────────────
 // Tap the live bar → this. The song playing right now + YOUR lifetime numbers
 // for it, matched against the imported Wrapped history (by uri, falling back to
 // name+artist). Works without an import — it just nudges toward Wrapped instead.
 //
-// On the Flip's cover screen (≈474×524 dp, cameras bottom-right) the same sheet
-// uses a compact layout: cover beside the title, stats on one line, Spotify as an
-// icon (or hold the cover), so it all fits above the cameras.
+// On the Flip's cover screen it opens CoverPlayer instead (full screen, after
+// Samsung's open Now Bar).
 
 export function NowPlayingSheet({ np, onClose }: {
   np:      NowPlaying | null
@@ -42,12 +42,12 @@ export function NowPlayingSheet({ np, onClose }: {
     <Image source={{ uri: art }} style={styles.art} contentFit="cover" transition={200} />
   ) : (
     <LinearGradient colors={[`${accent}55`, `${accent}11`]} style={styles.art}>
-      <Text style={[styles.initial, cover && styles.initialSm, { color: accent }]}>{initial}</Text>
+      <Text style={[styles.initial, { color: accent }]}>{initial}</Text>
     </LinearGradient>
   )
 
   const progress = dur > 0 ? (
-    <View style={[styles.progressWrap, cover && styles.progressWrapSm]}>
+    <View style={[styles.progressWrap]}>
       <View style={styles.progressBarTrack}>
         <View style={[styles.progressBarFill, { width: `${Math.min(liveMs / dur, 1) * 100}%` }]} />
       </View>
@@ -57,12 +57,12 @@ export function NowPlayingSheet({ np, onClose }: {
 
   // Transport controls (v1.6) — drive the active Spotify device
   const controls = (
-    <View style={[styles.controls, cover && styles.controlsSm]}>
+    <View style={[styles.controls]}>
       <Pressable onPress={onPrev} disabled={busy} hitSlop={8} style={styles.ctrlBtn} accessibilityRole="button" accessibilityLabel="Previous track">
         <Ionicons name="play-skip-back" size={22} color={Colors.text} />
       </Pressable>
-      <Pressable onPress={onPlayPause} disabled={busy} style={[styles.ctrlPlay, cover && styles.ctrlPlaySm, { backgroundColor: accent }]} accessibilityRole="button" accessibilityLabel={playing ? 'Pause' : 'Play'}>
-        <Ionicons name={playing ? 'pause' : 'play'} size={cover ? 22 : 26} color={Colors.background} />
+      <Pressable onPress={onPlayPause} disabled={busy} style={[styles.ctrlPlay, { backgroundColor: accent }]} accessibilityRole="button" accessibilityLabel={playing ? 'Pause' : 'Play'}>
+        <Ionicons name={playing ? 'pause' : 'play'} size={26} color={Colors.background} />
       </Pressable>
       <Pressable onPress={onNext} disabled={busy} hitSlop={8} style={styles.ctrlBtn} accessibilityRole="button" accessibilityLabel="Next track">
         <Ionicons name="play-skip-forward" size={22} color={Colors.text} />
@@ -76,39 +76,8 @@ export function NowPlayingSheet({ np, onClose }: {
     </View>
   ) : null
 
-  if (cover) {
-    const line = stats?.stat
-      ? `${stats.stat.plays.toLocaleString()} plays · ${fmtMinutesShort(stats.stat.ms)}${stats.rank != null ? ` · your #${stats.rank.toLocaleString()}` : ''}`
-      : stats?.imported ? 'first listen?' : null
-    return (
-      <Sheet open={isOpen} onClose={onClose} zIndex={30}>
-        {aurora}
-        <View style={styles.bodySm}>
-          <View style={styles.headRow}>
-            <Pressable onLongPress={() => { haptic.medium(); onOpenSpotify() }} delayLongPress={400}
-              accessibilityRole="image" accessibilityLabel="Cover. Hold to open in Spotify"
-              style={[styles.artWrap, styles.artWrapSm, { shadowColor: accent }]}>
-              {artView}
-            </Pressable>
-            <View style={styles.headText}>
-              <Text style={styles.kind}>{np?.is_playing ? 'NOW PLAYING' : 'PAUSED'}</Text>
-              <Text style={[styles.name, styles.nameSm]} numberOfLines={2}>{item?.name}</Text>
-              {!!item?.artists?.length && (
-                <Text style={styles.artist} numberOfLines={1}>{item.artists.join(', ')}</Text>
-              )}
-            </View>
-            <Pressable onPress={onOpenSpotify} hitSlop={10} style={styles.openBtn}
-              accessibilityRole="button" accessibilityLabel="Open in Spotify">
-              <Ionicons name="open-outline" size={18} color={Colors.textSecondary} />
-            </Pressable>
-          </View>
-          {progress}
-          {controls}
-          {line ? <Text style={styles.statLine} numberOfLines={1}>{line}</Text> : null}
-        </View>
-      </Sheet>
-    )
-  }
+  // Flip cover screen: a full-screen player after Samsung's open Now Bar (2.0.27).
+  if (cover) return <CoverPlayer np={np} open={isOpen} onClose={onClose} />
 
   return (
     <Sheet open={isOpen} onClose={onClose} zIndex={30}>
@@ -191,16 +160,4 @@ const styles = StyleSheet.create({
   },
   spotifyBtn: { marginTop: Spacing.xl, minWidth: 200 },
 
-  // ── cover screen (compact) ──
-  bodySm:         { paddingTop: 0 },
-  headRow:        { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  artWrapSm:      { width: 88, height: 88, borderRadius: Radius.lg },
-  initialSm:      { fontSize: 40 },
-  headText:       { flex: 1, minWidth: 0 },
-  nameSm:         { fontSize: FontSize.lg, textAlign: 'left' },
-  openBtn:        { alignSelf: 'flex-start', padding: 4 },
-  progressWrapSm: { marginTop: Spacing.md, paddingHorizontal: 0, gap: 4 },
-  controlsSm:     { marginTop: Spacing.sm, gap: Spacing.xl },
-  ctrlPlaySm:     { width: 52, height: 52, borderRadius: 26 },
-  statLine:       { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm },
 })
