@@ -50,7 +50,7 @@ jest.mock('@/utils/api', () => {
 })
 
 import { TabletopNowPlaying } from '@/components/fold/TabletopNowPlaying'
-import { setSimulateHalfFold, setTabletopEnabled, setTabletopLayout } from '@/utils/settings'
+import { setSimulateHalfFold, setTabletopEnabled } from '@/utils/settings'
 import { requestTabletop } from '@/utils/coverMode'
 
 beforeEach(() => { jest.useFakeTimers(); mockNp = null; mockWaking = null; mockCover = false; mockPath = '/' })
@@ -78,21 +78,38 @@ describe('TabletopNowPlaying', () => {
     const r = render(React.createElement(TabletopNowPlaying))
     act(() => { jest.advanceTimersByTime(50) })
     expect(r.getByLabelText('Close tabletop view')).toBeTruthy()
-    expect(r.getByText('Song')).toBeTruthy()
+    expect(r.getAllByText('Song').length).toBeGreaterThan(0)
     r.unmount()
     setSimulateHalfFold(false)
   })
-  it('shows up next as a deck over the touch strip', async () => {
+  it('shows up next: the deck, the song row, the seeker and one control row (no layout switch)', async () => {
     mockNp = track
     setSimulateHalfFold(true)
-    setTabletopLayout('strip')
     const r = render(React.createElement(TabletopNowPlaying))
     await act(async () => { jest.advanceTimersByTime(800); await Promise.resolve(); await Promise.resolve() })
     expect(r.getByLabelText(/Up next: Lovesick Girls/)).toBeTruthy()
-    expect(r.getByLabelText(/Touch strip/)).toBeTruthy()
-    expect(r.getByLabelText('Up next')).toBeTruthy()
+    expect(r.getByLabelText(/^Playing Song by Artist/)).toBeTruthy()
+    expect(r.getByLabelText('0:30 of 3:20')).toBeTruthy()
+    expect(r.getByLabelText('Take Lovesick Girls out of the queue')).toBeTruthy()
+    expect(r.getByLabelText('Keep Lovesick Girls and see the next one')).toBeTruthy()
+    expect(r.getByLabelText('Pause')).toBeTruthy()
+    expect(r.queryByLabelText('Half-folded layout')).toBeNull()
+    expect(r.queryByLabelText(/Touch strip/)).toBeNull()
     r.unmount()
-    setTabletopLayout('now')
+    setSimulateHalfFold(false)
+  })
+  it('through the queue, the song row grows into the song\'s stats', async () => {
+    mockNp = track
+    setSimulateHalfFold(true)
+    const r = render(React.createElement(TabletopNowPlaying))
+    await act(async () => { jest.advanceTimersByTime(800); await Promise.resolve(); await Promise.resolve() })
+    expect(r.queryByLabelText(/^End of the queue/)).toBeNull()
+    fireEvent.press(r.getByLabelText('Keep Lovesick Girls and see the next one'))
+    fireEvent.press(r.getByLabelText('Keep Hitorinbo Envy and see the next one'))
+    expect(r.queryByLabelText(/Up next:/)).toBeNull()
+    expect(r.getByLabelText(/^End of the queue\. A first listen/)).toBeTruthy()
+    expect(r.getByLabelText('Drop')).toBeTruthy()          // drop / keep rest with no card
+    r.unmount()
     setSimulateHalfFold(false)
   })
   it('opens on a flat phone when asked for (the Lenses cover button), split at the middle', () => {
@@ -117,11 +134,14 @@ import { FlexPanel } from '@/components/fold/FlexPanel'
 import { tabletopRequested } from '@/utils/coverMode'
 
 describe('FlexPanel', () => {
-  it('is a remote for the song, and opens Now playing full screen', () => {
+  it('is a deck remote for the song, and opens Now playing full screen', async () => {
     mockNp = track
     const r = render(React.createElement(FlexPanel, { height: 480 }))
-    expect(r.getByText('Song')).toBeTruthy()
-    expect(r.getByLabelText(/Remote\. Playing/)).toBeTruthy()
+    await act(async () => { jest.advanceTimersByTime(800); await Promise.resolve(); await Promise.resolve() })
+    expect(r.getByText('Song · Artist')).toBeTruthy()
+    expect(r.getByLabelText(/Up next: Lovesick Girls/)).toBeTruthy()
+    expect(r.getByLabelText('Take Lovesick Girls out of the queue')).toBeTruthy()
+    expect(r.getByLabelText('Pause')).toBeTruthy()
     fireEvent.press(r.getByLabelText('Open Now playing full screen'))
     expect(tabletopRequested()).toBe(true)
     requestTabletop(false)

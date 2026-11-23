@@ -19,6 +19,22 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.38',
+    name:    'One row',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Up next: the controls are one row now (drop, previous, play, next, keep), with the song that\'s playing and the seeker above them.',
+          'Through the queue, the song\'s row grows upwards into its stats instead of swapping cards.',
+          'Flex panel: the flat half is now a deck remote. Swipe the next song away or keep it, with the same row of controls under it.',
+          'Now playing full screen shows up next only (the "now" layout and its switch are gone).',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.37',
     name:    'After the queue',
     date:    '2026-11-23',

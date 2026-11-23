@@ -6,6 +6,7 @@ import { Gesture, GestureDetector, type ComposedGesture, type GestureType } from
 import Animated, {
   runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming,
 } from 'react-native-reanimated'
+import { useMotionReduced } from '@/components/motion'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { pokeNowPlaying } from '@/hooks/useNowPlaying'
@@ -27,8 +28,10 @@ type Model = ReturnType<typeof useNowPlayingModel>
  *    away to the right, each with when it starts.
  *  · Flat half: the next song as a card you swipe — left drops it (skipped when it comes
  *    up), right keeps it (shows the one after), up plays it now (skips ahead to it).
- *      'strip' (C+D 1, the one kept): card + ✕ / Play now / ✓, and a touch strip under it
- *      (tap = play/pause, swipe left = next, right = previous). C+D 2 removed in 2.0.36.
+ *    Under it (2.0.38, "Ctl A"): the song playing, the seeker, and one row of controls —
+ *    ✕ drop · previous · play/pause · next · ✓ keep. Through the queue, the card folds
+ *    away and the song's row grows upwards into its stats.
+ *  The Flex panel (F3) uses the same deck and control row.
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,7 +99,7 @@ export function UpNextTop({ m, state, W, height, padTop, skipFirst }: {
 // ─────────────────────────────────────────────────────────────────────────────
 // The deck
 
-function useDeck(state: UpNextState, m: Model, refresh: () => void) {
+export function useDeck(state: UpNextState, m: Model, refresh: () => void) {
   const [kept, setKept] = useState<Set<string>>(() => new Set())
   // Spotify's queue can lag a song behind: never offer the song that's already playing.
   const nowId = m.item?.id ?? null
@@ -135,10 +138,10 @@ function useDeck(state: UpNextState, m: Model, refresh: () => void) {
   return { card, at, count: cards.length, total: vq.length, drop, keep, playNow, again }
 }
 
-type Deck = ReturnType<typeof useDeck>
+export type Deck = ReturnType<typeof useDeck>
 
 /** The card's gestures, made by the layout so the pad can let the card go first. */
-function useCardGestures(deck: Deck, W: number) {
+export function useCardGestures(deck: Deck, W: number) {
   const x = useSharedValue(0), y = useSharedValue(0)
   const card = deck.card
   const act = useCallback((kind: 'drop' | 'keep' | 'play') => {
@@ -182,12 +185,12 @@ function useCardGestures(deck: Deck, W: number) {
   return { pan, tap, style, fly }
 }
 
-function DeckCard({ deck, cardStyle, gesture, compact }: {
-  deck: Deck; cardStyle: ReturnType<typeof useAnimatedStyle>; gesture: GestureType | ComposedGesture; compact?: boolean
+export function DeckCard({ deck, cardStyle, gesture, compact, artSize }: {
+  deck: Deck; cardStyle: ReturnType<typeof useAnimatedStyle>; gesture: GestureType | ComposedGesture; compact?: boolean; artSize?: number
 }) {
   const t = deck.card
   if (!t) return null
-  const art = compact ? 96 : 120
+  const art = artSize ?? (compact ? 96 : 120)
   return (
     <View style={styles.deck}>
       <View style={[styles.ghost, styles.ghost2]} />
@@ -218,114 +221,209 @@ function DeckEmpty({ state, deck, m }: { state: UpNextState; deck: Deck; m: Mode
   return <View style={styles.empty}><Text style={styles.emptyText}>{text}</Text></View>
 }
 
-/**
- * After the queue (2.0.37): stats about the song playing — your plays (tracked + imported),
- * time listened, plays this past week, when you first heard it, and its all-time rank
- * from your imported history.
- */
-function SongAbout({ m, again }: { m: Model; again?: () => void }) {
-  const item = m.item!
+/** What there is to say about the song playing: plays (tracked + imported), time
+ *  listened, plays this past week, when you first heard it, its all-time rank. */
+export function useSongFacts(m: Model) {
+  const item = m.item
   const sp = useMemo(() => {
+    if (!item) return null
     try { return songPlays(item.uri, item.name, item.artists?.[0] ?? '', Math.floor(Date.now() / 1000) - 7 * 86_400) }
     catch { return null }
-  }, [item.uri, item.name])
+  }, [item?.uri, item?.name])
   const plays = Math.max(sp?.plays ?? 0, m.stats?.stat?.plays ?? 0)
   const ms = Math.max(sp?.ms ?? 0, m.stats?.stat?.ms ?? 0)
   const first = sp?.firstT ? new Date(sp.firstT * 1000).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : null
   const headline = plays === 0 ? 'A first listen' : plays === 1 ? 'Your 2nd time with it' : `Play number ${(plays + 1).toLocaleString()}`
+  /** Short, for the song row: which play this is. */
+  const badge = plays === 0 ? 'first listen' : `play #${(plays + 1).toLocaleString()}`
   const chips = [
     plays > 0 && { v: fmtMinutesShort(ms), l: 'listened' },
     sp && sp.thisWeek > 0 && { v: String(sp.thisWeek), l: 'this week' },
     first && { v: first, l: 'first heard' },
     m.stats?.rank != null && { v: `#${m.stats.rank.toLocaleString()}`, l: 'all time' },
   ].filter(Boolean).slice(0, 3) as { v: string; l: string }[]
+  return { headline, badge, chips }
+}
+
+/**
+ * After the queue (2.0.37), as a card: stats about the song playing. The Flex panel shows
+ * it in the card's place; the half-folded view grows the song row instead (NowInfo).
+ */
+export function SongAbout({ m, again }: { m: Model; again?: () => void }) {
+  const { headline, chips } = useSongFacts(m)
   return (
     <View style={[styles.card, styles.about]} accessible
       accessibilityLabel={`About this song: ${headline}. ${chips.map(c => `${c.v} ${c.l}`).join(', ')}`}>
       <Text style={[styles.overline, { color: Colors.pink }]}>ABOUT THIS SONG</Text>
       <Text style={styles.aboutHead} numberOfLines={1}>{headline}</Text>
-      {chips.length > 0 && (
-        <View style={styles.aboutChips}>
-          {chips.map(c => (
-            <View key={c.l} style={styles.aboutChip}>
-              <Text style={styles.aboutVal} numberOfLines={1}>{c.v}</Text>
-              <Text style={styles.cardMeta}>{c.l}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-      {again && (
-        <Pressable onPress={() => { haptic.light(); again() }} hitSlop={8} accessibilityRole="button">
-          <Text style={styles.aboutAgain}>↺ look at the queue again</Text>
-        </Pressable>
-      )}
+      {chips.length > 0 && <FactChips chips={chips} />}
+      {again && <AgainLink again={again} />}
     </View>
   )
 }
 
-// ── touch strip / pad gestures: tap = play/pause, swipe = next / previous ──
-function usePadGestures(m: Model, card?: { pan: GestureType; tap: GestureType }) {
-  const onSwipe = useCallback((dx: number) => { haptic.light(); if (dx < 0) m.onNext(); else m.onPrev() }, [m])
-  const pan = Gesture.Pan().activeOffsetX([-24, 24]).failOffsetY([-30, 30])
-    .onEnd(e => { if (Math.abs(e.translationX) > 60) runOnJS(onSwipe)(e.translationX) })
-  const tap = Gesture.Tap().onEnd((_e, ok) => { if (ok) runOnJS(m.onPlayPause)() })
-  if (card) { pan.requireExternalGestureToFail(card.pan); tap.requireExternalGestureToFail(card.tap, card.pan) }
-  return Gesture.Exclusive(pan, tap)
+function FactChips({ chips }: { chips: { v: string; l: string }[] }) {
+  return (
+    <View style={styles.aboutChips}>
+      {chips.map(c => (
+        <View key={c.l} style={styles.aboutChip}>
+          <Text style={styles.aboutVal} numberOfLines={1}>{c.v}</Text>
+          <Text style={styles.cardMeta}>{c.l}</Text>
+        </View>
+      ))}
+    </View>
+  )
+}
+
+function AgainLink({ again }: { again: () => void }) {
+  return (
+    <Pressable onPress={() => { haptic.light(); again() }} hitSlop={8} accessibilityRole="button">
+      <Text style={styles.aboutAgain}>↺ look at the queue again</Text>
+    </Pressable>
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Flat half, C+D 1: deck over a touch strip
+// Ctl A: the song row, the seeker, one row of controls
+
+/**
+ * The song playing, above the seeker. `open` (through the queue): it grows upwards into
+ * the song's stats — the details' height springs from 0 to what they measure.
+ */
+function NowInfo({ m, open, again }: { m: Model; open: boolean; again?: () => void }) {
+  const reduced = useMotionReduced()
+  const facts = useSongFacts(m)
+  const k = useSharedValue(open ? 1 : 0)
+  const h = useSharedValue(0)
+  useEffect(() => {
+    k.value = reduced ? withTiming(open ? 1 : 0, { duration: 180 }) : withSpring(open ? 1 : 0, Spring.entrance)
+  }, [open])
+  const detailStyle = useAnimatedStyle(() => ({
+    height: Math.max(0, k.value * h.value),
+    opacity: Math.min(1, Math.max(0, k.value)),
+  }))
+  return (
+    <View style={styles.info}>
+      <Animated.View style={[styles.detailClip, detailStyle]} pointerEvents={open ? 'auto' : 'none'}>
+        <View style={styles.detail} onLayout={e => { h.value = e.nativeEvent.layout.height }}
+          accessible={open} accessibilityElementsHidden={!open} importantForAccessibility={open ? 'yes' : 'no-hide-descendants'}
+          accessibilityLabel={`End of the queue. ${facts.headline}. ${facts.chips.map(c => `${c.v} ${c.l}`).join(', ')}`}>
+          <Text style={[styles.overline, { color: Colors.pink }]}>THAT'S THE QUEUE · ABOUT THIS SONG</Text>
+          <Text style={styles.aboutHead} numberOfLines={1}>{facts.headline}</Text>
+          {facts.chips.length > 0 && <FactChips chips={facts.chips} />}
+          {again && <AgainLink again={again} />}
+        </View>
+      </Animated.View>
+      <View style={styles.infoRow} accessible accessibilityLabel={`Playing ${m.item?.name ?? ''} by ${m.item?.artists?.join(', ') ?? ''}, ${facts.badge}`}>
+        {m.art ? <Image source={{ uri: m.art }} style={styles.infoArt} contentFit="cover" transition={200} />
+               : <View style={[styles.infoArt, styles.artEmpty]} />}
+        <View style={styles.infoText}>
+          <Text style={styles.infoTitle} numberOfLines={1}>{m.item?.name}</Text>
+          <Text style={styles.cardSub} numberOfLines={1}>{m.item?.artists?.join(', ')}</Text>
+        </View>
+        <View style={styles.badge}><Text style={styles.badgeText}>{facts.badge}</Text></View>
+      </View>
+    </View>
+  )
+}
+
+export function Seeker({ m }: { m: Model }) {
+  const pct = m.dur > 0 ? Math.min(m.liveMs / m.dur, 1) : 0
+  return (
+    <View style={styles.seeker} accessible accessibilityLabel={`${fmtClock(m.liveMs)} of ${fmtClock(m.dur)}`}>
+      <Text style={styles.seekClock}>{fmtClock(m.liveMs)}</Text>
+      <View style={styles.seekTrack}><View style={[styles.seekFill, { width: `${pct * 100}%` }]} /></View>
+      <Text style={styles.seekClock}>{fmtClock(m.dur)}</Text>
+    </View>
+  )
+}
+
+/** ✕ drop · previous · play/pause · next · ✓ keep. Drop and keep rest when there's no card. */
+export function ControlRow({ m, deck, fly, big = 76 }: {
+  m: Model; deck: Deck; fly: (kind: 'drop' | 'keep' | 'play') => void; big?: number
+}) {
+  const t = deck.card
+  return (
+    <View style={styles.ctlRow}>
+      <Pressable onPress={() => fly('drop')} disabled={!t} style={[styles.circle, styles.dropBtn, !t && styles.off]}
+        accessibilityRole="button" accessibilityState={{ disabled: !t }} accessibilityLabel={t ? `Take ${t.name} out of the queue` : 'Drop'}>
+        <Ionicons name="close" size={20} color={Colors.error} />
+      </Pressable>
+      <Pressable onPress={m.onPrev} disabled={m.busy} hitSlop={6} style={styles.skipBtn} accessibilityRole="button" accessibilityLabel="Previous track">
+        <Ionicons name="play-skip-back" size={26} color={Colors.text} />
+      </Pressable>
+      <Pressable onPress={m.onPlayPause} disabled={m.busy} style={[styles.bigPlay, { width: big, height: big, borderRadius: big / 2 }]}
+        accessibilityRole="button" accessibilityLabel={m.playing ? 'Pause' : 'Play'}>
+        <Ionicons name={m.playing ? 'pause' : 'play'} size={Math.round(big * 0.4)} color={Colors.background} />
+      </Pressable>
+      <Pressable onPress={m.onNext} disabled={m.busy} hitSlop={6} style={styles.skipBtn} accessibilityRole="button" accessibilityLabel="Next track">
+        <Ionicons name="play-skip-forward" size={26} color={Colors.text} />
+      </Pressable>
+      <Pressable onPress={() => fly('keep')} disabled={!t} style={[styles.circle, styles.keepBtn, !t && styles.off]}
+        accessibilityRole="button" accessibilityState={{ disabled: !t }} accessibilityLabel={t ? `Keep ${t.name} and see the next one` : 'Keep'}>
+        <Ionicons name="checkmark" size={20} color={Colors.greenPrimary} />
+      </Pressable>
+    </View>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Flat half: the deck, then Ctl A
 
 export function UpNextStrip({ m, state, refresh, W, height, padBottom }: {
   m: Model; state: UpNextState; refresh: () => void; W: number; height: number; padBottom: number
 }) {
+  const reduced = useMotionReduced()
   const deck = useDeck(state, m, refresh)
   const g = useCardGestures(deck, W)
-  const strip = usePadGestures(m)
-  const pct = m.dur > 0 ? Math.min(m.liveMs / m.dur, 1) : 0
+  // Through the queue (or nothing queued): the card folds away, the song row grows up.
+  const done = state.status === 'ok' && !deck.card && !!m.item
+  const k = useSharedValue(done ? 1 : 0)
+  useEffect(() => {
+    k.value = reduced ? withTiming(done ? 1 : 0, { duration: 180 }) : withSpring(done ? 1 : 0, Spring.entrance)
+  }, [done])
+  const cardArea = useAnimatedStyle(() => ({
+    height: Math.max(0, (1 - k.value) * CARD_H),
+    opacity: Math.min(1, Math.max(0, 1 - k.value * 1.6)),
+  }))
   return (
     <View style={[styles.flat, { height, paddingBottom: padBottom }]}>
       <View style={styles.headRow}>
-        <Text style={styles.overline}>{deck.card ? `UP NEXT${deck.total ? ` · ${deck.total - deck.count + 1} OF ${deck.total}` : ''}` : 'NOW PLAYING'}</Text>
-        <Text style={styles.hint}>swipe the card ← drop · keep →</Text>
+        <Text style={styles.overline}>{deck.card ? `UP NEXT${deck.total ? ` · ${deck.total - deck.count + 1} OF ${deck.total}` : ''}` : done ? 'NOW PLAYING' : 'UP NEXT'}</Text>
+        {!!deck.card && <Text style={styles.hint}>swipe the card ← drop · keep →</Text>}
       </View>
-      <View style={{ height: 168 }}>
-        {deck.card ? <DeckCard deck={deck} cardStyle={g.style} gesture={Gesture.Simultaneous(g.pan, g.tap)} /> : <DeckEmpty state={state} deck={deck} m={m} />}
-      </View>
-      {deck.card && (
-        <View style={styles.actions}>
-          <Pressable onPress={() => g.fly('drop')} style={[styles.circle, styles.dropBtn]} accessibilityRole="button" accessibilityLabel={`Take ${deck.card.name} out of the queue`}>
-            <Ionicons name="close" size={20} color={Colors.error} />
-          </Pressable>
-          <Pressable onPress={() => g.fly('play')} style={styles.playNow} accessibilityRole="button" accessibilityLabel={`Play ${deck.card.name} now`}>
-            <Ionicons name="play" size={14} color={Colors.text} />
-            <Text style={styles.playNowText}>Play now</Text>
-          </Pressable>
-          <Pressable onPress={() => g.fly('keep')} style={[styles.circle, styles.keepBtn]} accessibilityRole="button" accessibilityLabel={`Keep ${deck.card.name} and see the next one`}>
-            <Ionicons name="checkmark" size={20} color={Colors.greenPrimary} />
-          </Pressable>
-        </View>
-      )}
+      <Animated.View style={[styles.cardArea, cardArea]} pointerEvents={done ? 'none' : 'auto'}>
+        {deck.card ? <DeckCard deck={deck} cardStyle={g.style} gesture={Gesture.Simultaneous(g.pan, g.tap)} />
+                   : !done ? <DeckEmpty state={state} deck={deck} m={m} /> : null}
+      </Animated.View>
       <View style={{ flex: 1 }} />
-      <GestureDetector gesture={strip}>
-        <View style={styles.strip} accessible accessibilityRole="adjustable"
-          accessibilityLabel={`Touch strip. ${m.playing ? 'Playing' : 'Paused'}, ${fmtClock(m.liveMs)} of ${fmtClock(m.dur)}. Tap to ${m.playing ? 'pause' : 'play'}, swipe to skip.`}
-          accessibilityActions={[{ name: 'activate' }, { name: 'increment' }, { name: 'decrement' }]}
-          onAccessibilityAction={e => { if (e.nativeEvent.actionName === 'activate') m.onPlayPause(); else if (e.nativeEvent.actionName === 'increment') m.onNext(); else m.onPrev() }}>
-          <View style={[styles.stripFill, { width: `${pct * 100}%` }]} />
-          <Ionicons name="chevron-back" size={22} color={alpha(Colors.text, 0.5)} />
-          <View style={styles.stripMid}>
-            <View style={styles.stripPlay}><Ionicons name={m.playing ? 'pause' : 'play'} size={24} color={Colors.background} /></View>
-            <Text style={styles.hint}>{fmtClock(m.liveMs)} / {fmtClock(m.dur)}{'\n'}tap · swipe</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={22} color={alpha(Colors.text, 0.5)} />
-        </View>
-      </GestureDetector>
+      <NowInfo m={m} open={done} again={deck.total > 0 ? deck.again : undefined} />
+      <Seeker m={m} />
+      <ControlRow m={m} deck={deck} fly={g.fly} />
     </View>
   )
 }
 
+const CARD_H = 168
+
 const styles = StyleSheet.create({
+  cardArea:   { overflow: 'visible' },
+  info:       { gap: Spacing.md },
+  detailClip: { overflow: 'hidden' },
+  detail:     { position: 'absolute', left: 0, right: 0, top: 0, gap: Spacing.sm, paddingHorizontal: 4 },
+  infoRow:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: 4 },
+  infoArt:    { width: 44, height: 44, borderRadius: Radius.md },
+  infoText:   { flex: 1, minWidth: 0 },
+  infoTitle:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.base, color: Colors.text },
+  badge:      { paddingHorizontal: Spacing.sm + 2, paddingVertical: 5, borderRadius: Radius.full, borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.35), backgroundColor: alpha(Colors.greenPrimary, 0.08) },
+  badgeText:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.greenPrimary },
+  seeker:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + 2, paddingHorizontal: 4 },
+  seekClock:  { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textSecondary, minWidth: 32, textAlign: 'center' },
+  seekTrack:  { flex: 1, height: 4, borderRadius: 2, backgroundColor: alpha(Colors.greenPrimary, 0.18), overflow: 'hidden' },
+  seekFill:   { height: 4, borderRadius: 2, backgroundColor: Colors.greenPrimary },
+  ctlRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
+  skipBtn:    { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
+  bigPlay:    { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.greenPrimary },
   top:        { paddingLeft: Spacing.xl, paddingBottom: Spacing.lg, justifyContent: 'flex-end', gap: Spacing.lg },
   row:        { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.md },
   bigArt:     { borderRadius: Radius.xl, shadowColor: '#000', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.5, shadowRadius: 26 },
@@ -365,17 +463,8 @@ const styles = StyleSheet.create({
   aboutAgain: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
   empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
   emptyText:  { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center' },
-  actions:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.lg },
   circle:     { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  off:        { opacity: 0.3 },
   dropBtn:    { borderColor: alpha(Colors.error, 0.45), backgroundColor: alpha(Colors.error, 0.08) },
   keepBtn:    { borderColor: alpha(Colors.greenPrimary, 0.45), backgroundColor: alpha(Colors.greenPrimary, 0.08) },
-  playNow:    { height: 52, paddingHorizontal: Spacing.xl, borderRadius: 26, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderWidth: 1, borderColor: Colors.glassBorder, backgroundColor: Colors.glass },
-  playNowText: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.base, color: Colors.text },
-  strip:      {
-    height: 92, borderRadius: 36, borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.35), backgroundColor: 'rgba(255,255,255,0.03)',
-    overflow: 'hidden', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.xl,
-  },
-  stripFill:  { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: alpha(Colors.greenPrimary, 0.14) },
-  stripMid:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  stripPlay:  { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.greenPrimary },
 })
