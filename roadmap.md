@@ -478,6 +478,40 @@ phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
   240 ms in-out close), words then controls stagger in, the button hides until it has
   folded back.
 
+# iOS build — plan (2026-11-23, nothing built yet)
+**Account:** a friend's paid Apple Developer account (Andrei is asking what's easiest for
+him). Simplest: he adds Andrei to his team in App Store Connect (App Manager), registers
+the bundle id `com.andrei.playlistlens`, and creates an **App Store Connect API key**
+(Issuer ID + Key ID + .p8) for EAS. With the key, builds and TestFlight uploads run from
+here with no Apple sign-in. The app shows under his name until it moves to an account
+of Andrei's own (App Store Connect can transfer apps).
+
+**Where it goes:** TestFlight (recommended: no device registration, friends can join,
+OTAs still work). Ad hoc needs every iPhone's UDID registered first.
+
+**Already checked (no account needed):**
+- [x] The JS bundles for iOS (`expo export --platform ios`, 7 MB) — no blockers.
+- [x] Android-only widget library no longer loads on iOS (index.ts).
+- iOS gets its own fingerprint (`e9dd482d…` today); Android stays `b0b14760…`.
+- **Don't touch eas.json casually:** it is part of the ANDROID fingerprint too (checked:
+  adding a profile changes it), so any iOS profile change waits for the next APK.
+  TestFlight uses the existing `production` profile → channel `production`, so iOS OTAs
+  go to the `production` branch (Android stays on `preview`).
+
+**Before the first iOS build (code, no account):**
+- [ ] Recap notifications: `utils/notifications.ts` returns early off Android — ask for
+      permission and schedule on iOS too.
+- [ ] Save image (`utils/saveImage.ts` is Android-only): save to Photos on iOS
+      (expo-media-library, new native module → part of the first iOS build anyway).
+- [ ] Hide Android-only rows on iOS: widget, Flip cover/fold Labs, app-icon picker if
+      the icons aren't set up for iOS.
+- [ ] Spotify sign-in round trip on iOS (scheme `playlistlens`, backend allow-list).
+- [ ] Check the header, tab bar and sheets round the notch / Dynamic Island.
+
+**Build day:** `eas build -p ios --profile production` → `eas submit -p ios` →
+TestFlight → install. Then the shipping rule gains a second runtime: publish each OTA
+for Android (preview) and iOS (production).
+
 ---
 
 # The family — Spark + a sister player (planned 2026-11-18)
