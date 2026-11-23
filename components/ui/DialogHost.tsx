@@ -4,7 +4,7 @@ import { onDialog, resolveDialog, type DialogOptions } from '@/utils/dialog'
 
 /**
  * Root-mounted renderer for `showDialog()` (utils/dialog.ts). Mount once, after the
- * navigator. Toasts (`showToast()`) appear in the top island (components/island).
+ * navigator. Toasts (`showToast()`) open out of the spot (components/spot).
  */
 export function DialogHost() {
   return <DialogLayer />

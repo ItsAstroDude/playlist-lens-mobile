@@ -439,22 +439,22 @@ where it was and its background holds still meanwhile.
       as half-opened on One UI.
 - [ ] Next: other screens in tabletop (stories with the controls below, the Play game).
 
-## The top island — 2.0.23 (2026-11-23)
-One black pill round the selfie camera (`components/island/Island.tsx`, geometry in
-`utils/island.ts`, tested) replaces four things: the Lenses tips strip (lines now in
-`utils/stripLines.ts`), the "Home strip" now-playing placement (now **Top island**),
-the toast layer, and the server wake-up banner.
-- Compact: lobes either side of the camera — song (cover + equaliser, Top island only),
-  wake-up (dot + seconds), reconnect. Idle: just the pill.
-- Expanded (grows down, camera in its top edge): toast 2.6 s · a line peeked on arriving
-  at Lenses 4.5 s · tap = panel (song + play/pause/next, wake-up, reconnect, a line; tap
-  the line for the next) for 7 s, longer while you touch it; tap outside closes.
-- Motion: open on `Spring.bouncy`, close on `Spring.default`, lobe width on
-  `Spring.snappy`. Reduce motion: short timings.
-- Cover screen: no pill (no camera up there); toasts + wake-up as cards. Tabletop: the
-  song lobes step aside. Logged out: toasts + wake-up only (no Spotify polling).
-- [ ] Check on the phone: the pill sits exactly round the camera (centre of the status
-      bar is assumed); tune `islandGeometry` if not.
+## The spot — 2.0.24 (2026-11-23)
+A floating dot (`components/spot/Spot.tsx`, geometry in `utils/spot.ts`, tested) that
+opens only when it has something to say. It replaced the 2.0.23 top island (a black pill
+round the selfie camera: rejected on the phone, "doesn't feel natural").
+- Owns toasts (2.6 s), the server wake-up (says it once, then pulses until awake) and
+  the reconnect prompt (once a session). The floating wake-up banner and toast layer are
+  gone; the Lenses tips strip and the Home strip placement are back as in 2.0.22.
+- Drag anywhere; release springs to the nearest side edge (a flick counts) on
+  `Spring.bouncy` with the release velocity, stretching along the drag and wobbling as it
+  lands. Rest side + height saved per phone. Opens into a card from where it sits on
+  `Spring.bouncy`, closes on `Spring.default`.
+- Tap: the song (play/pause, next, tap = Now playing), plus anything pending.
+- Colour follows the cover; a new song = one ripple. No idle motion (nothing runs per
+  frame while it rests, except the pulse during a wake-up).
+- Cover screen: rests clear of the cameras. Hidden in stories and the cover lab unless open.
+- [ ] Check on the phone: default spot (right edge, 20% down) clear of headers' buttons.
 
 ---
 

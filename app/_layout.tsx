@@ -36,7 +36,7 @@ import { Tutorial } from '@/components/onboarding/Tutorial'
 import { WhatsNew } from '@/components/onboarding/WhatsNew'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { DialogHost } from '@/components/ui/DialogHost'
-import { Island } from '@/components/island/Island'
+import { Spot } from '@/components/spot/Spot'
 import { warmUp } from '@/utils/api'
 import { QueueCartTray } from '@/components/queue/QueueCartTray'
 import { StartQueueSheet } from '@/components/queue/StartQueueSheet'
@@ -279,7 +279,7 @@ export default function RootLayout() {
       {isAuthenticated && <TabletopNowPlaying />}
       {/* showDialog() / showToast() from anywhere — kept last so it sits on top */}
       <DialogHost />
-      <Island authed={isAuthenticated} />
+      <Spot authed={isAuthenticated} />
     </GestureHandlerRootView>
   )
 }

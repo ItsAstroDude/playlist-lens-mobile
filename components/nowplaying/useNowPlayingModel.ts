@@ -50,7 +50,7 @@ export function fmtClock(ms: number): string {
  * the Now Playing sheet (normal + cover-screen layouts) and the half-folded tabletop view.
  *
  * `active` gates the per-second clock and the stats lookup (closed views do no work);
- * `withStats: false` skips the lookup altogether (the island: it parses MBs of history).
+ * `withStats: false` skips the lookup altogether (the spot: the lookup parses MBs of history).
  */
 export function useNowPlayingModel(np: NowPlaying | null, active: boolean, withStats = true) {
   const item = np?.item ?? null

@@ -1,9 +1,10 @@
 /**
- * Smoke tests: the island and the tabletop view render in each state without throwing.
+ * Smoke tests: the spot and the tabletop view render in each state without throwing.
  */
 import React from 'react'
 import { render, act, fireEvent } from '@testing-library/react-native'
 
+require('react-native-gesture-handler/jestSetup')
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'))
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 40, bottom: 24, left: 0, right: 0 }),
@@ -36,41 +37,49 @@ jest.mock('@/hooks/useNowPlaying', () => ({
   pokeNowPlaying: jest.fn(),
 }))
 
-import { Island } from '@/components/island/Island'
+import { Spot } from '@/components/spot/Spot'
 import { TabletopNowPlaying } from '@/components/fold/TabletopNowPlaying'
 import { showToast } from '@/utils/dialog'
-import { setNowPlayingPos, setSimulateHalfFold } from '@/utils/settings'
+import { setSimulateHalfFold } from '@/utils/settings'
 
 beforeEach(() => { jest.useFakeTimers(); mockNp = null; mockWaking = null; mockCover = false; mockPath = '/' })
 afterEach(() => { jest.useRealTimers() })
 
-describe('Island', () => {
-  it('renders idle, peeks a line on Lenses, then shows a toast', () => {
-    const r = render(React.createElement(Island, { authed: true }))
-    act(() => { jest.advanceTimersByTime(800) })   // the Lenses peek
+describe('Spot', () => {
+  it('rests as a dot, then opens for a toast and closes again', () => {
+    const r = render(React.createElement(Spot, { authed: true }))
+    expect(r.getByLabelText(/Spot\. Tap to open/)).toBeTruthy()
     act(() => { showToast('Added to queue', 'checkmark') })
     expect(r.getByText('Added to queue')).toBeTruthy()
     act(() => { jest.advanceTimersByTime(3000) })
+    expect(r.getByLabelText(/Spot\. Tap to open/)).toBeTruthy()
     r.unmount()
   })
-  it('shows the song lobes in Top island placement and opens the panel on tap', () => {
-    setNowPlayingPos('top')
+  it('opens the song panel on tap', () => {
     mockNp = track
-    mockPath = '/queue'
-    const r = render(React.createElement(Island, { authed: true }))
-    fireEvent.press(r.getByLabelText(/Now playing: Song/))
+    const r = render(React.createElement(Spot, { authed: true }))
+    fireEvent(r.getByLabelText(/Song is playing/), 'accessibilityTap')
     expect(r.getByText('Song')).toBeTruthy()
+    expect(r.getByLabelText('Pause')).toBeTruthy()
     r.unmount()
-    setNowPlayingPos('bottom')
   })
-  it('shows the wake-up logged out and on the cover screen', () => {
+  it('says the server is waking, logged out and on the cover screen', () => {
     mockWaking = 12
-    const r = render(React.createElement(Island, { authed: false }))
+    const r = render(React.createElement(Spot, { authed: false }))
+    expect(r.getByText(/Waking up the server/)).toBeTruthy()
     r.unmount()
     mockCover = true
-    const c = render(React.createElement(Island, { authed: true }))
+    const c = render(React.createElement(Spot, { authed: true }))
     expect(c.getByText(/Waking up the server/)).toBeTruthy()
     c.unmount()
+  })
+  it('stays out of stories unless it has news', () => {
+    mockPath = '/story'
+    const r = render(React.createElement(Spot, { authed: true }))
+    expect(r.queryByLabelText(/Spot\./)).toBeNull()
+    act(() => { showToast('Saved') })
+    expect(r.getByText('Saved')).toBeTruthy()
+    r.unmount()
   })
 })
 

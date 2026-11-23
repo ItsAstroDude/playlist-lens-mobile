@@ -24,6 +24,7 @@ import { PlaylistCard, GRID_W, GRID_GAP, COVER_RADIUS } from '@/components/playl
 import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
 import { useServerWaking } from '@/hooks/useServerWaking'
+import { HomeTopStrip } from '@/components/nowplaying/NowPlayingStrip'
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist'
 import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet'
 import { loadOrder, saveOrder, applyOrder, pinToTop } from '@/utils/playlistOrder'
@@ -251,12 +252,11 @@ export default function PlaylistsTab() {
   const openTaste = useCallback(() => { haptic.light(); router.push('/taste') }, [])
 
   // Memoized as an ELEMENT (not an inline component) so FlashList doesn't see a
-  // new header type every render — that was remounting the old tips strip and making
+  // new header type every render — that was remounting RotatingStrip and making
   // the quotes jump/skip on refresh. Only re-derives during a server wake-up.
   const listHeader = useMemo(() => (
     <>
-      {/* The tips strip moved into the top island (components/island). */}
-      {wakeSecs !== null ? <ColdStartOverlay elapsed={wakeSecs} /> : null}
+      {wakeSecs !== null ? <ColdStartOverlay elapsed={wakeSecs} /> : <HomeTopStrip />}
       <TouchableOpacity
         style={styles.tastePill}
         onPress={openTaste}
