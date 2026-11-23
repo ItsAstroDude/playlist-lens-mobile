@@ -472,10 +472,11 @@ phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
   once merged to master**; until then the deck says the server needs updating).
   Spotify can't remove queue items, so "drop" = skip it when it starts (watcher in
   NowPlayingBar, `utils/upNext.ts`, tested); "play now" = skip ahead to it.
-- **One half-fold mode** — 2.0.31. Lenses splits at the hinge: header + `HalfFoldStage`
-  (song, or this week via `useWeekGlance`) on the standing half, playlists on the flat
-  half. The cover button / stage open the full view (`requestTabletop` in coverMode);
-  auto-open on fold is now a Labs switch, **off by default**. [ ] Other tabs half-folded.
+- **Half-folded Lenses "stage"** — 2.0.31, **rejected and removed in 2.0.32** ("I don't
+  like this layout idea": a big stage card between the header and the hinge, playlists
+  below). Kept: folded, the cover button opens the full view (`requestTabletop`);
+  auto-open on fold back ON by default. [ ] A better half-fold idea for Lenses / when
+  nothing plays — design first, on the board.
 - **Drop card open/close** — 2.0.28: unfolds from the button (top-right corner held,
   content fades in), folds back in; anchor corrected for the status bar.
   2.0.29: the cover is a shared element (button art → card cover, `Spring.default` open,

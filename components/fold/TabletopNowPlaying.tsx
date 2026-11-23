@@ -27,9 +27,9 @@ import { fmtClock, useNowPlayingModel } from '@/components/nowplaying/useNowPlay
  * big controls and your numbers for the song on the half lying flat. Open the phone
  * flat (or tap the arrow) and it springs away, back to wherever you were.
  *
- * Shows while a song is playing and the hinge runs across the screen — when asked for
- * (Lenses' cover button or stage, half-folded), or by itself on folding if that Labs
- * switch is on (off by default since 2.0.31). Labs also has "simulate" to try it flat.
+ * Shows while a song is playing and the hinge runs across the screen: by itself when you
+ * fold (Labs switch, on by default), or when asked for (Lenses' cover button, folded).
+ * Labs also has "simulate" to try it flat.
  */
 export function TabletopNowPlaying() {
   const { width: W, height: H } = useWindowDimensions()

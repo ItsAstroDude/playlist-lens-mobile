@@ -29,6 +29,12 @@ export const CHANGELOG: PatchEntry[] = [
           'Drop card: no more dark flash on the cover button as it opens. The cover is ready before the card starts to grow, the card fades in as it grows instead of covering the button, and it no longer jumps in height on the way.',
         ],
       },
+      {
+        label: 'Improved',
+        items: [
+          'Half-folded Lenses is back to normal: the big "stage" from 2.0.31 is gone, and folding while a song plays opens the full half-folded view by itself again. Folded, the cover button opens it too.',
+        ],
+      },
     ],
   },
   {
