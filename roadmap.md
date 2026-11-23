@@ -439,6 +439,23 @@ where it was and its background holds still meanwhile.
       as half-opened on One UI.
 - [ ] Next: other screens in tabletop (stories with the controls below, the Play game).
 
+## The top island — 2.0.23 (2026-11-23)
+One black pill round the selfie camera (`components/island/Island.tsx`, geometry in
+`utils/island.ts`, tested) replaces four things: the Lenses tips strip (lines now in
+`utils/stripLines.ts`), the "Home strip" now-playing placement (now **Top island**),
+the toast layer, and the server wake-up banner.
+- Compact: lobes either side of the camera — song (cover + equaliser, Top island only),
+  wake-up (dot + seconds), reconnect. Idle: just the pill.
+- Expanded (grows down, camera in its top edge): toast 2.6 s · a line peeked on arriving
+  at Lenses 4.5 s · tap = panel (song + play/pause/next, wake-up, reconnect, a line; tap
+  the line for the next) for 7 s, longer while you touch it; tap outside closes.
+- Motion: open on `Spring.bouncy`, close on `Spring.default`, lobe width on
+  `Spring.snappy`. Reduce motion: short timings.
+- Cover screen: no pill (no camera up there); toasts + wake-up as cards. Tabletop: the
+  song lobes step aside. Logged out: toasts + wake-up only (no Spotify polling).
+- [ ] Check on the phone: the pill sits exactly round the camera (centre of the status
+      bar is assumed); tune `islandGeometry` if not.
+
 ---
 
 # The family — Spark + a sister player (planned 2026-11-18)

@@ -19,6 +19,28 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.23',
+    name:    'The island',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'The top island: one black pill round the selfie camera now holds what used to be spread across the top. Toasts drop out of it, the server wake-up counts in it, and opening Lenses peeks one of your tips or numbers there.',
+          'Tap the island to open it: the song playing with play/pause and skip, plus a line from your listening (tap the line for the next one). Tap anywhere else and it springs back.',
+          'Settings › Appearance › Now playing › Top island puts the song in the island: its cover on one side of the camera, a little equaliser on the other.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'The tips strip at the top of Lenses is gone: its lines live in the island, so your playlists start higher up.',
+          'On the Flip cover screen, toasts and the wake-up appear as a card at the top (the ring round the cameras still shows the song). Half-folded, the island stays out of the tabletop view\'s way.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.22',
     name:    'Half-folded',
     date:    '2026-11-23',

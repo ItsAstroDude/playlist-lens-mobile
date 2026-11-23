@@ -13,7 +13,7 @@
  *   • any HTTP answer from the server → awake again
  *   • every tracked request gave up (offline) → stop claiming we're waking it
  *
- * `ServerWakeBanner` (root) and the Lenses strip render this state.
+ * The top island (components/island) and the Lenses header render this state.
  */
 
 export const WAKE_THRESHOLD_MS = 3000

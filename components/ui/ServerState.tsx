@@ -17,7 +17,7 @@ import { wakeCopy } from '@/utils/serverStatus'
 
 // ─── Cold Start Overlay ───────────────────────────────────────────────────────
 // In-list version of the wake-up indicator (Lenses header). Every other screen
-// gets the floating ServerWakeBanner; both read the same app-wide state.
+// gets the top island (components/island); both read the same app-wide state.
 
 interface ColdStartOverlayProps {
   /** Seconds spent waking the server so far (useServerWaking). */

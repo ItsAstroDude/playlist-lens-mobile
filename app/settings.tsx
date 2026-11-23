@@ -538,7 +538,7 @@ export default function SettingsScreen() {
               <View style={styles.segment}>
                 {([
                   { id: 'bottom', icon: 'chevron-down-circle-outline', label: 'Above nav' },
-                  { id: 'top',    icon: 'chevron-up-circle-outline',   label: 'Home strip' },
+                  { id: 'top',    icon: 'chevron-up-circle-outline',   label: 'Top island' },
                 ] as Array<{ id: NowPlayingPos; icon: IconName; label: string }>).map(o => {
                   const active = npPos === o.id
                   return (
@@ -556,7 +556,7 @@ export default function SettingsScreen() {
                 })}
               </View>
               <Text style={styles.quoteHint}>
-                Where the live bar lives — docked above the nav, or up in the home tips strip.
+                Where the live bar lives — docked above the nav, or up in the island round the camera (tap it for controls).
               </Text>
             </View>
             <View style={[styles.appearanceBlock, !appearanceDirty && { borderBottomWidth: 0 }]}>
@@ -567,7 +567,7 @@ export default function SettingsScreen() {
                 onChangeText={setQuote}
                 onBlur={saveQuote}
                 onSubmitEditing={saveQuote}
-                placeholder="Your own line on the home strip…"
+                placeholder="Your own line in the top island…"
                 placeholderTextColor={Colors.textMuted}
                 maxLength={64}
                 returnKeyType="done"
