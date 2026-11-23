@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { View, Text, StyleSheet, Pressable, BackHandler, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -50,15 +50,21 @@ export function Sheet({
   const y = useSharedValue(SH)
   const backdrop = useSharedValue(0)
 
+  // Closed sheets are unloaded (2.0.37): rendered only while open or sliding away.
+  const [shown, setShown] = useState(open)
   useEffect(() => {
     if (open) {
+      setShown(true)
       y.value = withSpring(0, Spring.sheet)
       backdrop.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.ease) })
     } else {
-      y.value = withSpring(SH, Spring.sheet)
+      y.value = withSpring(SH, Spring.sheet, done => { if (done) runOnJS(setShown)(false) })
       backdrop.value = withTiming(0, { duration: 160 })
     }
   }, [open])
+  // The height changed (unfolding, resizing): a closed sheet waits below the NEW bottom.
+  // It kept the old one, so after unfolding a closed sheet sat in the lower half.
+  useEffect(() => { if (!open) y.value = SH }, [SH])
 
   const dismiss = useCallback(() => { haptic.light(); onClose() }, [onClose])
 
@@ -80,6 +86,7 @@ export function Sheet({
   const sheetStyle    = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }))
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }))
 
+  if (!shown && !open) return null
   return (
     <>
       <Animated.View style={[styles.backdrop, { zIndex }, backdropStyle]} pointerEvents={open ? 'auto' : 'none'}>

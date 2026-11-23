@@ -19,6 +19,26 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.37',
+    name:    'After the queue',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Up next: once you\'ve been through the queue, the card turns to the song that\'s playing: which play this is for you, time listened, plays this week, when you first heard it and its all-time rank.',
+        ],
+      },
+      {
+        label: 'Fixed',
+        items: [
+          'This week\'s tiles update right after a sync (they kept saying "nothing tracked yet"), and with tracking on they no longer tell you to turn it on.',
+          'A playlist you closed no longer sits stuck in the lower half after unfolding the phone. Closed sheets are now unloaded, too.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.36',
     name:    'Instant',
     date:    '2026-11-23',

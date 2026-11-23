@@ -45,7 +45,12 @@ let _stats: SQLiteDatabase | null = null
 const VERSION_KEY = 'plays.version'
 /** Increases whenever plays are added, replaced or removed. */
 export function playsVersion(): number { return storage.getNumber(VERSION_KEY) ?? 0 }
-function bump(): void { storage.set(VERSION_KEY, playsVersion() + 1) }
+function bump(): void { storage.set(VERSION_KEY, playsVersion() + 1); playsSubs.forEach(cb => { try { cb() } catch { /* a listener's problem */ } }) }
+
+/** Called after every write (a sync, an import, a clear) — screens that count plays
+ *  re-count. Returns an unsubscribe. */
+const playsSubs = new Set<() => void>()
+export function onPlaysChanged(cb: () => void): () => void { playsSubs.add(cb); return () => { playsSubs.delete(cb) } }
 
 /** Open (once) and bring the schema up to date. */
 export function db(): SQLiteDatabase {
@@ -319,4 +324,29 @@ function migrateLegacyBuffer(d: SQLiteDatabase): void {
   }
   setMeta(d, MIGRATED_META, String(Date.now()))
   // Keep the MMKV copy until 2.0 has proven itself; a later update deletes it.
+}
+
+export interface SongPlays {
+  plays: number
+  ms: number
+  /** UTC seconds of the first and the latest play. */
+  firstT: number | null
+  lastT: number | null
+  /** Plays at or after `weekStartT`. */
+  thisWeek: number
+}
+
+/**
+ * Your plays of one song (imported history + tracked), by its Spotify uri — or, for
+ * plays saved without one, by name + artist. Cheap: the uri is indexed.
+ */
+export function songPlays(uri: string | null, name: string, artist: string, weekStartT: number): SongPlays {
+  const where = uri ? '(uri = ? OR (uri = \'\' AND track = ? AND artist = ?))' : '(track = ? AND artist = ?)'
+  const args = uri ? [uri, name, artist] : [name, artist]
+  const r = db().getFirstSync<{ n: number; ms: number | null; a: number | null; b: number | null; w: number | null }>(
+    `SELECT COUNT(*) AS n, SUM(ms) AS ms, MIN(t) AS a, MAX(t) AS b, SUM(CASE WHEN t >= ? THEN 1 ELSE 0 END) AS w
+     FROM plays WHERE ${where}`,
+    [weekStartT, ...args],
+  )
+  return { plays: r?.n ?? 0, ms: r?.ms ?? 0, firstT: r?.a ?? null, lastT: r?.b ?? null, thisWeek: r?.w ?? 0 }
 }

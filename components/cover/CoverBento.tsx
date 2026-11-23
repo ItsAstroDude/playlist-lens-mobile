@@ -85,7 +85,7 @@ function NowTile({ size }: { size: number }) {
 }
 
 function WeekTiles({ size, gap }: { size: number; gap: number }) {
-  const { loaded, week, streak } = useWeekGlance()
+  const { loaded, week, streak, tracking } = useWeekGlance()
 
   const box = { width: size, height: size }
   // Nothing tracked yet: one tall tile (not an empty one under it) with the way in.
@@ -94,8 +94,10 @@ function WeekTiles({ size, gap }: { size: number; gap: number }) {
       <View style={[styles.tile, { width: size, height: size * 2 + gap }]}>
         <Text style={styles.overline}>THIS WEEK</Text>
         <View style={{ gap: Spacing.md }}>
-          <Text style={styles.tileHint} numberOfLines={6} adjustsFontSizeToFit minimumFontScale={0.7}>{loaded ? 'Nothing tracked yet. Turn on tracking to see your hours, top artist and streak here.' : 'Adding up…'}</Text>
-          {loaded && (
+          <Text style={styles.tileHint} numberOfLines={6} adjustsFontSizeToFit minimumFontScale={0.7}>{!loaded ? 'Adding up…'
+            : tracking ? 'No plays this week yet. They show up here after the next sync.'
+            : 'Nothing tracked yet. Turn on tracking to see your hours, top artist and streak here.'}</Text>
+          {loaded && !tracking && (
             <Pressable onPress={() => { haptic.light(); router.push('/settings') }} style={styles.cta}
               accessibilityRole="button" accessibilityLabel="Open Settings to turn on tracking">
               <Text style={styles.ctaText}>Settings</Text>

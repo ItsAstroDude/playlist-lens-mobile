@@ -16,6 +16,8 @@ import {
   type UpNextTrack,
 } from '@/utils/upNext'
 import { fmtClock, type useNowPlayingModel } from '@/components/nowplaying/useNowPlayingModel'
+import { songPlays } from '@/utils/playDb'
+import { fmtMinutesShort } from '@/utils/wrapped'
 
 type Model = ReturnType<typeof useNowPlayingModel>
 
@@ -129,7 +131,8 @@ function useDeck(state: UpNextState, m: Model, refresh: () => void) {
     }
     setTimeout(() => { pokeNowPlaying(); refresh() }, 500)
   }, [queue, refresh])
-  return { card, at, count: cards.length, total: vq.length, drop, keep, playNow }
+  const again = useCallback(() => setKept(new Set()), [])
+  return { card, at, count: cards.length, total: vq.length, drop, keep, playNow, again }
 }
 
 type Deck = ReturnType<typeof useDeck>
@@ -206,13 +209,58 @@ function DeckCard({ deck, cardStyle, gesture, compact }: {
   )
 }
 
-function DeckEmpty({ state, deck }: { state: UpNextState; deck: Deck }) {
+function DeckEmpty({ state, deck, m }: { state: UpNextState; deck: Deck; m: Model }) {
+  // Through the queue (or nothing queued): the card turns to the song that's playing.
+  if (state.status === 'ok' && m.item) return <SongAbout m={m} again={deck.total > 0 ? deck.again : undefined} />
   const text = state.status === 'loading' ? 'Looking at what\'s next…'
     : state.status === 'server' ? 'Up next shows here once the server is updated.'
-    : state.status === 'error' ? 'Couldn\'t get what\'s next from Spotify.'
-    : deck.total === 0 ? 'Nothing queued after this song.'
-    : 'You\'ve been through the queue. It plays as you left it.'
+    : 'Couldn\'t get what\'s next from Spotify.'
   return <View style={styles.empty}><Text style={styles.emptyText}>{text}</Text></View>
+}
+
+/**
+ * After the queue (2.0.37): stats about the song playing — your plays (tracked + imported),
+ * time listened, plays this past week, when you first heard it, and its all-time rank
+ * from your imported history.
+ */
+function SongAbout({ m, again }: { m: Model; again?: () => void }) {
+  const item = m.item!
+  const sp = useMemo(() => {
+    try { return songPlays(item.uri, item.name, item.artists?.[0] ?? '', Math.floor(Date.now() / 1000) - 7 * 86_400) }
+    catch { return null }
+  }, [item.uri, item.name])
+  const plays = Math.max(sp?.plays ?? 0, m.stats?.stat?.plays ?? 0)
+  const ms = Math.max(sp?.ms ?? 0, m.stats?.stat?.ms ?? 0)
+  const first = sp?.firstT ? new Date(sp.firstT * 1000).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : null
+  const headline = plays === 0 ? 'A first listen' : plays === 1 ? 'Your 2nd time with it' : `Play number ${(plays + 1).toLocaleString()}`
+  const chips = [
+    plays > 0 && { v: fmtMinutesShort(ms), l: 'listened' },
+    sp && sp.thisWeek > 0 && { v: String(sp.thisWeek), l: 'this week' },
+    first && { v: first, l: 'first heard' },
+    m.stats?.rank != null && { v: `#${m.stats.rank.toLocaleString()}`, l: 'all time' },
+  ].filter(Boolean).slice(0, 3) as { v: string; l: string }[]
+  return (
+    <View style={[styles.card, styles.about]} accessible
+      accessibilityLabel={`About this song: ${headline}. ${chips.map(c => `${c.v} ${c.l}`).join(', ')}`}>
+      <Text style={[styles.overline, { color: Colors.pink }]}>ABOUT THIS SONG</Text>
+      <Text style={styles.aboutHead} numberOfLines={1}>{headline}</Text>
+      {chips.length > 0 && (
+        <View style={styles.aboutChips}>
+          {chips.map(c => (
+            <View key={c.l} style={styles.aboutChip}>
+              <Text style={styles.aboutVal} numberOfLines={1}>{c.v}</Text>
+              <Text style={styles.cardMeta}>{c.l}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {again && (
+        <Pressable onPress={() => { haptic.light(); again() }} hitSlop={8} accessibilityRole="button">
+          <Text style={styles.aboutAgain}>↺ look at the queue again</Text>
+        </Pressable>
+      )}
+    </View>
+  )
 }
 
 // ── touch strip / pad gestures: tap = play/pause, swipe = next / previous ──
@@ -238,11 +286,11 @@ export function UpNextStrip({ m, state, refresh, W, height, padBottom }: {
   return (
     <View style={[styles.flat, { height, paddingBottom: padBottom }]}>
       <View style={styles.headRow}>
-        <Text style={styles.overline}>UP NEXT{deck.total ? ` · ${Math.min(deck.total - deck.count + 1, deck.total)} OF ${deck.total}` : ''}</Text>
+        <Text style={styles.overline}>{deck.card ? `UP NEXT${deck.total ? ` · ${deck.total - deck.count + 1} OF ${deck.total}` : ''}` : 'NOW PLAYING'}</Text>
         <Text style={styles.hint}>swipe the card ← drop · keep →</Text>
       </View>
       <View style={{ height: 168 }}>
-        {deck.card ? <DeckCard deck={deck} cardStyle={g.style} gesture={Gesture.Simultaneous(g.pan, g.tap)} /> : <DeckEmpty state={state} deck={deck} />}
+        {deck.card ? <DeckCard deck={deck} cardStyle={g.style} gesture={Gesture.Simultaneous(g.pan, g.tap)} /> : <DeckEmpty state={state} deck={deck} m={m} />}
       </View>
       {deck.card && (
         <View style={styles.actions}>
@@ -309,6 +357,12 @@ const styles = StyleSheet.create({
   cardTitle:  { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg + 2, letterSpacing: -0.5, color: Colors.text, textAlign: 'left' },
   cardSub:    { fontFamily: FontFamily.mono, fontSize: FontSize.base, color: Colors.textSecondary, marginTop: 2 },
   cardMeta:   { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 8 },
+  about:      { flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: Spacing.sm },
+  aboutHead:  { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg + 2, letterSpacing: -0.5, color: Colors.text },
+  aboutChips: { flexDirection: 'row', gap: Spacing.sm, alignSelf: 'stretch' },
+  aboutChip:  { flex: 1, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderRadius: Radius.md, backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder },
+  aboutVal:   { fontFamily: FontFamily.syneBold, fontSize: FontSize.md, color: Colors.greenPrimary },
+  aboutAgain: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
   empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
   emptyText:  { fontFamily: FontFamily.mono, fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center' },
   actions:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.lg },
