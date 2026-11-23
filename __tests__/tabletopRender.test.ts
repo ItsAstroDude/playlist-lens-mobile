@@ -98,6 +98,16 @@ describe('TabletopNowPlaying', () => {
     setTabletopLayout('now')
     setSimulateHalfFold(false)
   })
+  it('opens on a flat phone when asked for (the Lenses cover button), split at the middle', () => {
+    setTabletopEnabled(false)
+    mockNp = track
+    const r = render(React.createElement(TabletopNowPlaying))
+    expect(r.queryByLabelText('Close tabletop view')).toBeNull()
+    act(() => { requestTabletop() })
+    expect(r.getByLabelText('Close tabletop view')).toBeTruthy()
+    act(() => { requestTabletop(false) })
+    r.unmount()
+  })
   it('stays away when flat', () => {
     mockNp = track
     const r = render(React.createElement(TabletopNowPlaying))

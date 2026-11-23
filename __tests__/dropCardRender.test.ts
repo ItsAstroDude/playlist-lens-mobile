@@ -30,6 +30,7 @@ jest.mock('@/hooks/useNowPlaying', () => ({ useNowPlaying: () => ({ np: mockNp, 
 
 import { NowPlayingButton, DropCardHost } from '@/components/nowplaying/DropCard'
 import { CoverBento } from '@/components/cover/CoverBento'
+import { requestTabletop, tabletopRequested } from '@/utils/coverMode'
 import { showToast } from '@/utils/dialog'
 import { setNowPlayingPos } from '@/utils/settings'
 import { _resetDropNews } from '@/utils/dropCard'
@@ -47,13 +48,11 @@ describe('drop card', () => {
     act(() => { jest.advanceTimersByTime(3000) })
     r.unmount()
   })
-  it('opens into the whole card on tap, with what happened lately', () => {
+  it('opens Now playing full screen on tap', () => {
     const r = render(React.createElement(Screen))
-    act(() => { showToast('Synced 12 new plays') })
     fireEvent.press(r.getByLabelText(/Now playing: PPPP by TAK/))
-    expect(r.getByLabelText('Pause')).toBeTruthy()
-    expect(r.getByText('LATELY')).toBeTruthy()
-    expect(r.getAllByText('Synced 12 new plays').length).toBeGreaterThan(0)
+    expect(tabletopRequested()).toBe(true)
+    requestTabletop(false)
     r.unmount()
   })
   it('stays away with Now playing above the nav, and on the cover screen', () => {

@@ -46,12 +46,22 @@ export function TabletopNowPlaying() {
   const [dismissed, setDismissed] = useState(false)
   const half = posture.state === 'half'
   const asked = useTabletopRequested()
-  useEffect(() => { if (!half) { setDismissed(false); requestTabletop(false) } }, [half])
+  // Opening the phone flat after a fold: forget the dismissal (and a request made folded).
+  const wasHalf = React.useRef(half)
+  useEffect(() => {
+    if (wasHalf.current && !half) { setDismissed(false); requestTabletop(false) }
+    wasHalf.current = half
+  }, [half])
 
-  const split = cover ? null : tabletopSplit(posture, H)
+  // 2.0.34: this is also Now playing's full screen on a flat phone — the Lenses cover
+  // button opens it. Folded, it splits at the hinge; flat, at the middle of the screen.
+  const foldSplit = cover ? null : tabletopSplit(posture, H)
+  const split = foldSplit ?? (asked && !cover ? { top: Math.round(H / 2), bottom: H - Math.round(H / 2) } : null)
   const isTrack = !!np?.item && np.type === 'track'
-  // By itself when you fold (Labs switch), or when asked for (cover button / stage).
-  const show = !!split && isTrack && (asked || (enabled && !dismissed))
+  // When asked for (cover button), or by itself when you fold (Labs switch).
+  const show = !!split && isTrack && (asked || (enabled && !dismissed && !!foldSplit))
+  // The song stopped: close, and don't pop open again with the next one.
+  useEffect(() => { if (asked && !isTrack && np !== undefined) requestTabletop(false) }, [asked, isTrack])
 
   // Stay mounted through the exit, then unmount (the aurora redraws every frame).
   const [mounted, setMounted] = useState(show)

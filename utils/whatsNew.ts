@@ -19,6 +19,25 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.34',
+    name:    'Now playing, full screen',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Tap the cover button on Lenses and Now playing opens full screen: the layouts made for the half fold, now on a flat phone too. The song on the top half, controls or up next on the bottom half; switch with now · 1 · 2 at the top right, close with the arrow or back.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'The small cards that drop out of the cover button with news stay as they were.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.33',
     name:    'Up next, fixed',
     date:    '2026-11-23',

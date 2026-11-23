@@ -477,6 +477,11 @@ phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
   below). Kept: folded, the cover button opens the full view (`requestTabletop`);
   auto-open on fold back ON by default. [ ] A better half-fold idea for Lenses / when
   nothing plays — design first, on the board.
+- **The half-fold screen IS Now playing's expanded state** — 2.0.34 (Andrei's idea). The
+  Lenses cover button opens `TabletopNowPlaying` full screen on a flat phone too (split at
+  the middle; at the hinge when folded). The drop card's own open card is gone; its news
+  cards stay. Folding still opens it by itself (Labs switch). [ ] Rethink what the folded
+  state does now that this screen isn't fold-only.
 - **Resize-proof sizing** — 2.0.33: after Samsung's resize the reported window width
   went stale (cards narrow and centred, bento tiles misaligned). PlaylistCard (full / grid /
   tile) now fills its list cell with paddings; CoverBento measures its own width. Other

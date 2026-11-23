@@ -1,15 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  AccessibilityInfo, BackHandler, Pressable, StyleSheet, Text, View, useWindowDimensions,
+  AccessibilityInfo, Pressable, StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
-import { LinearGradient } from 'expo-linear-gradient'
 import Svg, { Circle } from 'react-native-svg'
 import { useFocusEffect } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
-  Easing, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming,
+  runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
@@ -18,16 +17,12 @@ import { Icon } from '@/components/ui/Icon'
 import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { useAuth } from '@/hooks/useAuth'
 import { useIsCover } from '@/hooks/useScreen'
-import { usePosture } from '@/hooks/usePosture'
-import { tabletopSplit } from '@/utils/posture'
-import { requestTabletop } from '@/utils/coverMode'
-import { fmtMinutesShort } from '@/utils/wrapped'
+import { requestTabletop, tabletopRequested } from '@/utils/coverMode'
 import { claimToasts } from '@/utils/dialog'
 import { getNowPlayingPos, onNowPlayingPos, type NowPlayingPos } from '@/utils/settings'
 import {
-  agoLabel, clearNews, currentNews, latelyNews, onDropNews, pushNews, type DropNews,
+  clearNews, currentNews, onDropNews, pushNews, type DropNews,
 } from '@/utils/dropCard'
-import { fmtClock, useNowPlayingModel } from './useNowPlayingModel'
 
 /**
  * The drop card (2.0.26) — Settings › Now playing › "Header button".
@@ -35,8 +30,9 @@ import { fmtClock, useNowPlayingModel } from './useNowPlayingModel'
  * On Lenses the now-playing bar becomes a cover button by the settings button, with a
  * ring that fills as the song plays. When something happens (a toast while Lenses is
  * in front, a new song) a small card drops out of the button, says it, and goes back
- * in. Tap the button and it grows into the whole card: the song, controls, and what
- * happened lately.
+ * in. Tap the button and Now playing opens full screen (2.0.34: the screen designed for
+ * the half fold — now · 1 · 2 — components/fold/TabletopNowPlaying; flat, it splits at
+ * the middle of the screen).
  *
  * Mount `NowPlayingButton` in Lenses' header and `DropCardHost` once over the screen.
  */
@@ -46,18 +42,12 @@ const RING = 3
 const NEWS_W = 252
 const TOAST_MS = 2600
 const SONG_MS = 3500
-/** The cover's size on the open card. */
-const COVER = 112
 
 // ── shared state between the button (in the header) and the host (over the screen) ──
 type Anchor = { x: number; y: number; w: number; h: number }
 let anchor: Anchor | null = null
-let isOpen = false
-let cardShown = false
-function setCardShown(v: boolean) { if (v !== cardShown) { cardShown = v; emit() } }
 const subs = new Set<() => void>()
 const emit = () => subs.forEach(cb => cb())
-function setOpen(v: boolean) { if (v !== isOpen) { isOpen = v; emit() } }
 function useStore<T>(read: () => T): T {
   const [v, setV] = useState(read)
   useEffect(() => {
@@ -82,10 +72,6 @@ export function NowPlayingButton() {
   const { np, needsReconnect } = useNowPlaying()
   const { login, isLoading } = useAuth()
   const cover = useIsCover()
-  // Half-folded, the button opens the full half-folded view instead of the card.
-  const posture = usePosture()
-  const { height: winH } = useWindowDimensions()
-  const folded = !cover && !!tabletopSplit(posture, winH)
   const ref = useRef<View>(null)
   const measure = useCallback(() => {
     ref.current?.measureInWindow((x, y, w, h) => { if (w > 0) anchor = { x, y, w, h } })
@@ -99,8 +85,6 @@ export function NowPlayingButton() {
   const art = item?.album?.images?.[0]?.url ?? null
   // Decode the cover ahead of time: the drop card's travelling copy then draws at once.
   useEffect(() => { if (art) Promise.resolve(Image.prefetch?.(art)).catch(() => {}) }, [art])
-  // While the card is up (and until it has folded back in) the button IS the card: hide it.
-  const opened = useStore(() => cardShown)
 
   // The ring advances on its own between polls (a step every 2 s is plenty for a ring).
   const [, tick] = useState(0)
@@ -129,8 +113,8 @@ export function NowPlayingButton() {
   const C = 2 * Math.PI * r
   return (
     <Pressable ref={ref} onLayout={measure} hitSlop={4}
-      onPress={() => { haptic.light(); if (folded) { requestTabletop(); return } measure(); setOpen(true) }}
-      style={[styles.btn, opened && { opacity: 0 }]} accessibilityRole="button"
+      onPress={() => { haptic.light(); measure(); requestTabletop() }}
+      style={styles.btn} accessibilityRole="button"
       accessibilityLabel={`Now playing: ${item?.name ?? ''}${item?.artists?.length ? ` by ${item.artists.join(', ')}` : ''}`}
       accessibilityHint="Opens playback controls">
       <Svg width={BTN} height={BTN} style={StyleSheet.absoluteFill}>
@@ -155,9 +139,7 @@ export function DropCardHost() {
   const cover = useIsCover()
   const header = useHeaderPlacement()
   const { np } = useNowPlaying()
-  const open = useStore(() => isOpen)
   const news = useStore(currentNews)
-  const lately = useStore(latelyNews)
 
   // Toasts drop out of the button while Lenses is in front.
   const active = header && !cover
@@ -176,7 +158,7 @@ export function DropCardHost() {
   useEffect(() => {
     const prev = lastSong.current
     lastSong.current = songId
-    if (!active || prev === undefined || !songId || songId === prev || isOpen) return
+    if (!active || prev === undefined || !songId || songId === prev || tabletopRequested()) return
     pushNews({ kind: 'song', title: item!.name, sub: item!.artists?.join(', '), art: item!.album?.images?.[0]?.url ?? null })
   }, [songId, active])
 
@@ -187,14 +169,6 @@ export function DropCardHost() {
     return () => clearTimeout(t)
   }, [news?.id])
 
-  useEffect(() => {
-    if (!open) return
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => { setOpen(false); return true })
-    return () => sub.remove()
-  }, [open])
-  // Leaving Lenses closes it.
-  useFocusEffect(useCallback(() => () => setOpen(false), []))
-
   const insets = useSafeAreaInsets()
   if (!active) return null
   const raw = anchor ?? { x: W - Spacing.lg - BTN * 2 - Spacing.sm, y: insets.top + Spacing.sm, w: BTN, h: BTN }
@@ -203,8 +177,7 @@ export function DropCardHost() {
   const a = raw.y < insets.top ? { ...raw, y: raw.y + insets.top } : raw
   return (
     <>
-      <NewsCard news={open ? null : news} a={a} W={W} reduced={reduced} />
-      <OpenCard open={open && !!item} a={a} W={W} top={insets.top + Spacing.sm} reduced={reduced} lately={lately} />
+      <NewsCard news={news} a={a} W={W} reduced={reduced} />
     </>
   )
 }
@@ -245,175 +218,6 @@ function NewsCard({ news, a, W, reduced }: { news: DropNews | null; a: Anchor; W
   )
 }
 
-// ── the whole card, unfolding out of the button ──
-// The card grows from the button's circle to its full size with its top-right corner
-// held where the button is (the cover sits there), so the button looks like it opens
-// up; closing folds it back in. Content fades in once there's room for it.
-function OpenCard({ open, a, W, top, reduced, lately }: {
-  open: boolean; a: Anchor; W: number; top: number; reduced: boolean; lately: DropNews[]
-}) {
-  const { np } = useNowPlaying()
-  const [mounted, setMounted] = useState(open)
-  const m = useNowPlayingModel(np, mounted)
-  // Measured content height, as a shared value: the card's size follows it without a
-  // re-render (a state here made the card jump when the measurement landed).
-  const h = useSharedValue(460)
-  const k = useSharedValue(0)
-
-  // No flash on open: the travelling cover starts exactly over the button's art and is
-  // see-through until its picture has drawn. Only then does the button hide and the card
-  // start to grow (or after 150 ms, whichever comes first).
-  const started = useRef(false)
-  const go = useCallback(() => {
-    if (started.current || !isOpen) return
-    started.current = true
-    setCardShown(true)
-    k.value = reduced ? withTiming(1, { duration: 180 }) : withSpring(1, Spring.default)
-  }, [reduced])
-  const finish = useCallback(() => { setCardShown(false); setMounted(false) }, [])
-  useEffect(() => {
-    if (open) {
-      started.current = false
-      setMounted(true)
-      const t = setTimeout(go, 150)
-      return () => clearTimeout(t)
-    }
-    if (!started.current) { finish(); return }
-    started.current = false
-    // Folds back; the button reappears in the same frame the cover lands on it.
-    k.value = withTiming(0, { duration: reduced ? 160 : 240, easing: Easing.inOut(Easing.cubic) },
-      done => { if (done) runOnJS(finish)() })
-  }, [open])
-  useEffect(() => () => setCardShown(false), [])
-
-  const cw = W - Spacing.lg * 2                    // final width
-  const right = Spacing.lg                         // final right edge inset
-  const fromRight = W - (a.x + a.w)                // the button's right inset
-  const backdrop = useAnimatedStyle(() => ({ opacity: Math.min(1, Math.max(0, k.value)) }))
-  const card = useAnimatedStyle(() => {
-    const t = k.value, c = Math.min(1, Math.max(0, t))
-    return {
-      top: a.y + (top - a.y) * t,
-      right: fromRight + (right - fromRight) * t,
-      width: Math.max(BTN * 0.6, BTN + (cw - BTN) * t),
-      height: Math.max(BTN * 0.6, BTN + (h.value - BTN) * t),
-      // see-through at button size, so no dark disc covers the button as it starts
-      opacity: Math.min(1, Math.max(0, t * 4)),
-      borderTopLeftRadius: BTN / 2 + (Radius['2xl'] - BTN / 2) * c,
-      borderBottomLeftRadius: BTN / 2 + (Radius['2xl'] - BTN / 2) * c,
-      borderBottomRightRadius: BTN / 2 + (Radius['2xl'] - BTN / 2) * c,
-      borderTopRightRadius: BTN / 2 + (26 - BTN / 2) * c,
-    }
-  })
-  // The words, then the controls: each fades and rises in as the card makes room.
-  // (k.value is read right here, not in a helper: Reanimated only re-runs a style when
-  // the shared values its own worklet reads change — read through a helper, the words
-  // waited for the next re-render, ~1 s, and popped in / lingered on close.)
-  const content = useAnimatedStyle(() => {
-    const p = Math.min(1, Math.max(0, (k.value - 0.35) / 0.4))
-    return { opacity: p, transform: [{ translateY: (1 - p) * 10 }] }
-  })
-  const rest = useAnimatedStyle(() => {
-    const p = Math.min(1, Math.max(0, (k.value - 0.55) / 0.4))
-    return { opacity: p, transform: [{ translateY: (1 - p) * 14 }] }
-  })
-
-  // The cover travels: from the round art in the button to its corner of the card.
-  const fromArt = BTN - RING * 2 - 4
-  const from = { x: a.x + (a.w - fromArt) / 2, y: a.y + (a.h - fromArt) / 2, s: fromArt, r: fromArt / 2 }
-  const to = { x: W - Spacing.lg * 2 - COVER - 1, y: top + Spacing.lg + 1, s: COVER, r: Radius.xl }
-  const flying = useAnimatedStyle(() => {
-    const t = k.value, c = Math.min(1, Math.max(0, t))
-    return {
-      left: from.x + (to.x - from.x) * t,
-      top: from.y + (to.y - from.y) * t,
-      width: from.s + (to.s - from.s) * t,
-      height: from.s + (to.s - from.s) * t,
-      borderRadius: from.r + (to.r - from.r) * c,
-    }
-  })
-  if (!mounted) return null
-  const close = () => { haptic.light(); setOpen(false) }
-  const { item, stats, dur, liveMs, playing, busy, art, initial } = m
-  const pct = dur > 0 ? Math.min(liveMs / dur, 1) : 0
-  // The song already on the card isn't news in the list under it.
-  const recent = lately.filter(n => !(n.kind === 'song' && n.title === item?.name))
-
-  return (
-    <>
-      <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdrop]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityRole="button" accessibilityLabel="Close" />
-      </Animated.View>
-      <Animated.View accessibilityViewIsModal style={[styles.card, card]}>
-        {/* laid out at the final width, held to the top-right corner while it grows */}
-        <View style={[styles.cardBody, { width: cw }]} onLayout={e => { h.value = Math.round(e.nativeEvent.layout.height) }}>
-        <View style={styles.head}>
-          <Animated.View style={[styles.headText, content]}>
-            <Text style={styles.overline}>{playing ? 'NOW PLAYING' : 'PAUSED'}</Text>
-            <Text style={styles.title} numberOfLines={2}>{item?.name}</Text>
-            {!!item?.artists?.length && <Text style={styles.artist} numberOfLines={1}>{item.artists.join(', ')}</Text>}
-          </Animated.View>
-          {/* the cover's place; the cover itself flies in on top (below) */}
-          <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close" style={styles.coverSlot} />
-        </View>
-
-        <Animated.View style={[styles.rest, rest]}>
-
-        {dur > 0 && (
-          <View style={styles.progress}>
-            <View style={styles.track}><View style={[styles.fill, { width: `${pct * 100}%` }]} /></View>
-            <View style={styles.clocks}><Text style={styles.clock}>{fmtClock(liveMs)}</Text><Text style={styles.clock}>{fmtClock(dur)}</Text></View>
-          </View>
-        )}
-
-        <View style={styles.controls}>
-          <Pressable onPress={m.onPrev} disabled={busy} hitSlop={8} style={styles.ctrl} accessibilityRole="button" accessibilityLabel="Previous track">
-            <Ionicons name="play-skip-back" size={22} color={Colors.text} />
-          </Pressable>
-          <Pressable onPress={m.onPlayPause} disabled={busy} style={styles.play} accessibilityRole="button" accessibilityLabel={playing ? 'Pause' : 'Play'}>
-            <Ionicons name={playing ? 'pause' : 'play'} size={24} color={Colors.background} />
-          </Pressable>
-          <Pressable onPress={m.onNext} disabled={busy} hitSlop={8} style={styles.ctrl} accessibilityRole="button" accessibilityLabel="Next track">
-            <Ionicons name="play-skip-forward" size={22} color={Colors.text} />
-          </Pressable>
-        </View>
-
-        {recent.length > 0 && (
-          <View style={styles.lately}>
-            <Text style={[styles.overline, styles.latelyLabel]}>LATELY</Text>
-            {recent.map(n => (
-              <View key={n.id} style={styles.latelyRow}>
-                <Icon name={n.kind === 'song' ? 'musical-note' : (n.glyph ?? 'checkmark')} size={14} color={n.kind === 'song' ? Colors.textSecondary : Colors.greenPrimary} />
-                <Text style={styles.latelyText} numberOfLines={1}>{n.kind === 'song' ? `${n.title}${n.sub ? ` · ${n.sub}` : ''}` : n.title}</Text>
-                <Text style={styles.latelyAgo}>{agoLabel(n.at)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <View style={styles.foot}>
-          <Text style={styles.stat} numberOfLines={1}>
-            {stats?.stat
-              ? `${stats.stat.plays.toLocaleString()} plays · ${fmtMinutesShort(stats.stat.ms)}${stats.rank != null ? ` · your #${stats.rank.toLocaleString()}` : ''}`
-              : stats?.imported ? 'first listen?' : ''}
-          </Text>
-          <Pressable onPress={m.onOpenSpotify} hitSlop={8} accessibilityRole="link">
-            <Text style={styles.link}>Open in Spotify</Text>
-          </Pressable>
-        </View>
-        </Animated.View>
-        </View>
-      </Animated.View>
-      <Animated.View pointerEvents="none" style={[styles.flying, flying]}>
-        {art ? <Image source={{ uri: art }} style={StyleSheet.absoluteFill} contentFit="cover" onDisplay={go} />
-             : <LinearGradient colors={[alpha(Colors.greenPrimary, 0.33), alpha(Colors.greenPrimary, 0.07)]} style={[StyleSheet.absoluteFill, styles.coverEmpty]}>
-                 <Text style={styles.initial}>{initial}</Text>
-               </LinearGradient>}
-      </Animated.View>
-    </>
-  )
-}
-
 const styles = StyleSheet.create({
   btn:          { width: BTN, height: BTN, borderRadius: BTN / 2, alignItems: 'center', justifyContent: 'center' },
   btnReconnect: { borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.4), backgroundColor: alpha(Colors.greenPrimary, 0.08) },
@@ -433,40 +237,5 @@ const styles = StyleSheet.create({
   newsText:  { flex: 1, minWidth: 0 },
   newsTitle: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.base, color: Colors.text },
   newsSub:   { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-
-  backdrop:  { zIndex: 41, elevation: 41, backgroundColor: 'rgba(0,0,0,0.55)' },
-  card: {
-    position: 'absolute', zIndex: 42, elevation: 42, overflow: 'hidden',
-    borderWidth: 1, borderColor: alpha(Colors.greenPrimary, 0.4), backgroundColor: Colors.sheet,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.5, shadowRadius: 30,
-  },
-  cardBody:  { position: 'absolute', top: 0, right: 0, padding: Spacing.lg, gap: Spacing.lg },
-  rest:      { gap: Spacing.lg },
-  head:      { flexDirection: 'row', gap: Spacing.md, alignItems: 'flex-start' },
-  headText:  { flex: 1, minWidth: 0, paddingTop: 4 },
   overline:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, letterSpacing: 2, color: Colors.textMuted },
-  title:     { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, letterSpacing: -0.5, lineHeight: 26, color: Colors.text, marginTop: 4 },
-  artist:    { fontFamily: FontFamily.mono, fontSize: FontSize.base, color: Colors.textSecondary, marginTop: 4 },
-  coverSlot: { width: COVER, height: COVER },
-  flying:    { position: 'absolute', zIndex: 43, elevation: 43, overflow: 'hidden' },
-  coverWrap: { borderRadius: Radius.xl, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.45, shadowRadius: 20, elevation: 10 },
-  cover:     { width: 112, height: 112 },
-  coverEmpty: { alignItems: 'center', justifyContent: 'center' },
-  initial:   { fontFamily: FontFamily.syneBold, fontSize: 44, color: Colors.greenPrimary },
-  progress:  { gap: 6 },
-  track:     { height: 4, borderRadius: 2, backgroundColor: alpha(Colors.greenPrimary, 0.18), overflow: 'hidden' },
-  fill:      { height: 4, borderRadius: 2, backgroundColor: Colors.greenPrimary },
-  clocks:    { flexDirection: 'row', justifyContent: 'space-between' },
-  clock:     { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
-  controls:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing['3xl'] },
-  ctrl:      { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  play:      { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.greenPrimary },
-  lately:    { borderTopWidth: 1, borderTopColor: Colors.glassBorder, paddingTop: Spacing.md, gap: Spacing.sm },
-  latelyLabel: { marginBottom: 2 },
-  latelyRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + 2 },
-  latelyText: { flex: 1, fontFamily: FontFamily.mono, fontSize: FontSize.base, color: Colors.text },
-  latelyAgo: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
-  foot:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
-  stat:      { flex: 1, fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
-  link:      { fontFamily: FontFamily.monoMedium, fontSize: FontSize.base, color: Colors.greenPrimary },
 })
