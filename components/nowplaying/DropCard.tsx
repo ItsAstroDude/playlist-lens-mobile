@@ -97,6 +97,8 @@ export function NowPlayingButton() {
   const item = np?.item ?? null
   const isTrack = !!item && np?.type === 'track'
   const art = item?.album?.images?.[0]?.url ?? null
+  // Decode the cover ahead of time: the drop card's travelling copy then draws at once.
+  useEffect(() => { if (art) Promise.resolve(Image.prefetch?.(art)).catch(() => {}) }, [art])
   // While the card is up (and until it has folded back in) the button IS the card: hide it.
   const opened = useStore(() => cardShown)
 
@@ -253,18 +255,36 @@ function OpenCard({ open, a, W, top, reduced, lately }: {
   const { np } = useNowPlaying()
   const [mounted, setMounted] = useState(open)
   const m = useNowPlayingModel(np, mounted)
-  const [h, setH] = useState(460)                 // measured content height
+  // Measured content height, as a shared value: the card's size follows it without a
+  // re-render (a state here made the card jump when the measurement landed).
+  const h = useSharedValue(460)
   const k = useSharedValue(0)
-  useEffect(() => { setCardShown(mounted); return () => setCardShown(false) }, [mounted])
+
+  // No flash on open: the travelling cover starts exactly over the button's art and is
+  // see-through until its picture has drawn. Only then does the button hide and the card
+  // start to grow (or after 150 ms, whichever comes first).
+  const started = useRef(false)
+  const go = useCallback(() => {
+    if (started.current || !isOpen) return
+    started.current = true
+    setCardShown(true)
+    k.value = reduced ? withTiming(1, { duration: 180 }) : withSpring(1, Spring.default)
+  }, [reduced])
+  const finish = useCallback(() => { setCardShown(false); setMounted(false) }, [])
   useEffect(() => {
     if (open) {
+      started.current = false
       setMounted(true)
-      k.value = reduced ? withTiming(1, { duration: 180 }) : withSpring(1, Spring.default)
-    } else {
-      k.value = withTiming(0, { duration: reduced ? 160 : 240, easing: Easing.inOut(Easing.cubic) },
-        done => { if (done) runOnJS(setMounted)(false) })
+      const t = setTimeout(go, 150)
+      return () => clearTimeout(t)
     }
+    if (!started.current) { finish(); return }
+    started.current = false
+    // Folds back; the button reappears in the same frame the cover lands on it.
+    k.value = withTiming(0, { duration: reduced ? 160 : 240, easing: Easing.inOut(Easing.cubic) },
+      done => { if (done) runOnJS(finish)() })
   }, [open])
+  useEffect(() => () => setCardShown(false), [])
 
   const cw = W - Spacing.lg * 2                    // final width
   const right = Spacing.lg                         // final right edge inset
@@ -276,7 +296,9 @@ function OpenCard({ open, a, W, top, reduced, lately }: {
       top: a.y + (top - a.y) * t,
       right: fromRight + (right - fromRight) * t,
       width: Math.max(BTN * 0.6, BTN + (cw - BTN) * t),
-      height: Math.max(BTN * 0.6, BTN + (h - BTN) * t),
+      height: Math.max(BTN * 0.6, BTN + (h.value - BTN) * t),
+      // see-through at button size, so no dark disc covers the button as it starts
+      opacity: Math.min(1, Math.max(0, t * 4)),
       borderTopLeftRadius: BTN / 2 + (Radius['2xl'] - BTN / 2) * c,
       borderBottomLeftRadius: BTN / 2 + (Radius['2xl'] - BTN / 2) * c,
       borderBottomRightRadius: BTN / 2 + (Radius['2xl'] - BTN / 2) * c,
@@ -324,7 +346,7 @@ function OpenCard({ open, a, W, top, reduced, lately }: {
       </Animated.View>
       <Animated.View accessibilityViewIsModal style={[styles.card, card]}>
         {/* laid out at the final width, held to the top-right corner while it grows */}
-        <View style={[styles.cardBody, { width: cw }]} onLayout={e => setH(Math.round(e.nativeEvent.layout.height))}>
+        <View style={[styles.cardBody, { width: cw }]} onLayout={e => { h.value = Math.round(e.nativeEvent.layout.height) }}>
         <View style={styles.head}>
           <Animated.View style={[styles.headText, content]}>
             <Text style={styles.overline}>{playing ? 'NOW PLAYING' : 'PAUSED'}</Text>
@@ -383,7 +405,7 @@ function OpenCard({ open, a, W, top, reduced, lately }: {
         </View>
       </Animated.View>
       <Animated.View pointerEvents="none" style={[styles.flying, flying]}>
-        {art ? <Image source={{ uri: art }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        {art ? <Image source={{ uri: art }} style={StyleSheet.absoluteFill} contentFit="cover" onDisplay={go} />
              : <LinearGradient colors={[alpha(Colors.greenPrimary, 0.33), alpha(Colors.greenPrimary, 0.07)]} style={[StyleSheet.absoluteFill, styles.coverEmpty]}>
                  <Text style={styles.initial}>{initial}</Text>
                </LinearGradient>}
@@ -426,7 +448,7 @@ const styles = StyleSheet.create({
   title:     { fontFamily: FontFamily.syneBold, fontSize: FontSize.xl, letterSpacing: -0.5, lineHeight: 26, color: Colors.text, marginTop: 4 },
   artist:    { fontFamily: FontFamily.mono, fontSize: FontSize.base, color: Colors.textSecondary, marginTop: 4 },
   coverSlot: { width: COVER, height: COVER },
-  flying:    { position: 'absolute', zIndex: 43, elevation: 43, overflow: 'hidden', backgroundColor: Colors.card },
+  flying:    { position: 'absolute', zIndex: 43, elevation: 43, overflow: 'hidden' },
   coverWrap: { borderRadius: Radius.xl, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.45, shadowRadius: 20, elevation: 10 },
   cover:     { width: 112, height: 112 },
   coverEmpty: { alignItems: 'center', justifyContent: 'center' },

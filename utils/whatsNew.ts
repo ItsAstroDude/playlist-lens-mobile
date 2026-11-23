@@ -19,6 +19,19 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.32',
+    name:    'Clean open',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Drop card: no more dark flash on the cover button as it opens. The cover is ready before the card starts to grow, the card fades in as it grows instead of covering the button, and it no longer jumps in height on the way.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.31',
     name:    'Half-folded Lenses',
     date:    '2026-11-23',
