@@ -70,8 +70,13 @@ describe('drop card', () => {
 })
 
 describe('cover bento', () => {
+  // The bento sizes itself from its own width: give it the Flip 7 cover's.
+  const layout = (r: ReturnType<typeof render>) =>
+    fireEvent(r.UNSAFE_root.findAll((n: any) => typeof n.props?.onLayout === 'function')[0], 'layout', { nativeEvent: { layout: { width: 474, height: 400, x: 0, y: 0 } } })
+
   it('shows the song and this week', async () => {
     const r = render(React.createElement(CoverBento))
+    act(() => { layout(r) })
     await act(async () => { await Promise.resolve() })
     expect(r.getByText('PPPP')).toBeTruthy()
     expect(r.getByText('THIS WEEK')).toBeTruthy()
@@ -80,6 +85,7 @@ describe('cover bento', () => {
   it('says when nothing is playing', () => {
     mockNp = null
     const r = render(React.createElement(CoverBento))
+    act(() => { layout(r) })
     expect(r.getByText('Nothing playing')).toBeTruthy()
     r.unmount()
   })

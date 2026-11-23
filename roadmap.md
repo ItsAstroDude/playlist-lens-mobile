@@ -477,6 +477,10 @@ phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
   below). Kept: folded, the cover button opens the full view (`requestTabletop`);
   auto-open on fold back ON by default. [ ] A better half-fold idea for Lenses / when
   nothing plays — design first, on the board.
+- **Resize-proof sizing** — 2.0.33: after Samsung's resize the reported window width
+  went stale (cards narrow and centred, bento tiles misaligned). PlaylistCard (full / grid /
+  tile) now fills its list cell with paddings; CoverBento measures its own width. Other
+  `useWindowDimensions` users may need the same if more show up.
 - **Drop card open/close** — 2.0.28: unfolds from the button (top-right corner held,
   content fades in), folds back in; anchor corrected for the status bar.
   2.0.29: the cover is a shared element (button art → card cover, `Spring.default` open,

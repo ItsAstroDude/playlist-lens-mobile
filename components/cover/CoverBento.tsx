@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
@@ -28,14 +28,20 @@ import { bentoSizes } from '@/utils/bento'
  * playing it says so. The week tiles read the tracked plays (nothing tracked = a nudge).
  */
 export function CoverBento() {
-  const { width: W } = useWindowDimensions()
+  // Sized by the width the list actually gives it, the same width the tiles below are
+  // cut from (the window Android reports can be stale after Samsung's resize).
+  const [W, setW] = useState(0)
   const { tile, big, gap } = bentoSizes(W)
   return (
-    <View style={[styles.wrap, { gap }]}>
-      <NowTile size={big} />
-      <View style={{ gap }}>
-        <WeekTiles size={tile} gap={gap} />
-      </View>
+    <View onLayout={e => setW(Math.round(e.nativeEvent.layout.width))}>
+      {W > 0 && (
+        <View style={[styles.wrap, { gap }]}>
+          <NowTile size={big} />
+          <View style={{ gap }}>
+            <WeekTiles size={tile} gap={gap} />
+          </View>
+        </View>
+      )}
     </View>
   )
 }
@@ -88,7 +94,7 @@ function WeekTiles({ size, gap }: { size: number; gap: number }) {
       <View style={[styles.tile, { width: size, height: size * 2 + gap }]}>
         <Text style={styles.overline}>THIS WEEK</Text>
         <View style={{ gap: Spacing.md }}>
-          <Text style={styles.tileHint}>{loaded ? 'Nothing tracked yet. Turn on tracking to see your hours, top artist and streak here.' : 'Adding up…'}</Text>
+          <Text style={styles.tileHint} numberOfLines={6} adjustsFontSizeToFit minimumFontScale={0.7}>{loaded ? 'Nothing tracked yet. Turn on tracking to see your hours, top artist and streak here.' : 'Adding up…'}</Text>
           {loaded && (
             <Pressable onPress={() => { haptic.light(); router.push('/settings') }} style={styles.cta}
               accessibilityRole="button" accessibilityLabel="Open Settings to turn on tracking">

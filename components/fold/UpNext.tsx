@@ -64,7 +64,7 @@ export function UpNextTop({ m, state, W, height, padTop, skipFirst }: {
   /** C+D 2 shows the next song on the pad, so the row starts after it. */
   skipFirst: boolean
 }) {
-  const queue = state.status === 'ok' ? visibleQueue(state.queue) : []
+  const queue = state.status === 'ok' ? visibleQueue(state.queue).filter(t => t.id !== m.item?.id) : []
   const remaining = Math.max(0, m.dur - m.liveMs)
   const starts = startsIn(queue, remaining)
   const row = queue.map((t, i) => ({ t, at: starts[i] })).slice(skipFirst ? 1 : 0, (skipFirst ? 1 : 0) + 3)
@@ -98,8 +98,12 @@ export function UpNextTop({ m, state, W, height, padTop, skipFirst }: {
 
 function useDeck(state: UpNextState, m: Model, refresh: () => void) {
   const [kept, setKept] = useState<Set<string>>(() => new Set())
-  const queue = state.status === 'ok' ? state.queue : []
-  const cards = useMemo(() => deckCards(queue, kept), [queue, kept, state])
+  // Spotify's queue can lag a song behind: never offer the song that's already playing.
+  const nowId = m.item?.id ?? null
+  const queue = state.status === 'ok' ? state.queue.filter(t => t.id !== nowId) : []
+  // Not memoised: a drop changes the dropped set, not these inputs, and a memo kept
+  // showing the dropped card (it came straight back).
+  const cards = deckCards(queue, kept)
   const remaining = Math.max(0, m.dur - m.liveMs)
   const card = cards[0] ?? null
   const vq = visibleQueue(queue)
@@ -113,6 +117,8 @@ function useDeck(state: UpNextState, m: Model, refresh: () => void) {
   const playNow = useCallback(async (t: UpNextTrack) => {
     if (!t.id) return
     haptic.medium()
+    // It's about to play: off the deck now, not after the next refresh.
+    setKept(prev => { const n = new Set(prev); n.add(t.id!); return n })
     const n = skipsTo(queue, t.id)
     try {
       for (let i = 0; i < n; i++) {
@@ -140,9 +146,10 @@ function useCardGestures(deck: Deck, W: number) {
     else if (kind === 'keep') deck.keep(card)
     else deck.playNow(card)
   }, [card, deck])
-  const reset = useCallback(() => { x.value = 0; y.value = 0 }, [])
   // New card: comes in from a little lower, on the entrance spring.
-  useEffect(() => { y.value = 24; y.value = withSpring(0, Spring.entrance) }, [card?.id])
+  // A new card: back to the middle and in from a little lower. Done when the new card
+  // is rendered — resetting on the old card flashed it back for a frame.
+  useEffect(() => { x.value = 0; y.value = 24; y.value = withSpring(0, Spring.entrance) }, [card?.id])
 
   const pan = Gesture.Pan()
     .enabled(!!card)
@@ -158,7 +165,6 @@ function useCardGestures(deck: Deck, W: number) {
       y.value = withTiming(ty, { duration: 200 }, done => {
         if (!done) return
         runOnJS(act)(kind)
-        runOnJS(reset)()
       })
     })
   const tap = Gesture.Tap().enabled(!!card)   // a tap on the card does nothing (and isn't the pad's)
@@ -168,9 +174,9 @@ function useCardGestures(deck: Deck, W: number) {
   // Buttons do the same as the swipes, with the same fly-out.
   const fly = useCallback((kind: 'drop' | 'keep' | 'play') => {
     if (!card) return
-    if (kind === 'drop') x.value = withTiming(-W, { duration: 220 }, d => { if (d) { runOnJS(act)('drop'); runOnJS(reset)() } })
-    else if (kind === 'keep') x.value = withTiming(W, { duration: 220 }, d => { if (d) { runOnJS(act)('keep'); runOnJS(reset)() } })
-    else y.value = withTiming(-600, { duration: 220 }, d => { if (d) { runOnJS(act)('play'); runOnJS(reset)() } })
+    if (kind === 'drop') x.value = withTiming(-W, { duration: 220 }, d => { if (d) runOnJS(act)('drop') })
+    else if (kind === 'keep') x.value = withTiming(W, { duration: 220 }, d => { if (d) runOnJS(act)('keep') })
+    else y.value = withTiming(-600, { duration: 220 }, d => { if (d) runOnJS(act)('play') })
   }, [card, act, W])
   return { pan, tap, style, fly }
 }

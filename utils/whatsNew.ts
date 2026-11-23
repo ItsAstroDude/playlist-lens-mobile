@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.33',
+    name:    'Up next, fixed',
+    date:    '2026-11-23',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Half-folded up next: a dropped song stays dropped (it used to come straight back), Play now takes the card off at once, the song already playing never shows as up next, and the old card no longer flashes back between swipes.',
+          'Half-folded: no grey flash in the background when the song changes.',
+          'After resizing the app with Samsung\'s pop-up / resize feature, playlist cards and the cover-screen bento fill the space properly again (they were sized for the old window).',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.32',
     name:    'Clean open',
     date:    '2026-11-23',

@@ -99,6 +99,10 @@ export function TabletopNowPlaying() {
   const bottomStyle = useAnimatedStyle(() => ({ transform: [{ translateY: reduced ? 0 : (1 - vis.value) * 72 }] }))
   const artStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }))
 
+  // Keep the last song's colours while the new cover's are worked out: dropping them
+  // swapped the aurora for a plain fill and back, a grey flash on every song change.
+  const lastAurora = React.useRef(m.auroraColors)
+  if (m.auroraColors) lastAurora.current = m.auroraColors
   const s = split ?? lastSplit.current
   if (!mounted || !s) return null
 
@@ -106,7 +110,8 @@ export function TabletopNowPlaying() {
   const accent = Colors.greenPrimary
   const titleBlock = 96                      // kind + two title lines + artist
   const artSize = Math.max(96, Math.min(topH - insets.top - titleBlock - Spacing['2xl'], W * 0.6, 300))
-  const { item, stats, dur, liveMs, playing, busy, art, auroraColors, initial } = m
+  const { item, stats, dur, liveMs, playing, busy, art, initial } = m
+  const auroraColors = lastAurora.current
   const pct = dur > 0 ? Math.min(liveMs / dur, 1) : 0
 
   return (
