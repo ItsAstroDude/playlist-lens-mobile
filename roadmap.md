@@ -280,7 +280,10 @@ Ranked by value for effort. Everything here works with data the app already has,
 as OTA updates unless marked, and keeps history on the phone.
 
 **Tier 1 — next**
-1. **Artist and song pages.** Tap any artist or song anywhere (Wrapped, Recaps, History,
+1. ✅ **Artist and song pages** — 2.0.43 (`utils/itemStats.ts`, `components/item/ItemPage`,
+   `/artist?name=` and `/song?name=&artist=`). From Rewind, Recaps, History, New to you,
+   Now Playing, and the quick sheet in Taste / lenses. Not from stories: a tap there moves
+   between slides. Was: tap any artist or song anywhere (Wrapped, Recaps, History,
    stories) → its own page: lifetime time and plays, first listen ("you found them on
    3 Mar 2021"), a listening-over-time chart, your top songs by them, when you play them
    (clock), your longest run with them, and "Play top 10" / "Add to queue". The explorer's

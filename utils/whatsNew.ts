@@ -19,6 +19,22 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.43',
+    name:    'Artist and song pages',
+    date:    '2026-11-25',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Tap any artist or song in Rewind, Recaps or History to open its own page: your time and plays with it, the day you found it, how you’ve listened over the months, and where it ranks among everything you play.',
+          'Artist pages show your top songs and albums by them, when you play them (hour and weekday), your longest run of days with them and your biggest day. Play your top 10 or add them to the queue in one tap.',
+          'Song pages show how often you’ve had it on repeat, with the day you played it most. Tap the artist to go to their page.',
+          'Now playing opens the song’s and the artist’s pages, and Taste and your lenses link to an artist’s page when you’ve played them.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.42',
     name:    'Rewind',
     date:    '2026-11-23',

@@ -11,6 +11,7 @@ import {
   type HistoryFilter, type HistoryPlay, type HistoryTotals, type DayTotals,
 } from '@/utils/stats'
 import { Screen, ScreenHeader, Chip, EmptyState, Icon, TrackRow, Sheet, ListRow, Card } from '@/components/ui'
+import { artistHref, songHref } from '@/utils/itemStats'
 
 /**
  * History (2.0 Phase 3) — every play we hold, newest first, grouped by day.
@@ -161,6 +162,15 @@ export default function HistoryScreen() {
       overlay={
         <Sheet open={!!picked} onClose={() => setPicked(null)} title={sheetPlay?.track} subtitle={sheetPlay?.artist ?? undefined}>
           {sheetPlay && (
+            <View style={styles.sheetCards}>
+            {sheetPlay.artist && (
+              <Card>
+                <ListRow icon="musical-note" label="Song page" hint="Plays, first listen, over time, on repeat"
+                  onPress={() => { haptic.light(); setPicked(null); router.push(songHref(sheetPlay.track, sheetPlay.artist!)) }} />
+                <ListRow icon="person" label={`${sheetPlay.artist}’s page`} hint="Your top songs by them, when you found them" last
+                  onPress={() => { haptic.light(); setPicked(null); router.push(artistHref(sheetPlay.artist!)) }} />
+              </Card>
+            )}
             <Card>
               {sheetPlay.artist && (
                 <ListRow icon="musical-note" label="Every play of this song"
@@ -179,6 +189,7 @@ export default function HistoryScreen() {
                   onPress={() => { haptic.light(); Linking.openURL(sheetPlay.uri).catch(() => {}) }} />
               )}
             </Card>
+            </View>
           )}
         </Sheet>
       }
@@ -273,4 +284,5 @@ const styles = StyleSheet.create({
   time:        { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted },
   more:        { ...Type.caption, textAlign: 'center', paddingVertical: Spacing.lg },
   empty:       { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl },
+  sheetCards:  { gap: Spacing.md },
 })

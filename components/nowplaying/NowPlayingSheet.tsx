@@ -1,11 +1,13 @@
-import React from 'react'
+import React, { useCallback, useMemo } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
-import { Sheet, Button } from '@/components/ui'
+import { Sheet, Button, Chip } from '@/components/ui'
+import { router } from 'expo-router'
+import { hasPlays, artistHref, songHref } from '@/utils/itemStats'
 import { Aurora } from '@/components/motion/Aurora'
 import { fmtMinutesShort } from '@/utils/wrapped'
 import type { NowPlaying } from '@/hooks/useNowPlaying'
@@ -37,6 +39,21 @@ export function NowPlayingSheet({ np, onClose }: {
     onPlayPause, onNext, onPrev, onOpenSpotify,
   } = useNowPlayingModel(np, isOpen)
   const accent = Colors.greenPrimary
+
+  // Pages for the song and its artist (2.0.43), when the play database knows them.
+  const mainArtist = item?.artists?.[0] ?? null
+  const links = useMemo(() => {
+    if (!isOpen || !item?.name || !mainArtist) return { song: false, artist: false }
+    try {
+      return {
+        song:   hasPlays({ kind: 'track', track: item.name, artist: mainArtist }),
+        artist: hasPlays({ kind: 'artist', artist: mainArtist }),
+      }
+    } catch { return { song: false, artist: false } }
+  }, [isOpen, item?.name, mainArtist])
+  const openPage = useCallback((href: ReturnType<typeof artistHref> | ReturnType<typeof songHref>) => {
+    onClose(); router.push(href)
+  }, [onClose])
 
   const artView = art ? (
     <Image source={{ uri: art }} style={styles.art} contentFit="cover" transition={200} />
@@ -119,6 +136,13 @@ export function NowPlayingSheet({ np, onClose }: {
           </Text>
         )}
 
+        {(links.song || links.artist) && item && mainArtist && (
+          <View style={styles.pageLinks}>
+            {links.song && <Chip label="This song" icon="musical-note" onPress={() => openPage(songHref(item.name, mainArtist))} />}
+            {links.artist && <Chip label={mainArtist} icon="person" onPress={() => openPage(artistHref(mainArtist))} />}
+          </View>
+        )}
+
         <Button label="Open in Spotify" icon="open-outline" onPress={onOpenSpotify} style={styles.spotifyBtn} />
       </View>
     </Sheet>
@@ -159,5 +183,6 @@ const styles = StyleSheet.create({
     textAlign: 'center', marginTop: Spacing.lg, lineHeight: 19, maxWidth: 280,
   },
   spotifyBtn: { marginTop: Spacing.xl, minWidth: 200 },
+  pageLinks: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.sm, marginTop: Spacing.lg, maxWidth: '100%' },
 
 })

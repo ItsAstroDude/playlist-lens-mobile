@@ -1,9 +1,10 @@
-import React, { useEffect, useCallback, useState } from 'react'
+import React, { useEffect, useCallback, useMemo, useState } from 'react'
 import {
   View, Text, StyleSheet, Share, TouchableOpacity,
 } from 'react-native'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
+import { router } from 'expo-router'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { Sheet, Button } from '@/components/ui'
@@ -11,6 +12,7 @@ import { useArtwork, type ArtKind } from '@/hooks/useArtwork'
 import { ArtworkFixSheet, type ArtworkTarget } from '@/components/wrapped/ArtworkFixSheet'
 import { fmtMinutesShort } from '@/utils/wrapped'
 import { memorialFor, MEMORIAL_MARK } from '@/utils/tribute'
+import { hasPlays, artistHref, songHref } from '@/utils/itemStats'
 
 
 export interface WrappedSelection {
@@ -56,6 +58,21 @@ export function WrappedItemSheet({ selection, onClose }: {
   }, [selection])
 
   const onWrongImage = useCallback(() => { haptic.light(); setFixOpen(true) }, [])
+
+  // Artists and songs you've played open their own page (2.0.43); albums open History.
+  const page = useMemo(() => {
+    if (!isOpen || !selection) return null
+    try {
+      if (selection.kind === 'artist' && hasPlays({ kind: 'artist', artist: selection.name })) return artistHref(selection.name)
+      if (selection.kind === 'track' && selection.artist && hasPlays({ kind: 'track', track: selection.name, artist: selection.artist })) return songHref(selection.name, selection.artist)
+      if (selection.kind === 'album') return { pathname: '/history' as const, params: { album: selection.name } }
+    } catch { /* no play database yet */ }
+    return null
+  }, [isOpen, selection?.kind, selection?.name, selection?.artist])  // eslint-disable-line react-hooks/exhaustive-deps
+  const onOpenPage = useCallback(() => {
+    if (!page) return
+    haptic.light(); onClose(); router.push(page)
+  }, [page, onClose])
 
   const fixTarget: ArtworkTarget | null = fixOpen && selection
     ? { kind: selection.kind, name: selection.name, artist: selection.artist, accent: selection.accent, currentArt: art }
@@ -114,7 +131,13 @@ export function WrappedItemSheet({ selection, onClose }: {
           )}
         </View>
 
-        <Button label="Share" icon="share-outline" onPress={onShare} style={[styles.shareBtn, { backgroundColor: accent }]} />
+        <View style={styles.btnRow}>
+          {page && (
+            <Button label={selection?.kind === 'album' ? 'Every play' : 'Your listening'} icon={selection?.kind === 'album' ? 'list' : 'stats-chart'}
+              variant="secondary" onPress={onOpenPage} style={styles.btn} />
+          )}
+          <Button label="Share" icon="share-outline" onPress={onShare} style={[styles.btn, { backgroundColor: accent }]} />
+        </View>
 
         <TouchableOpacity style={styles.reportBtn} onPress={onWrongImage} activeOpacity={0.6} hitSlop={8} accessibilityRole="button">
           <Text style={styles.reportText}>{art ? 'Wrong image? Fix it' : 'Set a cover'}</Text>
@@ -152,7 +175,8 @@ const styles = StyleSheet.create({
   statChip: { backgroundColor: Colors.glass, borderWidth: 1, borderColor: Colors.glassBorder, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, alignItems: 'center', minWidth: 110 },
   statVal: { fontFamily: FontFamily.syneBold, fontSize: FontSize.lg, letterSpacing: -0.5 },
   statLbl: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-  shareBtn: { marginTop: Spacing.xl, minWidth: 200 },
+  btnRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xl, alignSelf: 'stretch', justifyContent: 'center' },
+  btn: { flex: 1, maxWidth: 220 },
   reportBtn: { marginTop: Spacing.md, paddingVertical: Spacing.xs },
   reportText: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, textDecorationLine: 'underline' },
 })

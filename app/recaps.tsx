@@ -9,6 +9,7 @@ import { loadRecaps } from '@/hooks/useWrapped'
 import { autoPullScopeMissing } from '@/utils/recents'
 import { recapsAsync, type recapsFromDb } from '@/utils/stats'
 import { backFromKey } from '@/utils/storyData'
+import { artistHref, songHref } from '@/utils/itemStats'
 import { useCachedStat } from '@/utils/sqlJob'
 import { keptSeasons, setSeasonKept, hiddenYears, setYearHidden } from '@/utils/recapPrefs'
 import type { PeriodKind } from '@/utils/periods'
@@ -169,13 +170,15 @@ function RecapDetail({ period, kind, isKept, isHidden, onShare, onToggleKeep, on
       {period.topArtists.length > 0 && (
         <RankCard title="top artists · by time">
           {period.topArtists.map((a, i) => <RankRow key={a.name + i} rank={i + 1} name={a.name} value={fmtHours(a.ms)} frac={a.ms / maxA} color={Colors.greenPrimary}
-            leading={<ArtThumb kind="artist" name={a.name} />} />)}
+            leading={<ArtThumb kind="artist" name={a.name} />}
+            onPress={() => { haptic.light(); router.push(artistHref(a.name)) }} />)}
         </RankCard>
       )}
       {period.topTracks.length > 0 && (
         <RankCard title="top tracks · by plays">
           {period.topTracks.map((t, i) => <RankRow key={t.name + i} rank={i + 1} name={t.name} sub={t.artist} value={`${t.plays}×`} frac={t.plays / maxT} color={Colors.pink}
-            leading={<ArtThumb kind="track" name={t.name} artist={t.artist} />} />)}
+            leading={<ArtThumb kind="track" name={t.name} artist={t.artist} />}
+            onPress={t.artist ? () => { haptic.light(); router.push(songHref(t.name, t.artist)) } : undefined} />)}
         </RankCard>
       )}
       {period.topAlbums.length > 0 && (
