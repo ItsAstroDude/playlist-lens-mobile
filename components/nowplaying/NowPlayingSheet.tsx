@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react'
+import React from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
@@ -6,8 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { Sheet, Button, Chip } from '@/components/ui'
-import { router } from 'expo-router'
-import { hasPlays, artistHref, songHref } from '@/utils/itemStats'
+import { usePageLinks } from '@/hooks/usePageLinks'
 import { Aurora } from '@/components/motion/Aurora'
 import { fmtMinutesShort } from '@/utils/wrapped'
 import type { NowPlaying } from '@/hooks/useNowPlaying'
@@ -42,18 +41,7 @@ export function NowPlayingSheet({ np, onClose }: {
 
   // Pages for the song and its artist (2.0.43), when the play database knows them.
   const mainArtist = item?.artists?.[0] ?? null
-  const links = useMemo(() => {
-    if (!isOpen || !item?.name || !mainArtist) return { song: false, artist: false }
-    try {
-      return {
-        song:   hasPlays({ kind: 'track', track: item.name, artist: mainArtist }),
-        artist: hasPlays({ kind: 'artist', artist: mainArtist }),
-      }
-    } catch { return { song: false, artist: false } }
-  }, [isOpen, item?.name, mainArtist])
-  const openPage = useCallback((href: ReturnType<typeof artistHref> | ReturnType<typeof songHref>) => {
-    onClose(); router.push(href)
-  }, [onClose])
+  const { openSong, openArtist } = usePageLinks(item?.name, mainArtist, isOpen, onClose)
 
   const artView = art ? (
     <Image source={{ uri: art }} style={styles.art} contentFit="cover" transition={200} />
@@ -136,10 +124,10 @@ export function NowPlayingSheet({ np, onClose }: {
           </Text>
         )}
 
-        {(links.song || links.artist) && item && mainArtist && (
+        {(openSong || openArtist) && (
           <View style={styles.pageLinks}>
-            {links.song && <Chip label="This song" icon="musical-note" onPress={() => openPage(songHref(item.name, mainArtist))} />}
-            {links.artist && <Chip label={mainArtist} icon="person" onPress={() => openPage(artistHref(mainArtist))} />}
+            {openSong && <Chip label="This song" icon="musical-note" onPress={openSong} />}
+            {openArtist && mainArtist && <Chip label={mainArtist} icon="person" onPress={openArtist} />}
           </View>
         )}
 

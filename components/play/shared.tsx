@@ -1,6 +1,9 @@
 import React from 'react'
 import { StyleSheet, Text, View } from 'react-native'
+import { router } from 'expo-router'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
+import { Chip } from '@/components/ui'
+import { artistHref, songHref, roundLinkList, type PageRef } from '@/utils/itemStats'
 
 /** "ROUND 3 OF 10" on the left, the score on the right. */
 export function ScoreLine({ left, right }: { left: string; right: string }) {
@@ -12,7 +15,31 @@ export function ScoreLine({ left, right }: { left: string; right: string }) {
   )
 }
 
+export type { PageRef }
+
+/**
+ * After a game (never mid-question: a page would give the answer away), the artists
+ * and songs it used, each a link to its page (2.0.43). Newest first, no repeats.
+ */
+export function RoundLinks({ items, max = 6 }: { items: PageRef[]; max?: number }) {
+  const list = roundLinkList(items, max)
+  if (!list.length) return null
+  return (
+    <View style={g.links}>
+      <Text style={g.overline}>FROM THIS ROUND</Text>
+      <View style={g.linkChips}>
+        {list.map(it => (
+          <Chip key={`${it.kind}|${it.name}|${it.artist ?? ''}`} label={it.name} icon={it.kind === 'artist' ? 'person' : 'musical-note'}
+            onPress={() => router.push(it.kind === 'artist' ? artistHref(it.name) : songHref(it.name, it.artist!))} />
+        ))}
+      </View>
+    </View>
+  )
+}
+
 export const g = StyleSheet.create({
+  links:      { gap: Spacing.sm, marginTop: Spacing.md },
+  linkChips:  { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   scoreLine:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingHorizontal: 2 },
   overline:   { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, letterSpacing: 2, color: Colors.textMuted },
   scoreRight: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: '#FFB347' },

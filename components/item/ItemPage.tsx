@@ -5,12 +5,13 @@ import { Image } from 'expo-image'
 import { BlurView } from 'expo-blur'
 import { LinearGradient } from 'expo-linear-gradient'
 import Animated from 'react-native-reanimated'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getColors } from 'react-native-image-colors'
 import { Colors, FontFamily, FontSize, Radius, Spacing, Type, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
-import { BackButton } from '@/components/ui/BackButton'
+import { BackButton, BACK_BUTTON_SIZE } from '@/components/ui/BackButton'
+import { useIsCover } from '@/hooks/useScreen'
 import { Card, ListRow, RankRow, ArtThumb, Button, EmptyState, Icon, type IconName } from '@/components/ui'
 import { useCollapsingCover, RollingNumber, RackFocus } from '@/components/motion'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
@@ -34,8 +35,12 @@ import { itemStatsAsync, peekItemStats, artistHref, songHref, type ItemRef, type
  * play it, your longest run, and "Play top 10" / "Add to queue".
  */
 
-const HERO_H = 300
+/** Hero height below the top bar; the bar (status bar + back button row) adds to it. */
+const HERO_H = 270
+const HERO_H_COVER = 112
+const BAR_H = 52
 const COVER = 156
+const COVER_SMALL = 92
 const DAY_MS = 86_400_000
 const WEEKDAY_NAME = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const WEEKDAY_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -103,7 +108,11 @@ export function ItemPage({ item }: { item: ItemRef }) {
   const baseAccent = isArtist ? Colors.greenPrimary : Colors.pink
   const accent = useCoverAccent(art, baseAccent)
   const [fixOpen, setFixOpen] = useState(false)
-  const cc = useCollapsingCover(HERO_H)
+  // The Flip's cover screen (474×524 dp) gets a short hero: the cover beside the title.
+  const cover = useIsCover()
+  const barH = insets.top + BAR_H
+  const heroH = (cover ? HERO_H_COVER : HERO_H) + barH
+  const cc = useCollapsingCover(heroH)
 
   // Off the UI thread: a rank means grouping every play.
   const off = useMemo(() => localOffsetSec(), [])
@@ -128,85 +137,96 @@ export function ItemPage({ item }: { item: ItemRef }) {
       ? `${stats.rank ? `Your #${stats.rank.n} artist · ` : ''}since ${monthYear(stats.first!.t)}`
       : null
 
+  const coverArt = (size: number) => (
+    <Animated.View style={[styles.coverWrap, { shadowColor: accent }, cc.cover]}>
+      <Pressable onLongPress={() => { haptic.light(); setFixOpen(true) }} accessibilityLabel={`${name} cover`} accessibilityHint="Long-press to fix the picture">
+        {art ? (
+          <Image source={{ uri: art }} style={coverShape(size, isArtist)} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+        ) : (
+          <LinearGradient colors={[alpha(accent, 0.4), alpha(accent, 0.08)]} style={[coverShape(size, isArtist), styles.coverEmpty]}>
+            <Icon name={isArtist ? 'person' : 'musical-note'} size={Math.round(size * 0.36)} color={accent} />
+          </LinearGradient>
+        )}
+      </Pressable>
+    </Animated.View>
+  )
+  const info = (
+    <Animated.View style={[cover ? styles.heroInfoSide : styles.heroInfo, cc.title]}>
+      <Text style={styles.kind}>{isArtist ? 'ARTIST' : 'SONG'}</Text>
+      <Text style={[styles.name, cover && styles.nameSide]} numberOfLines={2} accessibilityRole="header">{name}</Text>
+      {!isArtist ? (
+        <Pressable onPress={() => { haptic.light(); router.push(artistHref(item.artist)) }} hitSlop={6} accessibilityRole="link" accessibilityLabel={`Open ${item.artist}`}>
+          <Text style={[styles.sub, cover && styles.left, { color: accent }]} numberOfLines={1}>
+            {item.artist}{stats?.album ? <Text style={styles.subMuted}>{`  ·  ${stats.album}`}</Text> : null}
+          </Text>
+        </Pressable>
+      ) : subtitle ? <Text style={[styles.sub, cover && styles.left]} numberOfLines={1}>{subtitle}</Text> : null}
+      {mem ? <Text style={styles.memorial}>{`${MEMORIAL_MARK}  in memory · ${mem.years}`}</Text> : null}
+    </Animated.View>
+  )
+
   return (
     <View style={styles.container}>
       <AmbientBackground />
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.backRow}><BackButton /></View>
-        <View style={{ flex: 1 }}>
-          <Animated.ScrollView
-            onScroll={cc.onScroll}
-            scrollEventThrottle={16}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: insets.bottom + Spacing['4xl'] + gutter }}
-          >
-            {/* ── Hero (collapses as you scroll) ── */}
-            <View style={styles.hero}>
-              <Animated.View style={[StyleSheet.absoluteFillObject, cc.backdrop]}>
-                {art ? <Image source={{ uri: art }} style={StyleSheet.absoluteFillObject} contentFit="cover" blurRadius={40} cachePolicy="memory-disk" /> : null}
-                <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFillObject} />
-              </Animated.View>
-              <LinearGradient
-                colors={[alpha(accent, 0.18), Colors.background]}
-                locations={[0, 0.92]}
-                style={StyleSheet.absoluteFillObject}
-                pointerEvents="none"
-              />
-              <Animated.View style={[styles.coverWrap, { shadowColor: accent }, cc.cover]}>
-                <Pressable onLongPress={() => { haptic.light(); setFixOpen(true) }} accessibilityLabel={`${name} cover`} accessibilityHint="Long-press to fix the picture">
-                  {art ? (
-                    <Image source={{ uri: art }} style={[styles.cover, isArtist && styles.round]} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-                  ) : (
-                    <LinearGradient colors={[alpha(accent, 0.4), alpha(accent, 0.08)]} style={[styles.cover, isArtist && styles.round, styles.coverEmpty]}>
-                      <Icon name={isArtist ? 'person' : 'musical-note'} size={56} color={accent} />
-                    </LinearGradient>
-                  )}
-                </Pressable>
-              </Animated.View>
-              <Animated.View style={[styles.heroInfo, cc.title]}>
-                <Text style={styles.kind}>{isArtist ? 'ARTIST' : 'SONG'}</Text>
-                <Text style={styles.name} numberOfLines={2} accessibilityRole="header">{name}</Text>
-                {!isArtist ? (
-                  <Pressable onPress={() => { haptic.light(); router.push(artistHref(item.artist)) }} hitSlop={6} accessibilityRole="link" accessibilityLabel={`Open ${item.artist}`}>
-                    <Text style={[styles.sub, { color: accent }]} numberOfLines={1}>
-                      {item.artist}{stats?.album ? <Text style={styles.subMuted}>{`  ·  ${stats.album}`}</Text> : null}
-                    </Text>
-                  </Pressable>
-                ) : subtitle ? <Text style={styles.sub} numberOfLines={1}>{subtitle}</Text> : null}
-                {mem ? <Text style={styles.memorial}>{`${MEMORIAL_MARK}  in memory · ${mem.years}`}</Text> : null}
-              </Animated.View>
-            </View>
-
-            <View style={styles.body}>
-              {failed ? (
-                <EmptyState icon="alert-circle-outline" title="Couldn’t read your plays" body="Go back and open this page again." />
-              ) : !stats ? (
-                <View style={styles.loading}>
-                  <ActivityIndicator color={accent} />
-                  <Text style={Type.caption}>Going through your plays…</Text>
-                </View>
-              ) : !stats.plays ? (
-                <EmptyState
-                  icon="musical-notes-outline"
-                  title={isArtist ? `No plays of ${name} yet` : 'You haven’t played this yet'}
-                  body="Plays from your import and from listening tracking show up here."
-                />
-              ) : (
-                <ItemBody stats={stats} item={item} accent={accent} />
-              )}
-            </View>
-          </Animated.ScrollView>
-
-          {/* compact title bar, fades in once the hero has scrolled away */}
-          <Animated.View style={[styles.miniBar, cc.bar]} pointerEvents="none" importantForAccessibility="no-hide-descendants">
-            <Text style={styles.miniBarText} numberOfLines={1}>{name}</Text>
+      <Animated.ScrollView
+        onScroll={cc.onScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        // The cover screen keeps the last card above the cameras (as the lens sheet does).
+        contentContainerStyle={{ paddingBottom: cover ? 150 : insets.bottom + Spacing['4xl'] + gutter }}
+      >
+        {/* ── Hero (collapses as you scroll); runs up under the status bar and back button ── */}
+        <View style={[styles.hero, { height: heroH, paddingTop: barH }]}>
+          <Animated.View style={[StyleSheet.absoluteFillObject, cc.backdrop]}>
+            {art ? <Image source={{ uri: art }} style={StyleSheet.absoluteFillObject} contentFit="cover" blurRadius={40} cachePolicy="memory-disk" /> : null}
+            <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFillObject} />
           </Animated.View>
+          <LinearGradient
+            colors={[alpha(accent, 0.18), Colors.background]}
+            locations={[0, 0.92]}
+            style={StyleSheet.absoluteFillObject}
+            pointerEvents="none"
+          />
+          {cover ? (
+            <View style={styles.heroRow}>{coverArt(COVER_SMALL)}{info}</View>
+          ) : (
+            <>{coverArt(COVER)}{info}</>
+          )}
         </View>
-      </SafeAreaView>
+
+        <View style={styles.body}>
+          {failed ? (
+            <EmptyState icon="alert-circle-outline" title="Couldn’t read your plays" body="Go back and open this page again." />
+          ) : !stats ? (
+            <View style={styles.loading}>
+              <ActivityIndicator color={accent} />
+              <Text style={Type.caption}>Going through your plays…</Text>
+            </View>
+          ) : !stats.plays ? (
+            <EmptyState
+              icon="musical-notes-outline"
+              title={isArtist ? `No plays of ${name} yet` : 'You haven’t played this yet'}
+              body="Plays from your import and from listening tracking show up here."
+            />
+          ) : (
+            <ItemBody stats={stats} item={item} accent={accent} />
+          )}
+        </View>
+      </Animated.ScrollView>
+
+      {/* compact title bar on the back button's row, fades in once the hero has scrolled away */}
+      <Animated.View style={[styles.miniBar, { height: barH, paddingTop: insets.top }, cc.bar]} pointerEvents="none" importantForAccessibility="no-hide-descendants">
+        <Text style={styles.miniBarText} numberOfLines={1}>{name}</Text>
+      </Animated.View>
+      <View style={[styles.backFloat, { top: insets.top + (BAR_H - BACK_BUTTON_SIZE) / 2 }]}><BackButton /></View>
 
       <ArtworkFixSheet target={fixTarget} onClose={() => setFixOpen(false)} onResolved={url => setOverride(url)} />
     </View>
   )
+}
+
+function coverShape(size: number, round: boolean) {
+  return { width: size, height: size, borderRadius: round ? size / 2 : Radius.xl * (size / COVER) }
 }
 
 // ─── Body ─────────────────────────────────────────────────────────────────────
@@ -424,18 +444,18 @@ const WhenCard = React.memo(function WhenCard({ clock, weekdays, accent, them }:
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  safe:      { flex: 1 },
-  backRow:   { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.xs, zIndex: 2 },
+  backFloat: { position: 'absolute', left: Spacing.lg, zIndex: 3 },
 
-  hero:      { height: HERO_H, overflow: 'hidden', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: Spacing.lg },
+  hero:      { overflow: 'hidden', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: Spacing.lg },
+  heroRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, alignSelf: 'stretch', paddingHorizontal: Spacing.lg },
   coverWrap: {
     shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.55, shadowRadius: 26, elevation: 16,
-    marginBottom: Spacing.lg,
   },
-  cover:     { width: COVER, height: COVER, borderRadius: Radius.xl },
-  round:     { borderRadius: COVER / 2 },
   coverEmpty: { alignItems: 'center', justifyContent: 'center' },
-  heroInfo:  { alignItems: 'center', paddingHorizontal: Spacing.xl, gap: 2 },
+  heroInfo:  { alignItems: 'center', paddingHorizontal: Spacing.xl, gap: 2, marginTop: Spacing.lg },
+  heroInfoSide: { flex: 1, minWidth: 0, gap: 2 },
+  nameSide:  { fontSize: FontSize.xl, textAlign: 'left' },
+  left:      { textAlign: 'left' },
   kind:      { ...Type.overline, color: Colors.textSecondary },
   name:      { fontFamily: FontFamily.syneBold, fontSize: FontSize['2xl'], color: Colors.text, letterSpacing: -1, textAlign: 'center' },
   sub:       { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center' },
@@ -443,9 +463,10 @@ const styles = StyleSheet.create({
   memorial:  { ...Type.caption, marginTop: Spacing.xs, letterSpacing: 0.5 },
 
   miniBar: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 44, paddingHorizontal: Spacing.xl,
+    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2,
+    paddingHorizontal: Spacing.lg + BACK_BUTTON_SIZE + Spacing.md,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: alpha(Colors.background, 0.92), borderBottomWidth: 1, borderBottomColor: Colors.glassBorder,
+    backgroundColor: alpha(Colors.background, 0.96), borderBottomWidth: 1, borderBottomColor: Colors.glassBorder,
   },
   miniBarText: { fontFamily: FontFamily.syneBold, fontSize: FontSize.md, color: Colors.text, letterSpacing: -0.3 },
 

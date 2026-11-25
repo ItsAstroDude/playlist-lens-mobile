@@ -7,7 +7,7 @@ import { cachedAsync, runAsync } from '@/utils/sqlJob'
 import { localOffsetSec, periodStatsJob, yearsWithPlays, type Ranked } from '@/utils/stats'
 import { storage } from '@/utils/cache'
 import { MONTHS, WHEN_ROUNDS, whenPoints, whenRoundsJob, whenVerdict, type WhenRound } from '@/utils/games'
-import { ScoreLine, g } from './shared'
+import { ScoreLine, RoundLinks, g } from './shared'
 
 const BEST_KEY = 'game.when.best'
 type Phase = 'loading' | 'empty' | 'start' | 'round' | 'over'
@@ -94,6 +94,7 @@ export function WhenGame({ onStart }: { onStart?: () => void }) {
         <Text style={g.bigScore}>{score}</Text>
         <Text style={g.rules}>out of {of}. {whenVerdict(score, of)}</Text>
         <Button label="Play again" icon="refresh" onPress={start} />
+        <RoundLinks items={rounds.map(r => ({ kind: 'track' as const, name: r.name, artist: r.artist }))} />
       </Card>
     )
   }

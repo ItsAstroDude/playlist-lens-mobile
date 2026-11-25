@@ -19,6 +19,27 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.44',
+    name:    'Pages everywhere',
+    date:    '2026-11-25',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Stories: slides about an artist or a song have a “Your page” button at the top. The story waits while you look and carries on when you come back.',
+          'Play: when a game ends, the artists and songs it used are right there to open.',
+          'Flip cover screen: tap the song’s title, its artist or your numbers in the player to open their pages, which fit the cover screen with the cover beside the title.',
+        ],
+      },
+      {
+        label: 'Improved',
+        items: [
+          'Artist and song pages: the picture runs up to the top of the screen, and the name slides in beside the back button as you scroll.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.43',
     name:    'Artist and song pages',
     date:    '2026-11-25',

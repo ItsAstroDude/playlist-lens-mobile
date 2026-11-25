@@ -1,6 +1,6 @@
 import { storage } from '@/utils/cache'
 import { insertPlays, _resetForTests } from '@/utils/playDb'
-import { itemStats, hasPlays, seriesFromDays, longestRunOf, itemStatsAsync, peekItemStats, _clearItemCache } from '@/utils/itemStats'
+import { itemStats, hasPlays, seriesFromDays, longestRunOf, itemStatsAsync, peekItemStats, roundLinkList, _clearItemCache } from '@/utils/itemStats'
 import type { StreamRow } from '@/utils/wrapped'
 
 const row = (ts: string, track: string, artist: string, ms = 180_000, album: string | null = 'Al', uri = `spotify:track:${track}`): StreamRow => ({
@@ -168,5 +168,23 @@ describe('itemStatsAsync', () => {
     expect(b).not.toBe(a)
     expect(peekItemStats({ kind: 'artist', artist: 'A' }, UTC)).toBeNull()   // stale until the new answer lands
     expect((await b).plays).toBe(2)
+  })
+})
+
+describe('roundLinkList', () => {
+  it('keeps order, drops repeats and songs without an artist, caps the list', () => {
+    const list = roundLinkList([
+      { kind: 'track', name: 'X', artist: 'A' },
+      { kind: 'artist', name: 'A' },
+      { kind: 'track', name: 'X', artist: 'A' },
+      { kind: 'track', name: 'X', artist: 'B' },
+      { kind: 'track', name: 'Y' },
+      { kind: 'artist', name: 'C' },
+    ], 3)
+    expect(list).toEqual([
+      { kind: 'track', name: 'X', artist: 'A' },
+      { kind: 'artist', name: 'A' },
+      { kind: 'track', name: 'X', artist: 'B' },
+    ])
   })
 })

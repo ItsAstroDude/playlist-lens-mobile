@@ -16,7 +16,7 @@ import {
   BLIND_ROUNDS, CLIP_MS, blindPoints, blindPool, blindRounds, blindVerdict, canPlayBlind, clipStart,
   type BlindRound, type BlindSong,
 } from '@/utils/games'
-import { ScoreLine, g } from './shared'
+import { ScoreLine, RoundLinks, g } from './shared'
 
 const BEST_KEY = 'game.blind.best'
 type Phase = 'loading' | 'empty' | 'start' | 'round' | 'over' | 'error'
@@ -150,6 +150,7 @@ export function BlindFive({ onStart }: { onStart?: () => void }) {
           <Button label="Play again" icon="refresh" onPress={start} />
           {before.current && <Button label={`Back to ${before.current.name}`} icon="play-back" variant="secondary" onPress={backTo} />}
         </View>
+        <RoundLinks items={rounds.map(r => ({ kind: 'track' as const, name: r.answer.name, artist: r.answer.artist }))} />
       </Card>
     )
   }

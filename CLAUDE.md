@@ -15,6 +15,12 @@ npx eas-cli@latest update --branch preview --platform android --message "..." --
 `b0b14760bcffaa123ab3b80282ceb5669f662b6b`.** Publish OTAs for this runtime only; older
 APKs (versionCode 4 and below) no longer get updates.
 
+**Build on the live branch, not `master`.** `master` has fallen behind the app on the
+phone before (2026-11-25: master was 2.0.16 while 2.0.42 lived on an unmerged branch).
+Before starting, compare the newest `preview` update (`npx eas-cli@latest update:list
+--branch preview --limit 1 --non-interactive`) with the top `utils/whatsNew.ts` entry; if
+they differ, find the branch whose top entry matches and work from it.
+
 Only build a new APK when a change touches native code (a new native dependency, a config
 plugin, app.json native fields, `modules/`), and say so before building. "Push" means
 publish an OTA update.

@@ -10,7 +10,7 @@ import { cachedAsync } from '@/utils/sqlJob'
 import { periodStatsJob, type Ranked } from '@/utils/stats'
 import { storage } from '@/utils/cache'
 import { dayKey, dragSlot, moveItem, rankAnswer, rankFive, rankScore, seeded, type RankItem } from '@/utils/games'
-import { ScoreLine, g } from './shared'
+import { ScoreLine, RoundLinks, g } from './shared'
 
 const ROW = 72          // row height + gap
 const DAY_KEY = 'game.rank.day'
@@ -121,6 +121,7 @@ export function RankIt({ onStart }: { onStart?: () => void }) {
           <Text style={g.rules}>{s === 5 ? 'All five. You know exactly who you listen to.' : s >= 3 ? 'Close. The numbers are on the right.' : 'Surprised? The numbers are on the right.'}</Text>
           <Button label={played != null && daily ? 'Another five (practice)' : 'Another five'} icon="shuffle" variant="secondary"
             onPress={() => { haptic.light(); deal(Math.random, false) }} />
+          <RoundLinks items={right.map(x => ({ kind: 'artist' as const, name: x.name }))} />
         </>
       ) : (
         <>

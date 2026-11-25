@@ -268,3 +268,20 @@ export function artistHref(artist: string) {
 export function songHref(track: string, artist: string) {
   return { pathname: '/song' as const, params: { name: track, artist } }
 }
+
+// ─── round links (Play games) ───────────────────────────────────────────────────
+export interface PageRef { kind: 'artist' | 'track'; name: string; artist?: string }
+
+/** The artists and songs to link after a game: in order, no repeats, songs need an artist. */
+export function roundLinkList(items: PageRef[], max = 6): PageRef[] {
+  const seen = new Set<string>()
+  const out: PageRef[] = []
+  for (const it of items) {
+    if (!it.name || (it.kind === 'track' && !it.artist)) continue
+    const k = `${it.kind}|${it.name}|${it.artist ?? ''}`
+    if (seen.has(k)) continue
+    seen.add(k); out.push(it)
+    if (out.length >= max) break
+  }
+  return out
+}

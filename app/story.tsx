@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, StyleSheet, Pressable, BackHandler, ActivityIndicator, useWindowDimensions } from 'react-native'
-import { router, useLocalSearchParams } from 'expo-router'
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, cancelAnimation, Easing, runOnJS, type SharedValue,
@@ -23,6 +23,7 @@ import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import { saveImageToFolder } from '@/utils/saveImage'
 import { useStoryMusic } from '@/hooks/useStoryMusic'
+import { artistHref, songHref } from '@/utils/itemStats'
 
 const SLIDE_MS = 5200
 
@@ -155,6 +156,25 @@ export default function StoryScreen() {
     Math.floor(data.comparison.current.start / 86_400_000),
   ) : null, i)
 
+  // ── Your page for this slide's artist or song (2.0.43) ──
+  // Its own button, so a tap anywhere else still moves between slides. The story holds
+  // (timer and music) while you're away and carries on when you come back.
+  const away = useRef(false)
+  const openPage = useCallback((href: ReturnType<typeof artistHref> | ReturnType<typeof songHref>) => {
+    haptic.light()
+    cancelAnimation(prog)
+    remaining.current = SLIDE_MS * (1 - prog.value)
+    music.pause()
+    away.current = true
+    router.push(href)
+  }, [music])
+  useFocusEffect(useCallback(() => {
+    if (!away.current) return
+    away.current = false
+    music.resume()
+    if (!reduced) run(Math.max(remaining.current, 1500))
+  }, [music, reduced, run]))
+
   if (!slides || !data) {
     return (
       <View style={styles.root}>
@@ -179,6 +199,12 @@ export default function StoryScreen() {
   const cardPalette: Palette = useCoverColours && coverColours
     ? [coverColours.primary, coverColours.secondary, coverColours.detail, coverColours.background]
     : s.palette
+  // The artist or song this slide is about (not albums: they have no page).
+  const about = s.hero ?? s.art
+  const pageHref = !about ? null
+    : about.kind === 'artist' ? artistHref(about.name)
+    : about.kind === 'track' && about.artist ? songHref(about.name, about.artist)
+    : null
   const hasVisual = !!(s.hero || s.list || s.bars || s.compare || s.chips || s.mosaic || s.pyramid || s.clock || s.share)
   return (
     <View style={styles.root}>
@@ -250,6 +276,17 @@ export default function StoryScreen() {
         ) : null}
       </View>
 
+      {pageHref && (
+        <Pressable
+          onPress={() => openPage(pageHref)} hitSlop={8}
+          style={[styles.pageChip, { top: insets.top + 54 }]}
+          accessibilityRole="link" accessibilityLabel={`Open your page for ${about!.name}`}
+        >
+          <Icon name={about!.kind === 'artist' ? 'person' : 'musical-note'} size={13} color="#fff" />
+          <Text style={styles.colourText}>Your page</Text>
+          <Icon name="chevron-forward" size={12} color="#fff" />
+        </Pressable>
+      )}
       {s.share && coverColours && (
         <Pressable
           onPress={() => { haptic.light(); setUseCoverColours(v => !v) }}
@@ -344,6 +381,11 @@ const styles = StyleSheet.create({
     position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 12, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.14)',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+  },
+  pageChip: {
+    position: 'absolute', right: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)',
   },
   colourText: { fontFamily: FontFamily.monoMedium, fontSize: 12, color: '#fff' },
   nowPlaying: {

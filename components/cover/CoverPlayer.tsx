@@ -16,6 +16,7 @@ import { fmtMinutesShort } from '@/utils/wrapped'
 import { fetchDevices } from '@/utils/playback'
 import type { NowPlaying } from '@/hooks/useNowPlaying'
 import { fmtClock, useNowPlayingModel } from '@/components/nowplaying/useNowPlayingModel'
+import { usePageLinks } from '@/hooks/usePageLinks'
 
 /**
  * Now playing on the Flip's cover screen (2.0.27), after Samsung's open Now Bar: the
@@ -93,6 +94,9 @@ export function CoverPlayer({ np, open, onClose }: { np: NowPlaying | null; open
   }, [open, reduced, overflow, m.item?.id])
   const marquee = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }))
 
+  // Tap the title (or your numbers) for the song's page, the artists for the artist's (2.0.43).
+  const { openSong, openArtist } = usePageLinks(m.item?.name, m.item?.artists?.[0], open, onClose)
+
   if (!mounted) return null
   const { item, stats, dur, liveMs, playing, busy, art, pal } = m
   const pct = dur > 0 ? Math.min(liveMs / dur, 1) : 0
@@ -123,8 +127,10 @@ export function CoverPlayer({ np, open, onClose }: { np: NowPlaying | null; open
           {/* measured off-screen at its natural width */}
           <Text style={[styles.title, styles.measure]} onLayout={e => setTextW(e.nativeEvent.layout.width)} numberOfLines={1}>{item?.name}</Text>
           <Animated.Text style={[styles.title, fits ? styles.center : { width: textW }, marquee]} numberOfLines={1}
-            accessibilityRole="header">{item?.name}</Animated.Text>
-          <Text style={styles.artists} numberOfLines={1}>{item?.artists?.join(', ')}</Text>
+            onPress={openSong} suppressHighlighting
+            accessibilityRole={openSong ? 'link' : 'header'} accessibilityHint={openSong ? 'Opens your page for this song' : undefined}>{item?.name}</Animated.Text>
+          <Text style={styles.artists} numberOfLines={1} onPress={openArtist} suppressHighlighting
+            accessibilityRole={openArtist ? 'link' : undefined}>{item?.artists?.join(', ')}</Text>
         </View>
 
         <View style={[styles.scrub, { top: insets.top + 170 }]} accessible accessibilityRole="progressbar"
@@ -151,7 +157,8 @@ export function CoverPlayer({ np, open, onClose }: { np: NowPlaying | null; open
           </Pressable>
         </View>
 
-        {!!line && <Text style={[styles.stats, { bottom: Math.max(insets.bottom, Spacing.xl) }]} numberOfLines={2}>{line}</Text>}
+        {!!line && <Text style={[styles.stats, { bottom: Math.max(insets.bottom, Spacing.xl) }]} numberOfLines={2}
+          onPress={openSong} suppressHighlighting accessibilityRole={openSong ? 'link' : undefined}>{line}{openSong ? '  ›' : ''}</Text>}
       </Animated.View>
     </GestureDetector>
   )

@@ -9,6 +9,7 @@ import { RollingNumber, useMotionReduced } from '@/components/motion'
 import { cachedAsync } from '@/utils/sqlJob'
 import { periodStatsJob } from '@/utils/stats'
 import { storage } from '@/utils/cache'
+import { RoundLinks, type PageRef } from './shared'
 import {
   buildPool, canPlay, firstPair, nextPair, isRight, itemKey, verdict,
   type GameItem, type Guess,
@@ -32,6 +33,8 @@ export function MoreOrLess({ onStart }: { onStart?: () => void }) {
   const [lastRight, setLastRight] = useState<boolean | null>(null)
   const [newBest, setNewBest] = useState(false)
   const recent = useRef<string[]>([])
+  /** Everything shown this run, for the links once it's over. */
+  const seen = useRef<GameItem[]>([])
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
 
@@ -55,6 +58,7 @@ export function MoreOrLess({ onStart }: { onStart?: () => void }) {
     haptic.medium()
     onStart?.()
     recent.current = [itemKey(p[0]), itemKey(p[1])]
+    seen.current = [p[0], p[1]]
     setPair(p); setScore(0); setRound(r => r + 1); setLastRight(null); setNewBest(false)
     setPhase('guess')
   }, [pool])
@@ -72,6 +76,7 @@ export function MoreOrLess({ onStart }: { onStart?: () => void }) {
         const next = nextPair(pool, pair[1], recent.current)
         if (!next) { setPhase('over'); return }
         recent.current = [...recent.current, itemKey(next[1])].slice(-12)
+        seen.current = [...seen.current, next[1]]
         setPair(next); setRound(r => r + 1); setLastRight(null)
         setPhase('guess')
       }, REVEAL_MS)
@@ -148,6 +153,7 @@ export function MoreOrLess({ onStart }: { onStart?: () => void }) {
               </Text>
             )}
             <Button label="Play again" icon="refresh" onPress={start} />
+            <RoundLinks items={[...seen.current].reverse().map((x): PageRef => ({ kind: x.kind, name: x.name, artist: x.sub }))} />
           </Card>
         </Animated.View>
       )}
