@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  AccessibilityInfo, Pressable, StyleSheet, Text, View, useWindowDimensions,
+  AccessibilityInfo, Pressable, StyleSheet, Text, View,
 } from 'react-native'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
@@ -23,6 +23,7 @@ import { getNowPlayingPos, onNowPlayingPos, type NowPlayingPos } from '@/utils/s
 import {
   clearNews, currentNews, onDropNews, pushNews, type DropNews,
 } from '@/utils/dropCard'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 /**
  * The drop card (2.0.26) — Settings › Now playing › "Header button".
@@ -134,7 +135,7 @@ export function NowPlayingButton() {
 // The host: news card + opened card, over the Lenses screen
 
 export function DropCardHost() {
-  const { width: W } = useWindowDimensions()
+  const { width: W } = useLiveWindow()
   const reduced = useMotionReduced()
   const cover = useIsCover()
   const header = useHeaderPlacement()

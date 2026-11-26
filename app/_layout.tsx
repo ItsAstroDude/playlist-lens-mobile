@@ -3,6 +3,7 @@ import { CoverHost } from '@/components/cover/CoverHost'
 import { TabletopNowPlaying } from '@/components/fold/TabletopNowPlaying'
 import { FlexPanel } from '@/components/fold/FlexPanel'
 import { ContentHeightContext, useFlexSplit } from '@/hooks/useFlex'
+import { onRootLayout } from '@/utils/liveWindow'
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context'
 import '@/utils/perf'
 import React, { useEffect, useRef, useState } from 'react'
@@ -241,7 +242,8 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    // Measures the real window for useLiveWindow (the root always fills it).
+    <GestureHandlerRootView style={styles.root} onLayout={onRootLayout}>
       <StatusBar style={activeThemeMode() === 'light' ? 'dark' : 'light'} />
       <View style={flex ? { height: flex.top, overflow: 'hidden' } : styles.fill}>
       <ContentHeightContext.Provider value={flex ? flex.top : null}>

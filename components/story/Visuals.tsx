@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, useWindowDimensions } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
 import { FitHeadline } from './FitHeadline'
 import { FontFamily, Spacing } from '@/constants/theme'
 import { RackFocus } from '@/components/motion'
@@ -7,6 +7,7 @@ import { ArtThumb } from '@/components/ui'
 import { ShareCard, CARD_W, CARD_H } from './ShareCard'
 import { fmtListen, type StorySlide, type Palette } from '@/utils/story'
 import type { PeriodSummary } from '@/utils/listening'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 /**
  * Story mode's pictures (2.0.13): each slide fills the space under its words with
@@ -18,7 +19,7 @@ const PAD = Spacing.xl
 
 /** Sizes from the live window (the Flip's cover screen is about half the main one). */
 function useStorySize() {
-  const { width: SW, height: SH } = useWindowDimensions()
+  const { width: SW, height: SH } = useLiveWindow()
   return { SW, SH, INNER: SW - PAD * 2 }
 }
 

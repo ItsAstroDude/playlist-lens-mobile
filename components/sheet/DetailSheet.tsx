@@ -1,4 +1,3 @@
-import { setTabBarHidden } from '@/utils/tabBar'
 import { useIsCover } from '@/hooks/useScreen'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -7,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Dimensions,
-  useWindowDimensions,
   Pressable,
 } from 'react-native'
 import { Image } from 'expo-image'
@@ -36,6 +34,7 @@ import { RadarChart } from '@/components/ui/RadarChart'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { withMemorialMark } from '@/utils/tribute'
 import type { SpotifyPlaylist, PlaylistAnalysis, PlaylistPalette } from '@/types'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 // Sizes come from the live window (the Flip's cover screen is a different shape from
 // the main screen), never from the one the app launched on.
@@ -76,14 +75,9 @@ export function DetailSheet({ playlist, palette, onClose, onGone, coverHidden = 
   const insets = useSafeAreaInsets()
   const gutter = useNowPlayingGutter()
   const isOpen = playlist !== null
-  // Flip cover screen: the tab strip steps aside while the lens is open, and the
-  // content gets room to scroll clear of the cameras (bottom-right).
+  // Flip cover screen: the content gets room to scroll clear of the cameras
+  // (bottom-right). The tab bar / strip steps aside on its own (every open Sheet hides it).
   const cover = useIsCover()
-  useEffect(() => {
-    if (!cover) return
-    setTabBarHidden(isOpen)
-    return () => { if (isOpen) setTabBarHidden(false) }
-  }, [cover, isOpen])
   const { status, data, error, analyze, reset } = useAnalysis()
   // Tap a top artist → expand the same item sheet Wrapped uses (mounted beside the
   // sheet, not inside the ScrollView, so it anchors to the screen).
@@ -419,7 +413,7 @@ function BarRow({ label, count, max, color, valueLabel, delay, onPress }: {
 }) {
   const barW = useSharedValue(0)
   const pct  = max > 0 ? count / max : 0
-  const { width: SW } = useWindowDimensions()
+  const { width: SW } = useLiveWindow()
   const BAR_FULL = SW - Spacing.lg * 2 - Spacing['2xl'] * 2 - 130
 
   useEffect(() => {

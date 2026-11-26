@@ -42,7 +42,7 @@ export function PlaylistActionsSheet({ playlist, onClose, onPin, onReanalyze, on
   ] : []
 
   return (
-    <Sheet open={isOpen} onClose={onClose} title={shown?.name} subtitle={shown ? `${shown.tracks.total} tracks` : undefined} bottomInset={76}>
+    <Sheet open={isOpen} onClose={onClose} title={shown?.name} subtitle={shown ? `${shown.tracks.total} tracks` : undefined}>
       <Card style={styles.card}>
         {actions.map((a, i) => (
           <ListRow key={a.label} icon={a.glyph} label={a.label} hint={a.sub} onPress={a.onPress} last={i === actions.length - 1} />

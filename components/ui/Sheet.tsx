@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { View, Text, StyleSheet, Pressable, BackHandler, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native'
+import { View, Text, StyleSheet, Pressable, BackHandler, type StyleProp, type ViewStyle } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing, runOnJS } from 'react-native-reanimated'
 import { Colors, Spacing, Radius, Type } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { useContentHeight } from '@/hooks/useFlex'
+import { hideTabBar } from '@/utils/tabBar'
 
+let sheetSeq = 0
 const CLOSE_DISTANCE = 110
 const CLOSE_VELOCITY = 900
 
@@ -65,6 +67,12 @@ export function Sheet({
   // The height changed (unfolding, resizing): a closed sheet waits below the NEW bottom.
   // It kept the old one, so after unfolding a closed sheet sat in the lower half.
   useEffect(() => { if (!open) y.value = SH }, [SH])
+
+  // The floating tab bar (and the now-playing pill and queue tray that follow it) steps
+  // aside while any sheet is open, so it never covers a sheet's buttons (2.0.45).
+  const [barKey] = useState(() => `sheet:${++sheetSeq}`)
+  useEffect(() => { hideTabBar(barKey, open) }, [open])
+  useEffect(() => () => hideTabBar(barKey, false), [])
 
   const dismiss = useCallback(() => { haptic.light(); onClose() }, [onClose])
 

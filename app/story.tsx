@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, StyleSheet, Pressable, BackHandler, ActivityIndicator, useWindowDimensions } from 'react-native'
+import { View, Text, StyleSheet, Pressable, BackHandler, ActivityIndicator } from 'react-native'
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
@@ -24,6 +24,7 @@ import * as Sharing from 'expo-sharing'
 import { saveImageToFolder } from '@/utils/saveImage'
 import { useStoryMusic } from '@/hooks/useStoryMusic'
 import { artistHref, songHref } from '@/utils/itemStats'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 const SLIDE_MS = 5200
 
@@ -43,7 +44,7 @@ const artSize = (SW: number, SH: number) => Math.min(Math.round(SW * 0.62), Math
 export default function StoryScreen() {
   const insets = useSafeAreaInsets()
   // The live window: the Flip's cover screen is a different shape from the main one.
-  const { width: SW, height: SH } = useWindowDimensions()
+  const { width: SW, height: SH } = useLiveWindow()
   const reduced = useMotionReduced()
   const params = useLocalSearchParams<{ kind?: string; back?: string }>()
   const kind: StoryKind = params.kind === 'month' || params.kind === 'year' || params.kind === 'all' ? params.kind : 'week'

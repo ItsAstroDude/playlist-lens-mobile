@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Tabs } from 'expo-router'
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { runOnJS, useAnimatedStyle, withTiming } from 'react-native-reanimated'
-import { tabBarHidden } from '@/utils/tabBar'
+import { tabBarHidden, hideTabBar } from '@/utils/tabBar'
 import { Colors } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { getNavbarStyle } from '@/utils/settings'
@@ -14,6 +14,7 @@ import { Icon } from '@/components/ui/Icon'
 import { useIsCover } from '@/hooks/useScreen'
 import { FLIP7_SYSTEM_BUTTON, SYSTEM_BUTTON_GAP, panelScale } from '@/components/cover/outline'
 import { LiquidBackground } from '@/components/motion/LiquidBackground'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 // Minimal structural type for the navigator props we actually use (avoids a
 // dependency on @react-navigation/bottom-tabs' types, which don't resolve here).
@@ -61,12 +62,12 @@ const STRIP_BOTTOM = 12
 function CoverTabs({ state, navigation, navRef, onTab }: TabBarProps & TabBarExtra) {
   // Low in the corner (the system's bottom inset is ~100 dp here and holds nothing on
   // the left), stretching right up to Samsung's "open on main screen" button.
-  const { width: W } = useWindowDimensions()
+  const { width: W } = useLiveWindow()
   const width = FLIP7_SYSTEM_BUTTON.left * panelScale(W) - SYSTEM_BUTTON_GAP - STRIP_LEFT
   navRef.current = { index: state.index, routes: state.routes, navigate: navigation.navigate }
   useEffect(() => { onTab(state.routes[state.index]?.name ?? '') }, [state.index])
   // Same hide signal as the main tab bar (scrolling Lenses, an open lens sheet).
-  useEffect(() => { tabBarHidden.value = withTiming(0, { duration: 200 }) }, [state.index])
+  useEffect(() => { hideTabBar('scroll', false) }, [state.index])
   const hide = useAnimatedStyle(() => ({
     opacity: 1 - tabBarHidden.value,
     transform: [{ translateY: tabBarHidden.value * (STRIP_BOTTOM + 60) }],

@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { Colors, Floating } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
-import { tabBarHidden } from '@/utils/tabBar'
+import { tabBarHidden, hideTabBar } from '@/utils/tabBar'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { useMotionReduced } from './reduced'
 
@@ -64,8 +64,8 @@ export function LiquidTabBar({ state, descriptors, navigation, minimal }: TabBar
     trail.value = withDelay(50, withSpring(t, { mass: 1, damping: 16, stiffness: 110 }))
   }, [state.index, w, reduced])
 
-  // Any tab switch reveals the bar (it auto-hides while scrolling).
-  useEffect(() => { tabBarHidden.value = withTiming(0, { duration: 200 }) }, [state.index])
+  // Any tab switch ends the scroll auto-hide (other reasons, like an open sheet, stay).
+  useEffect(() => { hideTabBar('scroll', false) }, [state.index])
   const barStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: tabBarHidden.value * (BAR_H + insets.bottom + 40) }],
     opacity: 1 - tabBarHidden.value * 0.25,

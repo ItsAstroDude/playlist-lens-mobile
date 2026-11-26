@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  useWindowDimensions,
 } from 'react-native'
 import { router } from 'expo-router'
 import { BlurView } from 'expo-blur'
@@ -22,11 +21,12 @@ import { Spring, haptic } from '@/constants/animation'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/Button'
 import { reduceMotionEnabled } from '@/utils/settings'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 export default function AuthScreen() {
   const { login, isLoading, error } = useAuth()
   // The live window (the Flip's cover screen is short): the orb fits whichever screen.
-  const { width, height } = useWindowDimensions()
+  const { width, height } = useLiveWindow()
   const orbSize = Math.min(width * 0.9, height * 0.7)
   const orbBox = { width: orbSize, height: orbSize, borderRadius: orbSize / 2, top: height * 0.1 }
 

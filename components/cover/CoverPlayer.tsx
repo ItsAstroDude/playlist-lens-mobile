@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { BackHandler, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
@@ -17,6 +17,7 @@ import { fetchDevices } from '@/utils/playback'
 import type { NowPlaying } from '@/hooks/useNowPlaying'
 import { fmtClock, useNowPlayingModel } from '@/components/nowplaying/useNowPlayingModel'
 import { usePageLinks } from '@/hooks/usePageLinks'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 /**
  * Now playing on the Flip's cover screen (2.0.27), after Samsung's open Now Bar: the
@@ -30,7 +31,7 @@ import { usePageLinks } from '@/hooks/usePageLinks'
  */
 export function CoverPlayer({ np, open, onClose }: { np: NowPlaying | null; open: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets()
-  const { width: W } = useWindowDimensions()
+  const { width: W } = useLiveWindow()
   const reduced = useMotionReduced()
   const [mounted, setMounted] = useState(open)
   const m = useNowPlayingModel(np, mounted)

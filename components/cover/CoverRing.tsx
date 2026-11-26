@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react'
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { Colors } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { useMotionReduced } from '@/components/motion'
@@ -10,6 +10,7 @@ import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { usePalette } from '@/hooks/usePalette'
 import { getCameraOutline } from '@/utils/settings'
 import { emitOpenNowPlaying } from '@/utils/overlayEvents'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 /**
  * Flip cover screen, over the whole app: the ring round the cameras shows the song's
@@ -17,7 +18,7 @@ import { emitOpenNowPlaying } from '@/utils/overlayEvents'
  * a tap round the cameras opens Now Playing. Nothing is drawn when nothing plays.
  */
 export function CoverRing() {
-  const { width: W } = useWindowDimensions()
+  const { width: W } = useLiveWindow()
   const reduced = useMotionReduced()
   const outline = useMemo(() => toDp(getCameraOutline(), panelScale(W)), [W])
 

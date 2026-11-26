@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, Pressable, useWindowDimensions, BackHandler, Linking,
+  View, Text, StyleSheet, Pressable, BackHandler, Linking,
   TextInput, ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native'
 import { Image } from 'expo-image'
@@ -16,6 +16,7 @@ import {
   fetchArtworkCandidates, setArtworkOverride, reportWrongArtwork,
   type ArtKind, type ArtCandidate,
 } from '@/hooks/useArtwork'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 const GRID_PAD = Spacing.xl
 const COLS = 3
@@ -41,7 +42,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
   const shown = target ?? lastTarget.current
   const insets = useSafeAreaInsets()
   // Sizes from the live window (the Flip's cover screen is about half the main one).
-  const { width: W, height: SH } = useWindowDimensions()
+  const { width: W, height: SH } = useLiveWindow()
   const sheetH = Math.min(620, SH * 0.82)
   const CELL = Math.floor((W - GRID_PAD * 2 - GAP * (COLS - 1)) / COLS)
   // Clear the floating navbar pill (height ~62, sits at insets.bottom + ~28).

@@ -11,7 +11,7 @@ import { haptic } from '@/constants/animation'
 import { enqueue } from '@/utils/outbox'
 import { api, ApiError } from '@/utils/api'
 import { deleteCache, CacheKeys } from '@/utils/cache'
-import { setTabBarHidden } from '@/utils/tabBar'
+import { hideTabBar } from '@/utils/tabBar'
 import { getScopeStatus, setScopeStatus, onScopeStatus } from '@/utils/scopeStatus'
 import { usePlaylists, usePlaylistTracks } from '@/hooks/useSpotify'
 import { useAuth } from '@/hooks/useAuth'
@@ -61,8 +61,8 @@ export default function SwipeTab() {
   // Full-immersion session: the floating tab bar (and the now-playing pill that
   // follows it) slide away while swiping, and come back for every other phase.
   useEffect(() => {
-    setTabBarHidden(phase === 'swipe')
-    return () => setTabBarHidden(false)
+    hideTabBar('swipe', phase === 'swipe')
+    return () => hideTabBar('swipe', false)
   }, [phase])
 
   // Only owned (or collaborative) playlists are editable on Spotify.

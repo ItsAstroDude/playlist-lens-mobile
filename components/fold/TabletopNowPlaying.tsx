@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { BackHandler, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useLiveWindow } from '@/utils/liveWindow'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import Animated, {
-  runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming,
+  cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming,
 } from 'react-native-reanimated'
 import { Colors, Spacing } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
@@ -30,7 +31,9 @@ import { useNowPlayingModel } from '@/components/nowplaying/useNowPlayingModel'
  * Labs also has "simulate" to try it flat.
  */
 export function TabletopNowPlaying() {
-  const { width: W, height: H } = useWindowDimensions()
+  // Measured (utils/liveWindow): from the cover screen to the main one, the window size
+  // React Native reported could still be the cover screen's when this opened (2.0.45).
+  const { width: W, height: H } = useLiveWindow()
   const insets = useSafeAreaInsets()
   const reduced = useMotionReduced()
   const posture = usePosture()
@@ -105,7 +108,18 @@ export function TabletopNowPlaying() {
 
   const sNow = split ?? lastSplit.current
   const want = sNow ? topShift(overflow, !foldSplit, sNow.top, insets.top + 56, topContent, Spacing.lg) : 0
+  // Opening: the top half starts where it belongs (it rises in with `vis` anyway). Only a
+  // change while open springs. A spring left over from before the view closed (or from
+  // the fold) never carries into the next opening.
+  const wantRef = React.useRef(want)
+  wantRef.current = want
   useEffect(() => {
+    if (!show) return
+    cancelAnimation(shift)
+    shift.value = wantRef.current
+  }, [show])
+  useEffect(() => {
+    if (!show) return
     shift.value = reduced ? withTiming(want, { duration: 180 }) : withSpring(want, Spring.entrance)
   }, [want])
 

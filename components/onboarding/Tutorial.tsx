@@ -14,7 +14,7 @@ import {
   activeAccentId, alpha,
 } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
-import { setTabBarHidden } from '@/utils/tabBar'
+import { resetTabBar } from '@/utils/tabBar'
 import { getNavbarStyle, reduceMotionEnabled } from '@/utils/settings'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { Button } from '@/components/ui/Button'
@@ -156,7 +156,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
   // Per step: navigate to its tab, reveal the bar, then glide the spotlight.
   useEffect(() => {
     go(step.route)
-    setTabBarHidden(false)
+    resetTabBar()
     const hole = step.spotlight ? tabHole(step.route) : null
     if (hole) {
       // First appearance (currently collapsed): seed at the hole's centre so it

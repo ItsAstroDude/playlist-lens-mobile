@@ -1,6 +1,6 @@
 import { useCoverActive, useTabletopActive } from '@/utils/coverMode'
 import React, { useCallback, useEffect, useState } from 'react'
-import { StyleSheet, View, useWindowDimensions } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { Canvas, Circle, Blur } from '@shopify/react-native-skia'
 import Animated, {
@@ -9,6 +9,7 @@ import Animated, {
 import { Colors, activeThemeMode } from '@/constants/theme'
 import { useTint, type Tint } from '@/utils/liquidTint'
 import { useMotionReduced } from './reduced'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 // Each blob is drawn ONCE in Skia (once more per colour change, then cross-faded) and
 // drifts by transform on the UI thread — far cheaper than redrawing a blurred scene
@@ -36,7 +37,7 @@ export function LiquidBackground() {
   const underTabletop = useTabletopActive()
   const coverOn = underCover || underTabletop
   useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false) }, []))
-  const { width: W, height: H } = useWindowDimensions()
+  const { width: W, height: H } = useLiveWindow()
   const light = activeThemeMode() === 'light'
   const t = useSharedValue(Date.now() % 10_000_000)
   // The drift is a fraction of a pixel per frame, so 20 updates a second looks the same

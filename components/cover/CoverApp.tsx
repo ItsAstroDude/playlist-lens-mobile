@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, Text, StyleSheet, Pressable, Linking, useWindowDimensions } from 'react-native'
+import { View, Text, StyleSheet, Pressable, Linking } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -28,6 +28,7 @@ import {
 import { cachedAsync } from '@/utils/sqlJob'
 import { periodStatsJob, type PeriodStats } from '@/utils/stats'
 import { fmtHours } from '@/utils/wrapped'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 const SECTIONS = ['now playing', 'this week', 'more'] as const
 const HINT_KEY = 'cover.hintSeen.v2'
@@ -44,7 +45,7 @@ const EDGE = 28
  */
 export function CoverApp() {
   const insets = useSafeAreaInsets()
-  const { width: W, height: H } = useWindowDimensions()
+  const { width: W, height: H } = useLiveWindow()
   const reduced = useMotionReduced()
 
   // ── the ring ──

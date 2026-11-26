@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react'
-import { View, Text, Pressable, StyleSheet, Dimensions, useWindowDimensions } from 'react-native'
+import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native'
 import { isCoverWindow } from '@/hooks/useCoverScreen'
 import { BENTO_GAP, BENTO_PAD, bentoSizes } from '@/utils/bento'
 import { Image } from 'expo-image'
@@ -16,6 +16,7 @@ import { getCache, CacheKeys } from '@/utils/cache'
 import { vibeColor } from '@/utils/color'
 import { reduceMotionEnabled } from '@/utils/settings'
 import type { SpotifyPlaylist, PlaylistPalette, PlaylistAnalysis } from '@/types'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 const { width: SCREEN_W } = Dimensions.get('window')
 const SIDE_PAD = Spacing.lg
@@ -49,7 +50,7 @@ export function PlaylistCard({ playlist, palette, index, onPress, onLongPress, l
   const coverUrl = playlist.images?.[0]?.url
   // Sized from the live window, not the one at launch: the Flip's cover screen is a
   // different width (and much shorter, so rows get a smaller cover there).
-  const { width: W, height: H } = useWindowDimensions()
+  const { width: W, height: H } = useLiveWindow()
   const compact = isCoverWindow(W, H)
   const rowCover = compact ? 68 : ROW_COVER
 

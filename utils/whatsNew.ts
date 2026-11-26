@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.45',
+    name:    'Out of the way',
+    date:    '2026-11-26',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'The tab bar steps aside whenever a sheet is open, so it no longer covers a sheet’s buttons or the end of its list. Scrolling Lenses no longer brings it back over an open lens.',
+          'Now playing full screen no longer shifts after you half fold the phone and open it flat again. The top half could slide up by about 100 points for no reason.',
+          'Opening the phone from the cover screen: Now playing full screen (and other screens) are laid out for the main screen right away, not squeezed into the cover screen’s size.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.44',
     name:    'Pages everywhere',
     date:    '2026-11-25',

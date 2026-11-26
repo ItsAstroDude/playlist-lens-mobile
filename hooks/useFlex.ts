@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { useWindowDimensions } from 'react-native'
 import { usePosture } from '@/hooks/usePosture'
 import { useIsCover } from '@/hooks/useScreen'
 import { tabletopSplit } from '@/utils/posture'
 import { flexPanelEnabled, onFoldSettings } from '@/utils/settings'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 /**
  * Flex panel (2.0.35): folded like a laptop, the app moves to the half that stands up
@@ -11,7 +11,7 @@ import { flexPanelEnabled, onFoldSettings } from '@/utils/settings'
  * the fold is — null when the phone is flat, on the cover screen, or the panel is off.
  */
 export function useFlexSplit(): { top: number; bottom: number } | null {
-  const { height } = useWindowDimensions()
+  const { height } = useLiveWindow()
   const posture = usePosture()
   const cover = useIsCover()
   const [on, setOn] = useState(flexPanelEnabled)
@@ -26,6 +26,6 @@ export function useFlexSplit(): { top: number; bottom: number } | null {
 export const ContentHeightContext = createContext<number | null>(null)
 
 export function useContentHeight(): number {
-  const { height } = useWindowDimensions()
+  const { height } = useLiveWindow()
   return useContext(ContentHeightContext) ?? height
 }

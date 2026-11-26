@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
@@ -12,6 +12,7 @@ import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { useNowPlayingModel } from '@/components/nowplaying/useNowPlayingModel'
 import { requestTabletop } from '@/utils/coverMode'
 import { ControlRow, DeckCard, SongAbout, useCardGestures, useDeck, useUpNext } from './UpNext'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 /**
  * Flex panel (2.0.35; F3 "deck remote" in 2.0.38): the flat half while the Flip is folded
@@ -26,7 +27,7 @@ import { ControlRow, DeckCard, SongAbout, useCardGestures, useDeck, useUpNext } 
 export function FlexPanel({ height }: { height: number }) {
   const insets = useSafeAreaInsets()
   const reduced = useMotionReduced()
-  const { width: W } = useWindowDimensions()
+  const { width: W } = useLiveWindow()
   const { np } = useNowPlaying()
   const isTrack = !!np?.item && np.type === 'track'
   const m = useNowPlayingModel(isTrack ? np : null, true)

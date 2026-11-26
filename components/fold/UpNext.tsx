@@ -323,11 +323,13 @@ function AgainLink({ again }: { again: () => void }) {
  * The song playing, above the seeker. `open` (through the queue): it grows upwards into
  * the song's stats — the details' height springs from 0 to what they measure.
  */
-function NowInfo({ m, open, again, chart = true, onDetailH }: {
+function NowInfo({ m, open, again, chart = true, onDetailH, onRowH }: {
   m: Model; open: boolean; again?: () => void
   /** The 12-month bars: left out half-folded, where the hinge leaves no room. */
   chart?: boolean
   onDetailH?: (h: number) => void
+  /** The song row's own height (the controls' group is measured from sizes only). */
+  onRowH?: (h: number) => void
 }) {
   const reduced = useMotionReduced()
   const facts = useSongFacts(m)
@@ -354,7 +356,7 @@ function NowInfo({ m, open, again, chart = true, onDetailH }: {
           {again && <AgainLink again={again} />}
         </View>
       </Animated.View>
-      <View style={styles.infoRow} accessible accessibilityLabel={`Playing ${m.item?.name ?? ''} by ${m.item?.artists?.join(', ') ?? ''}, ${facts.badge}`}>
+      <View style={styles.infoRow} onLayout={e => onRowH?.(e.nativeEvent.layout.height)} accessible accessibilityLabel={`Playing ${m.item?.name ?? ''} by ${m.item?.artists?.join(', ') ?? ''}, ${facts.badge}`}>
         {m.art ? <Image source={{ uri: m.art }} style={styles.infoArt} contentFit="cover" transition={200} />
                : <View style={[styles.infoArt, styles.artEmpty]} />}
         <View style={styles.infoText}>
@@ -466,9 +468,22 @@ export function UpNextStrip({ m, state, refresh, W, height, padBottom, roomy = t
   // not from the animation: the overflow is what the top half has to give up.
   const [base, setBase] = useState(0)
   const [detailH, setDetailH] = useState(0)
+  // The controls' group without the stats, from sizes that never include them: the song
+  // row, and the seeker + controls, plus the two gaps (stats → row, row → seeker).
+  // (2.0.45: it used to be the whole group less the stats' height from React state, which
+  // could lag the layout by a render; when the 12-month bars arrived it came out ~120 px
+  // too big and the top half slid up that far.)
+  const rowH = React.useRef(0), tailH = React.useRef(0)
+  const measureBase = useCallback(() => {
+    if (rowH.current > 0 && tailH.current > 0) setBase(Math.round(rowH.current + tailH.current + Spacing.md * 2))
+  }, [])
   const room = height - Spacing.lg - padBottom - Spacing.md * 3     // 3 gaps: head, card area, spacer, group
   const over = done ? statsOverflow(base, detailH, room) : 0
-  useEffect(() => { onOverflow?.(over) }, [over])
+  // Only once it's measured: opened already through the queue (reopening, unfolding),
+  // the first layout has neither size yet and reads as 0 overflow, and reporting that
+  // sent the top half 20 → 0 → 20 in two frames, which could leave it far off (2.0.45).
+  const measured = !done || (base > 0 && detailH > 0)
+  useEffect(() => { if (measured) onOverflow?.(over) }, [over, measured])
   return (
     <View style={[styles.flat, { height, paddingBottom: padBottom }]}>
       <View style={styles.headRow}>
@@ -480,14 +495,13 @@ export function UpNextStrip({ m, state, refresh, W, height, padBottom, roomy = t
                    : !done ? <DeckEmpty state={state} deck={deck} m={m} /> : null}
       </Animated.View>
       <View style={{ flex: 1 }} />
-      <View style={styles.bottomGroup} onLayout={e => {
-        const hh = Math.round(e.nativeEvent.layout.height)
-        // Opened already through the queue: the stats are in this height, take them out.
-        if (!done) setBase(hh); else if (base === 0 && detailH > 0 && hh > detailH) setBase(hh - detailH)
-      }}>
-        <NowInfo m={m} open={done} again={deck.total > 0 ? deck.again : undefined} chart={roomy} onDetailH={setDetailH} />
-        <Seeker m={m} />
-        <ControlRow m={m} deck={deck} fly={g.fly} />
+      <View style={styles.bottomGroup}>
+        <NowInfo m={m} open={done} again={deck.total > 0 ? deck.again : undefined} chart={roomy} onDetailH={setDetailH}
+          onRowH={h => { rowH.current = h; measureBase() }} />
+        <View style={styles.bottomGroup} onLayout={e => { tailH.current = e.nativeEvent.layout.height; measureBase() }}>
+          <Seeker m={m} />
+          <ControlRow m={m} deck={deck} fly={g.fly} />
+        </View>
       </View>
     </View>
   )

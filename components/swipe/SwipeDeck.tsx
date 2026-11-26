@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native'
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
@@ -13,6 +13,7 @@ import { api } from '@/utils/api'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import type { SpotifyTrack } from '@/types'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 // ─── Swipe deck (v1.3 "Lively") ──────────────────────────────────────────────
 // The card stack for swipe-refresh: drag right = keep, left = cut, with a 30s
@@ -28,7 +29,7 @@ const CARD_H  = Math.min(SH * 0.52, 460)
 /** Card size and swipe distances for the live window (the Flip's cover screen is far
  *  shorter than the main one: the card gets a smaller share of its height there). */
 function useDeckSize() {
-  const { width: w, height: h } = useWindowDimensions()
+  const { width: w, height: h } = useLiveWindow()
   const short = h < 600
   return {
     CARD_W: Math.min(w - Spacing.lg * 2, short ? 300 : 380),

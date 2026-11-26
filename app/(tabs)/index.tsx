@@ -31,7 +31,7 @@ import { useIsCover } from '@/hooks/useScreen'
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist'
 import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet'
 import { loadOrder, saveOrder, applyOrder, pinToTop } from '@/utils/playlistOrder'
-import { setTabBarHidden } from '@/utils/tabBar'
+import { hideTabBar } from '@/utils/tabBar'
 import { getLensLayout, setLensLayout, type LensLayout } from '@/utils/settings'
 import { showToast } from '@/utils/dialog'
 import { filterPlaylists } from '@/utils/playlistSearch'
@@ -113,17 +113,17 @@ export default function PlaylistsTab() {
     scrollY.value = y
     if (reorderMode) return
     const dy = y - lastY.current
-    if (y < 40)       setTabBarHidden(false)
-    else if (dy > 10) setTabBarHidden(true)
-    else if (dy < -10) setTabBarHidden(false)
+    if (y < 40)       hideTabBar('scroll', false)
+    else if (dy > 10) hideTabBar('scroll', true)
+    else if (dy < -10) hideTabBar('scroll', false)
     lastY.current = y
   }, [reorderMode])
 
   // Reorder mode hides the navbar entirely (it has its own Done button + the bar
   // would otherwise create a dead-drop zone at the bottom). Restore on exit/unmount.
   useEffect(() => {
-    setTabBarHidden(reorderMode)
-    return () => setTabBarHidden(false)
+    hideTabBar('reorder', reorderMode)
+    return () => hideTabBar('reorder', false)
   }, [reorderMode])
 
   // ── Initial fetch ──
