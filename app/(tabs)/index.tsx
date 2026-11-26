@@ -25,6 +25,7 @@ import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
 import { useServerWaking } from '@/hooks/useServerWaking'
 import { RotatingStrip } from '@/components/ui/RotatingStrip'
+import { TasteCard } from '@/components/playlist/TasteCard'
 import { NowPlayingButton, DropCardHost, useHeaderPlacement } from '@/components/nowplaying/DropCard'
 import { CoverBento } from '@/components/cover/CoverBento'
 import { useIsCover } from '@/hooks/useScreen'
@@ -269,22 +270,7 @@ export default function PlaylistsTab() {
       {wakeSecs !== null && !data?.length ? <ColdStartOverlay elapsed={wakeSecs} /> : cover ? null : <RotatingStrip />}
       {cover ? <CoverBento /> : (
       <>
-      <TouchableOpacity
-        style={styles.tastePill}
-        onPress={openTaste}
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel="Your taste profile"
-        accessibilityHint="Aggregate stats, sharing and friend comparisons"
-      >
-        <View style={styles.tastePillSpecular} />
-        <Icon name="aperture" style={styles.tastePillIcon} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.tastePillText}>Your taste profile</Text>
-          <Text style={styles.tastePillSub}>Aggregate stats · share · compare friends</Text>
-        </View>
-        <Icon name="arrow-forward" style={styles.tastePillArrow} />
-      </TouchableOpacity>
+      <TasteCard onPress={openTaste} />
       </>
       )}
     </>
@@ -476,26 +462,6 @@ const styles = StyleSheet.create({
   },
 
   // ── Header ──
-  // "Your taste" pill — lives in the top strip, opens the pushed taste screen
-  tastePill: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    gap:               Spacing.md,
-    marginHorizontal:  Spacing.lg,
-    marginBottom:      Spacing.md,
-    paddingVertical:   Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    backgroundColor:   alpha(Colors.greenPrimary, 0.07),
-    borderWidth:       1,
-    borderColor:       alpha(Colors.greenPrimary, 0.28),
-    borderRadius:      Radius.lg,
-    overflow:          'hidden',
-  },
-  tastePillSpecular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
-  tastePillIcon:  { fontSize: 20, color: Colors.greenPrimary },
-  tastePillText:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.text },
-  tastePillSub:   { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-  tastePillArrow: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.lg, color: Colors.greenPrimary },
 
   // Section title below header
   doneBtn: {

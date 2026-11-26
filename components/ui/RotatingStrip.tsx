@@ -28,7 +28,7 @@ const QUOTES = [
   '⤳  One more song. Famous last words.',
   '♥  Some songs are a place you go back to.',
   '☾  3 a.m. playlists hit different.',
-  '✦  Your week as a story: Rewind › Play your week.',
+  '♥  Tap any artist for their page: your whole history with them.',
   '◎  Pull your lenses down. Watch the aperture.',
   '◐  The colours follow your music. Play something.',
   '◍  Hold a lens to pin, share or compare it.',
@@ -36,8 +36,8 @@ const QUOTES = [
   // 1.x
   '✦  Every playlist tells a story.',
   '♪  Where words fail, music speaks.',
-  '◎  Tap your taste profile for the big picture.',
-  '◐  Import your lifetime history in Rewind.',
+  '⤓  Settings › Backup & restore keeps your history safe.',
+  '★  Play: four games about your own listening.',
   '♥  Pretending the aux is yours again.',
   '✦  Without music, life would be a mistake.',
   '☾  Your late-night playlist knows things.',
@@ -76,7 +76,9 @@ export function RotatingStrip({ override }: { override?: string }) {
   const reduce = reduceMotionEnabled()
   const [pool, setPool] = useState(buildPool)
   // With a custom banner, open on it; otherwise land somewhere random.
-  const [i, setI] = useState(() => (getCustomQuote() ? 0 : Math.floor(Math.random() * pool.length)))
+  // Open on your custom banner, else on one of your own numbers (they lead the pool),
+  // else somewhere random among the quotes.
+  const [i, setI] = useState(() => (getCustomQuote() || !QUOTES.includes(pool[0]) ? 0 : Math.floor(Math.random() * pool.length)))
   const op       = useSharedValue(1)
   const press    = useSharedValue(1)
   const timer    = useRef<ReturnType<typeof setInterval> | null>(null)

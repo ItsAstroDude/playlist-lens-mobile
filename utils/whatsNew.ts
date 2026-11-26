@@ -19,6 +19,20 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.48',
+    name:    'Your taste, at a glance',
+    date:    '2026-11-26',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Lenses: the taste card shows your taste itself — your top artists’ faces, how many lenses and artists it spans, and your top genres — instead of a fixed advert. It’s there straight away and updates when you analyse more lenses.',
+          'The strip above it opens on one of your own numbers, and its old tips about where things used to be are replaced with what’s new (artist pages, backup, Play).',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.47',
     name:    'Backup and restore',
     date:    '2026-11-26',
