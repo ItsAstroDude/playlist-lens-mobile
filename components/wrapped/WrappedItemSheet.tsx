@@ -26,6 +26,19 @@ export interface WrappedSelection {
   accent: string
 }
 
+/**
+ * One tap (2.0.46): an artist or song you've played opens its own page straight away;
+ * anything else (an artist only in your playlists) opens the quick sheet via `sheet`.
+ */
+export function openSelection(s: WrappedSelection, sheet: (s: WrappedSelection) => void): void {
+  haptic.light()
+  try {
+    if (s.kind === 'artist' && hasPlays({ kind: 'artist', artist: s.name })) { router.push(artistHref(s.name)); return }
+    if (s.kind === 'track' && s.artist && hasPlays({ kind: 'track', track: s.name, artist: s.artist })) { router.push(songHref(s.name, s.artist)); return }
+  } catch { /* no play database yet: the sheet it is */ }
+  sheet(s)
+}
+
 export function WrappedItemSheet({ selection, onClose }: {
   selection: WrappedSelection | null
   onClose:   () => void

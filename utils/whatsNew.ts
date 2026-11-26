@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.46',
+    name:    'Everything at a glance',
+    date:    '2026-11-26',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'Lenses: nothing to open any more. The lens shows its top artists with their photos, fame and how it spreads from deep cuts to hits, how much of it you played this month, every decade and all its genres, right there.',
+          'One tap to an artist: tap an artist in a lens or in Taste and their page opens straight away (artists you haven’t played yet still get the quick card).',
+          'Artist and song pages: the colour behind the picture fades into the page, so there’s no line above the buttons.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.45',
     name:    'Out of the way',
     date:    '2026-11-26',

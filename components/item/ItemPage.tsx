@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { View, Text, StyleSheet, ActivityIndicator, Linking, Pressable } from 'react-native'
 import { router } from 'expo-router'
 import { Image } from 'expo-image'
-import { BlurView } from 'expo-blur'
 import { LinearGradient } from 'expo-linear-gradient'
 import Animated from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -41,6 +40,8 @@ const HERO_H_COVER = 112
 const BAR_H = 52
 const COVER = 156
 const COVER_SMALL = 92
+/** How far the hero's glow runs on past it, fading out. */
+const GLOW_TAIL = 140
 const DAY_MS = 86_400_000
 const WEEKDAY_NAME = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const WEEKDAY_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -74,9 +75,12 @@ function hourLabel(h: number): string {
   return `${n}${ap}`
 }
 
-/** A readable accent from the cover (falls back to the app accent). */
-function useCoverAccent(url: string | null, fallback: string): string {
-  const [c, setC] = useState<string | null>(null)
+/**
+ * Two colours from the cover: a readable accent (buttons, numbers, bars) and a deeper
+ * glow for the hero's backdrop. Fall back to the app accent.
+ */
+function useCoverColours(url: string | null, fallback: string): { accent: string; glow: string } {
+  const [c, setC] = useState<{ accent: string; glow: string } | null>(null)
   useEffect(() => {
     setC(null)
     if (!url) return
@@ -84,16 +88,16 @@ function useCoverAccent(url: string | null, fallback: string): string {
     getColors(url, { fallback, cache: true, key: url })
       .then(r => {
         if (!alive) return
-        const pick = r.platform === 'android' ? (r.vibrant ?? r.dominant)
-          : r.platform === 'ios' ? (r.primary ?? r.detail)
-          : r.platform === 'web' ? (r.vibrant ?? r.dominant) : null
-        const hex = toHex(pick)
-        if (hex) setC(ensureReadable(hex))
+        const [a, g] = r.platform === 'android' ? [r.vibrant ?? r.dominant, r.darkVibrant ?? r.dominant ?? r.average]
+          : r.platform === 'ios' ? [r.primary ?? r.detail, r.background ?? r.secondary]
+          : r.platform === 'web' ? [r.vibrant ?? r.dominant, r.darkVibrant ?? r.dominant] : [null, null]
+        const accent = toHex(a)
+        if (accent) setC({ accent: ensureReadable(accent), glow: toHex(g) ?? accent })
       })
       .catch(() => {})
     return () => { alive = false }
   }, [url, fallback])
-  return c ?? fallback
+  return c ?? { accent: fallback, glow: fallback }
 }
 
 export function ItemPage({ item }: { item: ItemRef }) {
@@ -106,7 +110,7 @@ export function ItemPage({ item }: { item: ItemRef }) {
   const [override, setOverride] = useState<string | null>(null)
   const art = override ?? fetched
   const baseAccent = isArtist ? Colors.greenPrimary : Colors.pink
-  const accent = useCoverAccent(art, baseAccent)
+  const { accent, glow } = useCoverColours(art, baseAccent)
   const [fixOpen, setFixOpen] = useState(false)
   // The Flip's cover screen (474×524 dp) gets a short hero: the cover beside the title.
   const cover = useIsCover()
@@ -177,16 +181,16 @@ export function ItemPage({ item }: { item: ItemRef }) {
       >
         {/* ── Hero (collapses as you scroll); runs up under the status bar and back button ── */}
         <View style={[styles.hero, { height: heroH, paddingTop: barH }]}>
-          <Animated.View style={[StyleSheet.absoluteFillObject, cc.backdrop]}>
-            {art ? <Image source={{ uri: art }} style={StyleSheet.absoluteFillObject} contentFit="cover" blurRadius={40} cachePolicy="memory-disk" /> : null}
-            <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFillObject} />
+          {/* A glow in the cover's colours that fades out to nothing, past the hero and
+              under the first cards, so there's no edge where the hero ends (2.0.46: a
+              blurred copy of the cover ended in a hard line above the buttons). */}
+          <Animated.View style={[styles.glow, { height: heroH + GLOW_TAIL }, cc.backdrop]} pointerEvents="none">
+            <LinearGradient
+              colors={[alpha(glow, 0.7), alpha(accent, 0.3), alpha(accent, 0.1), alpha(accent, 0)]}
+              locations={[0, 0.45, 0.72, 1]}
+              style={StyleSheet.absoluteFillObject}
+            />
           </Animated.View>
-          <LinearGradient
-            colors={[alpha(accent, 0.18), Colors.background]}
-            locations={[0, 0.92]}
-            style={StyleSheet.absoluteFillObject}
-            pointerEvents="none"
-          />
           {cover ? (
             <View style={styles.heroRow}>{coverArt(COVER_SMALL)}{info}</View>
           ) : (
@@ -446,7 +450,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   backFloat: { position: 'absolute', left: Spacing.lg, zIndex: 3 },
 
-  hero:      { overflow: 'hidden', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: Spacing.lg },
+  hero:      { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: Spacing.lg },
+  glow:      { position: 'absolute', top: 0, left: 0, right: 0 },
   heroRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, alignSelf: 'stretch', paddingHorizontal: Spacing.lg },
   coverWrap: {
     shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.55, shadowRadius: 26, elevation: 16,

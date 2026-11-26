@@ -14,9 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
-  withDelay,
 } from 'react-native-reanimated'
 import { Ionicons } from '@expo/vector-icons'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
@@ -31,10 +29,9 @@ import { ensureReadable } from '@/utils/color'
 import { Sheet } from '@/components/ui/Sheet'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { RadarChart } from '@/components/ui/RadarChart'
-import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
+import { WrappedItemSheet, openSelection, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { withMemorialMark } from '@/utils/tribute'
 import type { SpotifyPlaylist, PlaylistAnalysis, PlaylistPalette } from '@/types'
-import { useLiveWindow } from '@/utils/liveWindow'
 
 // Sizes come from the live window (the Flip's cover screen is a different shape from
 // the main screen), never from the one the app launched on.
@@ -59,15 +56,11 @@ interface DetailSheetProps {
   coverHidden?: boolean
 }
 
-type TileId = 'sound' | 'artists' | 'eras' | 'fame' | 'genres'
-const TILE_TITLE: Record<TileId, string> = {
-  sound: 'Audio DNA', artists: 'Top artists', eras: 'Eras', fame: 'Fame', genres: 'Micro-genres',
-}
 
 /**
  * The playlist lens (2.0.39, "L2 bento"): a compact header — cover, name, size, Play —
- * then the analysis as tiles: sound, top artist, eras, fame, how much of it you played
- * this month, and the genres. Tap a tile to open it in full (its own small sheet).
+ * then the analysis as tiles, each showing all it has (2.0.46: nothing to open): sound,
+ * top artists, fame, how much of it you played this month, eras and the genres.
  * A full-height, edge-to-edge Sheet (`bleed`) — swipe the handle, tap the backdrop or
  * press back to close.
  */
@@ -82,9 +75,6 @@ export function DetailSheet({ playlist, palette, onClose, onGone, coverHidden = 
   // Tap a top artist → expand the same item sheet Wrapped uses (mounted beside the
   // sheet, not inside the ScrollView, so it anchors to the screen).
   const [sel, setSel] = useState<WrappedSelection | null>(null)
-  const [tile, setTile] = useState<TileId | null>(null)
-  const lastTile = useRef<TileId>('sound')
-  if (tile) lastTile.current = tile
 
   // Keep showing the last playlist (and palette) while the sheet slides closed.
   const last = useRef({ playlist, palette })
@@ -94,7 +84,7 @@ export function DetailSheet({ playlist, palette, onClose, onGone, coverHidden = 
 
   useEffect(() => {
     if (isOpen) return
-    setSel(null); setTile(null)
+    setSel(null)
     const t = setTimeout(reset, 360)
     return () => clearTimeout(t)
   }, [isOpen])
@@ -147,18 +137,8 @@ export function DetailSheet({ playlist, palette, onClose, onGone, coverHidden = 
             </View>
           )}
 
-          {status === 'success' && data && <Bento data={data} accent={accent} onOpen={setTile} />}
+          {status === 'success' && data && <Bento data={data} accent={accent} onSelectArtist={x => openSelection(x, setSel)} />}
         </ScrollView>
-      </Sheet>
-
-      {/* A tile, in full. */}
-      <Sheet open={!!tile && isOpen} onClose={() => setTile(null)} title={TILE_TITLE[lastTile.current]} zIndex={11} maxHeight={0.72}>
-        {data && (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl, gap: Spacing.sm }}>
-            <TileDetail id={lastTile.current} data={data} accent={accent}
-              onSelectArtist={s => { setTile(null); setSel(s) }} />
-          </ScrollView>
-        )}
       </Sheet>
 
       <WrappedItemSheet selection={sel} onClose={() => setSel(null)} />
@@ -202,21 +182,32 @@ function Header({ playlist, data, accent, coverHidden, onPlay }: {
 }
 
 // ─── Bento ────────────────────────────────────────────────────────────────────
-function Bento({ data, accent, onOpen }: { data: PlaylistAnalysis; accent: string; onOpen: (t: TileId) => void }) {
+// 2.0.46 "L3": nothing to open. Every tile shows its whole story (they used to open a
+// second sheet each, and the lens looked empty): top artists as a list (one tap to an
+// artist's page when you've played them), every decade, fame and its spread, the full
+// genre cloud, and the sound when Spotify gives it.
+const TOP_ARTISTS = 8
+
+function Bento({ data, accent, onSelectArtist }: { data: PlaylistAnalysis; accent: string; onSelectArtist: (s: WrappedSelection) => void }) {
   const af = data.audioFeatures
-  const topArtist = data.topArtists[0]
   const decTotal = data.decades.reduce((n, d) => n + d.count, 0)
   const topDec = data.decades.slice().sort((a, b) => b.count - a.count)[0]
   const decMax = Math.max(1, ...data.decades.map(d => d.count))
   const fame = data.avgPop
   const fameWord = fame < 35 ? 'mostly deep cuts' : fame < 60 ? 'a bit of both' : 'mostly hits'
+  const popMax = Math.max(1, ...data.popBuckets.map(b => b.count))
+  const popTop = data.popBuckets.reduce((best, b, i, all) => (b.count > all[best].count ? i : best), 0)
   const played = usePlayedThisMonth(data)
+  const artists = data.topArtists.slice(0, TOP_ARTISTS)
+  const artistMax = Math.max(1, artists[0]?.count ?? 1)
+  const genreMax = Math.max(1, data.topGenres[0]?.count ?? 1)
 
   return (
     <View style={styles.grid}>
       {af && (
-        <Tile wide onPress={() => onOpen('sound')} label={`Sound: ${data.vibe ?? 'audio profile'}. Energy ${Math.round(af.energy * 100)}, danceable ${Math.round(af.danceability * 100)}. Open`}>
-          <View style={styles.soundRow}>
+        <Tile wide>
+          <View style={styles.soundRow} accessible
+            accessibilityLabel={`Sound: ${data.vibe ?? 'audio profile'}. Energy ${Math.round(af.energy * 100)}, danceable ${Math.round(af.danceability * 100)}, ${Math.round(af.avgTempo)} bpm`}>
             <RadarChart acousticness={af.acousticness} danceability={af.danceability} energy={af.energy}
               valence={af.valence} instrumentalness={af.instrumentalness} liveness={af.liveness}
               color={accent} size={112} labels={false} />
@@ -229,65 +220,104 @@ function Bento({ data, accent, onOpen }: { data: PlaylistAnalysis; accent: strin
           </View>
         </Tile>
       )}
-      <View style={styles.pair}>
-        {topArtist && (
-          <Tile onPress={() => onOpen('artists')} label={`Top artist ${topArtist.name}, ${topArtist.count} songs. Open`}>
-            <Text style={styles.tileLabel}>TOP ARTIST</Text>
-            <ArtThumb kind="artist" name={topArtist.name} size={52} />
-            <View>
-              <Text style={styles.tileName} numberOfLines={1}>{withMemorialMark(topArtist.name)}</Text>
-              <Text style={styles.tileSub} numberOfLines={1}>
-                {topArtist.count === 1 ? '1 song' : `${topArtist.count} songs`}{data.artistCount > 1 ? ` · +${data.artistCount - 1} more` : ''}
-              </Text>
-            </View>
-          </Tile>
-        )}
-        {data.decades.length > 0 && (
-          <Tile onPress={() => onOpen('eras')} label={`Eras: ${topDec ? `${Math.round(100 * topDec.count / decTotal)}% from the ${topDec.label}` : ''}. Open`}>
-            <Text style={styles.tileLabel}>ERAS</Text>
-            <View style={styles.decBars}>
-              {data.decades.slice(-5).map(d => (
-                <View key={d.label} style={styles.decCol}>
-                  <View style={[styles.decBar, { height: 6 + 58 * (d.count / decMax), backgroundColor: d === topDec ? accent : `${accent}55` }]} />
-                  <Text style={styles.decLabel} numberOfLines={1}>{d.label.replace(/^\d\d(\d\d)s$/, '$1s')}</Text>
+
+      {artists.length > 0 && (
+        <Tile wide>
+          <View style={styles.tileHead}>
+            <Text style={styles.tileLabel}>TOP ARTISTS</Text>
+            <Text style={styles.tileCount}>{data.artistCount.toLocaleString()} in all</Text>
+          </View>
+          {artists.map((a, i) => (
+            <Pressable key={a.id || a.name}
+              onPress={() => onSelectArtist({ kind: 'artist', name: a.name, rank: i + 1, tracks: a.count, accent })}
+              style={({ pressed }) => [styles.artistRow, pressed && { opacity: 0.6 }]}
+              accessibilityRole="button" accessibilityLabel={`${i + 1}. ${a.name}, ${a.count} ${a.count === 1 ? 'song' : 'songs'}`}>
+              <Text style={styles.artistRank}>{i + 1}</Text>
+              <ArtThumb kind="artist" name={a.name} size={34} />
+              <View style={styles.artistText}>
+                <Text style={styles.tileName} numberOfLines={1}>{withMemorialMark(a.name)}</Text>
+                <View style={styles.artistTrack}>
+                  <View style={[styles.artistFill, { width: `${Math.max(4, (a.count / artistMax) * 100)}%`, backgroundColor: accent }]} />
                 </View>
-              ))}
-            </View>
-            {topDec && <Text style={styles.tileSub} numberOfLines={1}>{Math.round(100 * topDec.count / decTotal)}% from the {topDec.label}</Text>}
-          </Tile>
-        )}
-      </View>
+              </View>
+              <Text style={styles.artistCount}>{a.count}</Text>
+            </Pressable>
+          ))}
+          {data.artistCount > artists.length && (
+            <Text style={styles.tileSub}>+{(data.artistCount - artists.length).toLocaleString()} more · counted in songs</Text>
+          )}
+        </Tile>
+      )}
+
       <View style={styles.pair}>
-        <Tile onPress={() => onOpen('fame')} label={`Fame ${fame}, ${fameWord}. Open`}>
-          <Text style={styles.tileLabel}>FAME</Text>
-          <Text style={[styles.tileBig, { color: '#FFB347' }]}>{fame}</Text>
-          <Text style={styles.tileSub}>{fameWord}</Text>
-        </Tile>
-        <Tile label={played == null ? 'You played: nothing tracked yet' : `You played ${played}% of it this month`}>
-          <Text style={styles.tileLabel}>YOU PLAYED</Text>
-          <Text style={[styles.tileBig, { color: Colors.lavender }]}>{played == null ? '—' : `${played}%`}</Text>
-          <Text style={styles.tileSub}>{played == null ? 'turn on tracking to see' : 'of it this month'}</Text>
-        </Tile>
-      </View>
-      {data.topGenres.length > 0 && (
-        <Tile wide onPress={() => onOpen('genres')} label={`Genres: ${data.topGenres.slice(0, 4).map(g => g.genre).join(', ')}. Open`}>
-          <View style={styles.genreCloud}>
-            {data.topGenres.slice(0, 4).map((g, i) => (
-              <View key={g.genre} style={[styles.genrePill, i === 0
-                ? { backgroundColor: `${accent}22`, borderColor: `${accent}99` }
-                : { backgroundColor: Colors.glass, borderColor: Colors.glassBorder }]}>
-                <Text style={[styles.genrePillText, { color: i === 0 ? accent : Colors.textSecondary }]}>{g.genre}</Text>
+        <Tile>
+          <View accessible accessibilityLabel={`Fame ${fame} out of 100, ${fameWord}`}>
+            <Text style={styles.tileLabel}>FAME</Text>
+            <Text style={[styles.tileBig, { color: '#FFB347' }]}>{fame}</Text>
+            <Text style={styles.tileSub}>{fameWord}</Text>
+          </View>
+          <View style={styles.miniBars} accessible accessibilityLabel={`Songs by popularity: ${data.popBuckets.map(b => `${b.label}: ${b.count}`).join(', ')}`}>
+            {data.popBuckets.map((b, i) => (
+              <View key={b.label} style={styles.miniCol}>
+                <View style={[styles.miniBar, { height: 3 + 31 * (b.count / popMax), backgroundColor: i === popTop ? '#FFB347' : 'rgba(255,179,71,0.35)' }]} />
               </View>
             ))}
-            {data.topGenres.length > 4 && (
-              <View style={[styles.genrePill, { backgroundColor: Colors.glass, borderColor: Colors.glassBorder }]}>
-                <Text style={[styles.genrePillText, { color: Colors.textSecondary }]}>+{data.topGenres.length - 4}</Text>
+          </View>
+          <View style={styles.miniAxis}><Text style={styles.decLabel}>deep cuts</Text><Text style={styles.decLabel}>hits</Text></View>
+        </Tile>
+        <Tile>
+          <View accessible accessibilityLabel={played == null ? 'You played: nothing tracked yet' : `You played ${played}% of it this month`}>
+            <Text style={styles.tileLabel}>YOU PLAYED</Text>
+            <Text style={[styles.tileBig, { color: Colors.lavender }]}>{played == null ? '—' : `${played}%`}</Text>
+            <Text style={styles.tileSub}>{played == null ? 'turn on tracking to see' : 'of its songs this month'}</Text>
+          </View>
+          {played != null && (
+            <View style={styles.playedTrack}><View style={[styles.playedFill, { width: `${Math.max(2, played)}%` }]} /></View>
+          )}
+        </Tile>
+      </View>
+
+      {data.decades.length > 0 && (
+        <Tile wide>
+          <View style={styles.tileHead}>
+            <Text style={styles.tileLabel}>ERAS</Text>
+            {topDec && <Text style={styles.tileCount}>{Math.round(100 * topDec.count / decTotal)}% from the {topDec.label}</Text>}
+          </View>
+          <View style={styles.decBars} accessible
+            accessibilityLabel={`Songs by decade: ${data.decades.map(d => `${d.label}: ${d.count}`).join(', ')}`}>
+            {data.decades.map(d => (
+              <View key={d.label} style={styles.decCol}>
+                <Text style={styles.decCount}>{d.count}</Text>
+                <View style={[styles.decBar, { height: 4 + 54 * (d.count / decMax), backgroundColor: d === topDec ? accent : `${accent}55` }]} />
+                <Text style={styles.decLabel} numberOfLines={1}>{d.label.replace(/^\d\d(\d\d)s$/, '$1s')}</Text>
               </View>
-            )}
+            ))}
           </View>
         </Tile>
       )}
-      <Text style={styles.tapHint}>tap a tile to open it</Text>
+
+      {data.topGenres.length > 0 && (
+        <Tile wide>
+          <View style={styles.tileHead}>
+            <Text style={styles.tileLabel}>GENRES</Text>
+            <Text style={styles.tileCount}>{data.topGenres.length}</Text>
+          </View>
+          <View style={styles.genreCloud}>
+            {data.topGenres.slice(0, 24).map((g, i) => {
+              const pct = g.count / genreMax
+              const c = [accent, Colors.pink, Colors.lavender][i % 3]
+              return (
+                <View key={g.genre} style={[styles.genrePill, {
+                  backgroundColor: `${c}14`,
+                  borderColor: `${c}${Math.round(40 + pct * 60).toString(16).padStart(2, '0')}`,
+                }]}>
+                  <Text style={[styles.genrePillText, { color: `${c}${Math.round(160 + pct * 95).toString(16).padStart(2, '0')}` }]}>{g.genre}</Text>
+                </View>
+              )
+            })}
+          </View>
+        </Tile>
+      )}
     </View>
   )
 }
@@ -306,132 +336,8 @@ function usePlayedThisMonth(data: PlaylistAnalysis): number | null {
   }, [data.playlistId, data.cachedAt])
 }
 
-function Tile({ children, wide, onPress, label }: { children: React.ReactNode; wide?: boolean; onPress?: () => void; label: string }) {
-  const body = <View style={[styles.tile, wide && styles.tileWide]}>{children}</View>
-  if (!onPress) return <View style={wide ? undefined : { flex: 1 }} accessible accessibilityLabel={label}>{body}</View>
-  return (
-    <Pressable onPress={() => { haptic.light(); onPress() }} style={({ pressed }) => [wide ? undefined : { flex: 1 }, pressed && { transform: [{ scale: 0.98 }] }]}
-      accessibilityRole="button" accessibilityLabel={label}>
-      {body}
-    </Pressable>
-  )
-}
-
-// ─── A tile, in full ──────────────────────────────────────────────────────────
-function TileDetail({ id, data, accent, onSelectArtist }: {
-  id: TileId; data: PlaylistAnalysis; accent: string; onSelectArtist: (s: WrappedSelection) => void
-}) {
-  if (id === 'sound' && data.audioFeatures) {
-    const af = data.audioFeatures
-    return (
-      <GlassPanel title={data.vibe ?? 'Audio DNA'}>
-        <View style={styles.radarWrap}>
-          <RadarChart acousticness={af.acousticness} danceability={af.danceability} energy={af.energy}
-            valence={af.valence} instrumentalness={af.instrumentalness} liveness={af.liveness} color={accent} size={200} />
-        </View>
-        <View style={styles.bpmRow}>
-          <Text style={styles.bpmLabel}>BPM AVG</Text>
-          <Text style={[styles.bpmValue, { color: accent }]}>{Math.round(af.avgTempo)}</Text>
-        </View>
-      </GlassPanel>
-    )
-  }
-  if (id === 'artists') {
-    return (
-      <GlassPanel title={`${data.artistCount} artists`}>
-        {data.topArtists.slice(0, 10).map((artist, i) => (
-          <BarRow key={artist.id} label={withMemorialMark(artist.name)} count={artist.count} max={data.topArtists[0].count}
-            color={accent} valueLabel={artist.count === 1 ? '1 track' : `${artist.count} tracks`} delay={i * 50}
-            onPress={() => onSelectArtist({ kind: 'artist', name: artist.name, rank: i + 1, tracks: artist.count, accent })} />
-        ))}
-      </GlassPanel>
-    )
-  }
-  if (id === 'eras') {
-    const max = Math.max(...data.decades.map(x => x.count))
-    return (
-      <GlassPanel title="By decade">
-        {data.decades.map((d, i) => (
-          <BarRow key={d.label} label={d.label} count={d.count} max={max} color={accent}
-            valueLabel={d.count === 1 ? '1 track' : `${d.count} tracks`} delay={i * 50} />
-        ))}
-      </GlassPanel>
-    )
-  }
-  if (id === 'fame') {
-    const buckets = data.popBuckets.filter(b => b.count > 0)
-    const max = Math.max(1, ...data.popBuckets.map(x => x.count))
-    return (
-      <GlassPanel title={`Average popularity ${data.avgPop}`}>
-        {buckets.map((b, i) => (
-          <BarRow key={b.label} label={b.label} count={b.count} max={max} color={accent}
-            valueLabel={b.count === 1 ? '1 track' : `${b.count} tracks`} delay={i * 45} />
-        ))}
-      </GlassPanel>
-    )
-  }
-  return (
-    <GlassPanel title={`${data.topGenres.length} genres`}>
-      <View style={styles.genreCloud}>
-        {data.topGenres.slice(0, 24).map((g, i) => {
-          const pct = g.count / data.topGenres[0].count
-          const chipColor = [accent, Colors.pink, Colors.lavender][i % 3]
-          return (
-            <View key={g.genre} style={[styles.genrePill, {
-              backgroundColor: `${chipColor}14`,
-              borderColor: `${chipColor}${Math.round(40 + pct * 60).toString(16).padStart(2, '0')}`,
-            }]}>
-              <Text style={[styles.genrePillText, { color: `${chipColor}${Math.round(160 + pct * 95).toString(16).padStart(2, '0')}` }]}>{g.genre}</Text>
-            </View>
-          )
-        })}
-      </View>
-    </GlassPanel>
-  )
-}
-
-// ─── Glass Panel ──────────────────────────────────────────────────────────────
-function GlassPanel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.panel}>
-      <View style={styles.panelSpecular} />
-      <Text style={styles.panelTitle}>{title}</Text>
-      {children}
-    </View>
-  )
-}
-
-// ─── Bar Row ──────────────────────────────────────────────────────────────────
-function BarRow({ label, count, max, color, valueLabel, delay, onPress }: {
-  label:      string
-  count:      number
-  max:        number
-  color:      string
-  valueLabel: string
-  delay:      number
-  onPress?:   () => void
-}) {
-  const barW = useSharedValue(0)
-  const pct  = max > 0 ? count / max : 0
-  const { width: SW } = useLiveWindow()
-  const BAR_FULL = SW - Spacing.lg * 2 - Spacing['2xl'] * 2 - 130
-
-  useEffect(() => {
-    barW.value = withDelay(delay, withSpring(pct * BAR_FULL, { mass: 1, damping: 18, stiffness: 110 }))
-  }, [pct])
-
-  const fillStyle = useAnimatedStyle(() => ({ width: barW.value }))
-
-  const inner = (
-    <View style={styles.barRow}>
-      <Text style={styles.barLabel} numberOfLines={1}>{label}</Text>
-      <View style={styles.barTrack}>
-        <Animated.View style={[styles.barFill, { backgroundColor: color }, fillStyle]} />
-      </View>
-      <Text style={styles.barValue}>{valueLabel}</Text>
-    </View>
-  )
-  return onPress ? <Pressable onPress={onPress} hitSlop={6}>{inner}</Pressable> : inner
+function Tile({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
+  return <View style={[styles.tile, wide ? styles.tileWide : { flex: 1 }]}>{children}</View>
 }
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
@@ -481,57 +387,21 @@ const styles = StyleSheet.create({
   decCol:   { flex: 1, alignItems: 'center', gap: 4, justifyContent: 'flex-end' },
   decBar:   { width: '100%', borderRadius: 4 },
   decLabel: { fontFamily: FontFamily.mono, fontSize: 9, color: Colors.textMuted },
-  tapHint:  { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, textAlign: 'center', marginTop: Spacing.xs },
-
-  // Glass panel
-  panel: {
-    backgroundColor: Colors.glass,
-    borderRadius:    Radius.xl,
-    borderWidth:     1,
-    borderColor:     Colors.glassBorder,
-    overflow:        'hidden',
-    paddingHorizontal: Spacing.lg,
-    paddingBottom:   Spacing.lg,
-    gap:             Spacing.sm,
-  },
-  panelSpecular: {
-    width:           '100%',
-    height:          1,
-    backgroundColor: Colors.glassHighlight,
-    marginBottom:    Spacing.sm,
-  },
-  panelTitle: {
-    fontFamily:    FontFamily.monoMedium,
-    fontSize:      FontSize.xs,
-    color:         Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
-
-  // Radar wrap + BPM row
-  radarWrap: {
-    alignItems: 'center',
-    paddingVertical: Spacing.sm,
-  },
-  bpmRow: {
-    flexDirection:  'row',
-    justifyContent: 'center',
-    alignItems:     'baseline',
-    gap:            Spacing.sm,
-    paddingTop:     Spacing.xs,
-  },
-  bpmLabel: {
-    fontFamily:    FontFamily.mono,
-    fontSize:      FontSize.xs,
-    color:         Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-  },
-  bpmValue: {
-    fontFamily:    FontFamily.syneBold,
-    fontSize:      FontSize.xl,
-    letterSpacing: -0.5,
-  },
+  decCount: { fontFamily: FontFamily.mono, fontSize: 9, color: Colors.textSecondary },
+  tileHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: Spacing.sm },
+  tileCount: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textSecondary },
+  artistRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + 2, paddingVertical: 3 },
+  artistRank: { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, width: 14, textAlign: 'right' },
+  artistText: { flex: 1, minWidth: 0, gap: 5 },
+  artistTrack: { height: 3, borderRadius: 2, backgroundColor: Colors.glass, overflow: 'hidden' },
+  artistFill: { height: 3, borderRadius: 2, opacity: 0.85 },
+  artistCount: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.xs, color: Colors.textSecondary, minWidth: 22, textAlign: 'right' },
+  miniBars: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 34, marginTop: Spacing.sm },
+  miniCol:  { flex: 1, justifyContent: 'flex-end' },
+  miniBar:  { width: '100%', borderRadius: 3 },
+  miniAxis: { flexDirection: 'row', justifyContent: 'space-between' },
+  playedTrack: { height: 6, borderRadius: 3, backgroundColor: 'rgba(204,189,255,0.15)', overflow: 'hidden', marginTop: Spacing.sm },
+  playedFill:  { height: 6, borderRadius: 3, backgroundColor: Colors.lavender },
 
   // Micro-genres cloud
   genreCloud: {
@@ -549,39 +419,6 @@ const styles = StyleSheet.create({
     fontFamily:    FontFamily.mono,
     fontSize:      FontSize.xs,
     textTransform: 'lowercase',
-  },
-
-  // Bar rows
-  barRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           Spacing.sm,
-  },
-  barLabel: {
-    fontFamily: FontFamily.mono,
-    fontSize:   FontSize.xs,
-    color:      Colors.textSecondary,
-    width:      90,
-  },
-  barTrack: {
-    flex:            1,
-    height:          6,
-    borderRadius:    3,
-    backgroundColor: Colors.glass,
-    borderWidth:     1,
-    borderColor:     Colors.glassBorder,
-    overflow:        'hidden',
-  },
-  barFill: {
-    height:       '100%',
-    borderRadius: 3,
-  },
-  barValue: {
-    fontFamily: FontFamily.mono,
-    fontSize:   FontSize.xs,
-    color:      Colors.textMuted,
-    width:      64,
-    textAlign:  'right',
   },
 
   // Error state

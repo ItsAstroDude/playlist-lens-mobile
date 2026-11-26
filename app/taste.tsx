@@ -15,7 +15,7 @@ import { Spring, haptic } from '@/constants/animation'
 import { useTasteProfile } from '@/hooks/useTasteProfile'
 import { usePlaylists } from '@/hooks/useSpotify'
 import { RadarChart } from '@/components/ui/RadarChart'
-import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
+import { WrappedItemSheet, openSelection, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
 import { withMemorialMark } from '@/utils/tribute'
 import { vibeColor } from '@/utils/color'
 import type { TasteProfile } from '@/types'
@@ -322,7 +322,7 @@ export default function TasteScreen() {
         </Card>
       )}
 
-      {profile ? <ProfileContent profile={profile} onSelectArtist={setSel} /> : !isScanning ? (
+      {profile ? <ProfileContent profile={profile} onSelectArtist={s => openSelection(s, setSel)} /> : !isScanning ? (
         <DSEmptyState
           icon="aperture-outline"
           title="No taste profile yet"

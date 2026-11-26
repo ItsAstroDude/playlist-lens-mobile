@@ -1,5 +1,5 @@
 require('react-native-gesture-handler/jestSetup')
-/** The lens sheet (L2 bento): header, tiles, a tile opens in full, Play starts the queue. */
+/** The lens sheet (L3, 2.0.46): header, every tile shown in full, one tap to an artist, Play starts the queue. */
 import React from 'react'
 import { render, fireEvent, act } from '@testing-library/react-native'
 
@@ -15,7 +15,8 @@ jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }))
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }))
 jest.mock('@/components/ui/ArtThumb', () => ({ ArtThumb: 'ArtThumb' }))
 jest.mock('@/components/ui/RadarChart', () => ({ RadarChart: 'RadarChart' }))
-jest.mock('@/components/wrapped/WrappedItemSheet', () => ({ WrappedItemSheet: () => null }))
+const mockOpen = jest.fn()
+jest.mock('@/components/wrapped/WrappedItemSheet', () => ({ WrappedItemSheet: () => null, openSelection: (...a: any[]) => mockOpen(...a) }))
 jest.mock('@/hooks/useNowPlayingGutter', () => ({ useNowPlayingGutter: () => 0 }))
 jest.mock('@/hooks/useScreen', () => ({ useIsCover: () => false }))
 const mockData = {
@@ -39,19 +40,26 @@ jest.mock('@/utils/overlayEvents', () => ({ emitOpenStartQueue: (x: any) => mock
 
 import { DetailSheet } from '@/components/sheet/DetailSheet'
 
-it('shows the header and the tiles, opens a tile, and plays', () => {
+it('shows everything without opening anything, opens an artist in one tap, and plays', () => {
   const pl: any = { id: 'p1', name: 'late night drive', images: [], tracks: { total: 84 }, owner: { display_name: 'me' } }
   const r = render(React.createElement(DetailSheet, { playlist: pl, palette: null, onClose: jest.fn() }))
   act(() => {})
   expect(r.getByText('late night drive')).toBeTruthy()
   expect(r.getByText(/^84 songs · /)).toBeTruthy()
   expect(r.getByLabelText(/^Sound: bright and fast/)).toBeTruthy()
-  expect(r.getByLabelText(/^Top artist KMNZ, 9 songs/)).toBeTruthy()
-  expect(r.getByLabelText(/^Eras: 80% from the 2020s/)).toBeTruthy()
-  expect(r.getByLabelText(/^Fame 38, a bit of both/)).toBeTruthy()
-  expect(r.getByLabelText(/^You played/)).toBeTruthy()
-  fireEvent.press(r.getByLabelText(/^Eras:/))
-  expect(r.getByText('By decade')).toBeTruthy()
+  // Top artists as a list, right in the lens
+  expect(r.getByText('41 in all')).toBeTruthy()
+  expect(r.getByLabelText('2. TAK, 3 songs')).toBeTruthy()
+  // Every decade with its count, fame with its spread, the genres: no tile to open
+  expect(r.getByLabelText('Songs by decade: 2010s: 2, 2020s: 8')).toBeTruthy()
+  expect(r.getByText('80% from the 2020s')).toBeTruthy()
+  expect(r.getByLabelText(/^Fame 38 out of 100, a bit of both/)).toBeTruthy()
+  expect(r.getByLabelText('Songs by popularity: deep cuts: 6, hits: 4')).toBeTruthy()
+  expect(r.getByText('future funk')).toBeTruthy()
+  expect(r.queryByText(/tap a tile/)).toBeNull()
+  // One tap on an artist goes straight to openSelection (their page when played)
+  fireEvent.press(r.getByLabelText('1. KMNZ, 9 songs'))
+  expect(mockOpen).toHaveBeenCalledWith(expect.objectContaining({ kind: 'artist', name: 'KMNZ', rank: 1 }), expect.any(Function))
   fireEvent.press(r.getByLabelText('Play late night drive'))
   expect(mockQueue).toHaveBeenCalledWith([
     { uri: 'spotify:track:a', name: 'A', artist: 'KMNZ', image: undefined },
