@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.47',
+    name:    'Backup and restore',
+    date:    '2026-11-26',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Settings › Backup & restore: your whole history in one small file. Save it to a folder you choose once (Drive, Documents…) or share a copy anywhere.',
+          'Back up every week: switch it on and a fresh backup lands in your folder when you open the app, only when there are new plays. The two newest are kept.',
+          'Restore from a backup on a new phone (or this one). Its plays are added to what’s here; nothing is replaced, and plays you already have are skipped. The covers you picked and your Recaps choices come back too.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.46',
     name:    'Everything at a glance',
     date:    '2026-11-26',

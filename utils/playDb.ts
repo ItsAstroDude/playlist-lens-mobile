@@ -29,7 +29,8 @@ const SCHEMA        = 1
 const LEGACY_KEY    = 'wrapped_recent'      // the old MMKV buffer (utils/recents)
 const MIGRATED_META = 'migrated_mmkv_buffer'
 
-interface PlayRow {
+/** A play as stored (UTC seconds, source code). Backups carry these as they are. */
+export interface PlayRow {
   t: number; uri: string; ms: number
   track: string | null; artist: string | null; album: string | null
   src: number
@@ -366,4 +367,49 @@ export function playedOf(uris: string[], sinceT: number): number {
     n += r?.n ?? 0
   }
   return n
+}
+
+// ─── backup & restore (2.0.47) ───────────────────────────────────────────────────
+/** Every play as stored, oldest first — off the UI thread (the stats connection). */
+export async function allPlaysAsync(): Promise<PlayRow[]> {
+  return statsDb().getAllAsync<PlayRow>('SELECT t, uri, ms, track, artist, album, src FROM plays ORDER BY t, uri', [])
+}
+
+/**
+ * Add a backup's plays without replacing anything here (restore merges). Plays already
+ * on the phone stay as they are (same key = skipped). The import's overlap rule holds:
+ * `importCover` is the newest play any import covers (this phone's or the backup's), and
+ * non-import plays inside it are skipped. Call `applyImportCover` once after the last chunk.
+ * Returns how many plays were added.
+ */
+export function mergePlayChunk(rows: PlayRow[], importCover: number | null): number {
+  if (!rows.length) return 0
+  const d = db()
+  let added = 0
+  d.withTransactionSync(() => {
+    const stmt = d.prepareSync('INSERT OR IGNORE INTO plays (t, uri, ms, track, artist, album, src) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    try {
+      for (const r of rows) {
+        if (r.src !== Source.import && importCover !== null && r.t <= importCover) continue
+        added += stmt.executeSync([r.t, r.uri, r.ms, r.track, r.artist, r.album, r.src]).changes
+      }
+    } finally { stmt.finalizeSync() }
+  })
+  if (added) bump()
+  return added
+}
+
+/** After a merge: the import now covers up to `cover`; tracked/recent plays inside it go
+ *  (the import is authoritative for its range, as on an import). Returns how many went. */
+export function applyImportCover(cover: number | null): number {
+  if (cover === null) return 0
+  const d = db()
+  const current = importMaxT()
+  let removed = 0
+  d.withTransactionSync(() => {
+    if (current === null || cover > current) setMeta(d, 'import_max_t', String(cover))
+    removed = d.runSync('DELETE FROM plays WHERE src != ? AND t <= ?', [Source.import, Math.max(cover, current ?? cover)]).changes
+  })
+  if (removed) bump()
+  return removed
 }

@@ -4,6 +4,7 @@ import { TabletopNowPlaying } from '@/components/fold/TabletopNowPlaying'
 import { FlexPanel } from '@/components/fold/FlexPanel'
 import { ContentHeightContext, useFlexSplit } from '@/hooks/useFlex'
 import { onRootLayout } from '@/utils/liveWindow'
+import { maybeAutoBackup } from '@/utils/backup'
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context'
 import '@/utils/perf'
 import React, { useEffect, useRef, useState } from 'react'
@@ -201,11 +202,19 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isAuthenticated) return
     flushErrors()
+    // Weekly backup (2.0.47): a while after opening, so it never competes with the first
+    // screen; it does nothing unless it's switched on, due, and there are new plays.
+    let backupTimer: ReturnType<typeof setTimeout> | null = null
+    const backupSoon = () => {
+      if (backupTimer) clearTimeout(backupTimer)
+      backupTimer = setTimeout(() => { maybeAutoBackup().catch(() => {}) }, 12_000)
+    }
+    backupSoon()
     const sub = AppState.addEventListener('change', s => {
-      if (s === 'active') flushErrors()
-      else if (s === 'background') refreshWidget()   // leave the widget current
+      if (s === 'active') { flushErrors(); backupSoon() }
+      else if (s === 'background') { refreshWidget(); if (backupTimer) clearTimeout(backupTimer) }   // leave the widget current
     })
-    return () => sub.remove()
+    return () => { sub.remove(); if (backupTimer) clearTimeout(backupTimer) }
   }, [isAuthenticated])
 
   // ── Recap notifications (v1.5) — re-assert the schedule on launch + open Recaps
@@ -259,6 +268,7 @@ export default function RootLayout() {
             <Stack.Screen name="history"   options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="artist"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="song"      options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="backup"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="flagged-covers" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="design"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="load-times" options={{ animation: 'slide_from_right' }} />

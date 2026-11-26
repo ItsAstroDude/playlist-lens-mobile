@@ -291,7 +291,10 @@ as OTA updates unless marked, and keeps history on the phone.
    3 Mar 2021"), a listening-over-time chart, your top songs by them, when you play them
    (clock), your longest run with them, and "Play top 10" / "Add to queue". The explorer's
    missing depth — the play database already answers all of it.
-2. **Backup and restore.** The whole history lives only on the phone: a lost or reset phone
+2. ✅ **Backup and restore** — 2.0.47 (`utils/backupFormat.ts` the file, `utils/backup.ts`
+   folder / share / weekly / restore, `app/backup.tsx`). One gzip'd file, plays by column
+   with a string table (~1–3 MB for 150k plays); restore merges, never replaces.
+   Was: The whole history lives only on the phone: a lost or reset phone
    loses years of imported + tracked plays. Export the play database to one file (share
    sheet → Drive / Files), import it back on a new phone. Also covers Phase 5's
    "export + delete" requirement.

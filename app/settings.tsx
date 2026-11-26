@@ -47,6 +47,7 @@ import {
 import type { SpotifyUser } from '@/types'
 import { useSparkMode, setSparkMode, nextSparkMode } from '@/components/spark'
 import { APP_ICONS, appIconsSupported, getAppIcon, setAppIcon, iconForAccent, type AppIconOption } from '@/utils/appIcon'
+import { backupStatus, onBackupStatus, backupAgo } from '@/utils/backup'
 
 // ─── Profile card — who's connected, on what plan ──────────────────────────────
 function ProfileCard({ me, onReconnect, reconnectMsg }: {
@@ -190,6 +191,9 @@ export default function SettingsScreen() {
   const [notifTested, setNotifTested]   = useState(false)
   const [me, setMe]                     = useState<SpotifyUser | null>(null)
   const [cacheCleared, setCacheCleared] = useState(false)
+  // Backup & restore (2.0.47): when you last backed up, live.
+  const [backup, setBackup] = useState(backupStatus)
+  useEffect(() => onBackupStatus(() => setBackup(backupStatus())), [])
   const [wrappedCleared, setWrappedCleared] = useState(false)
   const [updateMsg, setUpdateMsg]       = useState<string | null>(null)
   const [showRestart, setShowRestart]   = useState(false)
@@ -629,6 +633,10 @@ export default function SettingsScreen() {
 
           {/* Data */}
           <Section label="data & storage">
+            <SettingRow icon="shield-half-outline" tint="violet" label="Backup & restore"
+              hint="Keep your history safe: one file in Drive or Files"
+              value={backup.lastAt ? backupAgo(backup.lastAt) : 'Never'}
+              onPress={() => { haptic.light(); router.push('/backup') }} />
             <SettingRow icon="layers-outline" tint="sky" label="Clear cache"
               hint="Playlist analyses + taste profile — they rebuild as you browse"
               value={cacheCleared ? 'Cleared' : undefined} valueTone="ok" onPress={onClearCache} />
