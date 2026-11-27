@@ -235,6 +235,7 @@ export function StartQueueSheet({ visible, onClose, tracks }: {
       open={visible}
       onClose={close}
       zIndex={60}
+      scrolls
       header={
         <View style={styles.header}>
           <Text style={Type.heading} accessibilityRole="header">{adhocRef.current ? 'Play these' : 'Start a queue'}</Text>

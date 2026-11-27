@@ -413,7 +413,10 @@ is switched off in `CoverHost` (`MINI_APP_ENABLED = false`), kept only for refer
       cover (back · title · buttons, no subtitle unless `coverSubtitle`), and scroll content
       ends above the ring (`useBottomGutter` / `cameraClearance`, whatever the inset says).
       Checked in a web render at 474×524 with the cameras drawn in; not yet on the phone.
-      Tabs (130 dp bottom padding) already clear the ring. [ ] Sheets on the cover.
+      Tabs (130 dp bottom padding) already clear the ring.
+      2.0.52: `Sheet` ends above the ring on the cover and wraps its content in a ScrollView
+      there (sheets with their own list pass `scrolls`: StartQueueSheet, ArtworkFixSheet);
+      What's new sits above the ring. The lens sheet (bleed) and CoverPlayer already did.
 
 ## Plan (decided 2026-11-21)
 - [x] Measure the screen; find the cameras; camera ring prototype + lab — OTA on 2.0.18

@@ -120,7 +120,7 @@ export function ArtworkFixSheet({ target, onClose, onResolved }: {
   return (
     <>
       <Sheet
-        open={isOpen} onClose={onClose} zIndex={30}
+        open={isOpen} onClose={onClose} zIndex={30} scrolls
         title="Fix the cover"
         subtitle={shown ? `${shown.name}${shown.artist ? ` — ${shown.artist}` : ''}` : undefined}
         style={[styles.frame, { height: sheetH }]}

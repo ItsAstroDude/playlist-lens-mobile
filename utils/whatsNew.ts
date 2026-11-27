@@ -19,6 +19,20 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.52',
+    name:    'Sheets on the cover screen',
+    date:    '2026-11-27',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'On the Flip’s cover screen, sheets (a lens’s actions, a play in History, a Rewind song or artist) stop above the cameras and scroll when they don’t fit, so the last rows are never hidden behind the lenses.',
+          'What’s new sits above the cameras there too: its button was half behind them.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.51',
     name:    'Pages on the cover screen',
     date:    '2026-11-27',

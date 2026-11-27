@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { View, Text, StyleSheet, Pressable, BackHandler, type StyleProp, type ViewStyle } from 'react-native'
+import { View, Text, StyleSheet, Pressable, BackHandler, ScrollView, type StyleProp, type ViewStyle } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing, runOnJS } from 'react-native-reanimated'
@@ -7,6 +7,8 @@ import { Colors, Spacing, Radius, Type } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { useContentHeight } from '@/hooks/useFlex'
 import { hideTabBar } from '@/utils/tabBar'
+import { useIsCover } from '@/hooks/useScreen'
+import { useBottomGutter } from '@/hooks/useCoverClearance'
 
 let sheetSeq = 0
 const CLOSE_DISTANCE = 110
@@ -26,9 +28,12 @@ const CLOSE_VELOCITY = 900
  * clipped to the rounded corners) for content with its own hero and insets — the
  * playlist detail sheet. Only the handle area drags, so lists inside keep their own
  * scroll and drag gestures.
+ *
+ * Flip cover screen (2.0.52): the content ends above the cameras, and since the screen
+ * is short it scrolls when it doesn't fit (pass `scrolls` when it has its own list).
  */
 export function Sheet({
-  open, onClose, title, subtitle, children, header, bottomInset = 0, zIndex = 25, maxHeight = 0.88, bleed = false, style,
+  open, onClose, title, subtitle, children, header, bottomInset = 0, zIndex = 25, maxHeight = 0.88, bleed = false, scrolls = false, style,
 }: {
   open:         boolean
   onClose:      () => void
@@ -43,9 +48,13 @@ export function Sheet({
   maxHeight?:   number
   /** Full-height, edge-to-edge: the content handles its own padding and insets. */
   bleed?:       boolean
+  /** The content scrolls by itself (a list): never wrapped in the cover screen's scroll. */
+  scrolls?:     boolean
   style?:       StyleProp<ViewStyle>
 }) {
   const insets = useSafeAreaInsets()
+  const cover = useIsCover()
+  const bottom = useBottomGutter(insets.bottom + Spacing.lg)
   // The height the screens really have: the live window (the Flip's cover screen is about
   // half the main one's), or the standing half while folded with the Flex panel.
   const SH = useContentHeight()
@@ -105,7 +114,7 @@ export function Sheet({
         style={[
           styles.sheet,
           { zIndex: zIndex + 1, maxHeight: SH * maxHeight },
-          bleed ? [styles.bleed, { height: SH * maxHeight }] : { paddingBottom: insets.bottom + Spacing.lg + bottomInset },
+          bleed ? [styles.bleed, { height: SH * maxHeight }] : { paddingBottom: bottom + bottomInset },
           sheetStyle, style,
         ]}
         pointerEvents={open ? 'auto' : 'none'}
@@ -123,7 +132,9 @@ export function Sheet({
             ) : null)}
           </View>
         </GestureDetector>
-        {children}
+        {cover && !bleed && !scrolls
+          ? <ScrollView style={styles.coverScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">{children}</ScrollView>
+          : children}
       </Animated.View>
     </>
   )
@@ -143,4 +154,5 @@ const styles = StyleSheet.create({
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.glassBorder, marginBottom: Spacing.md },
   head:   { gap: 2 },
   sub:    { marginTop: 2 },
+  coverScroll: { flexShrink: 1 },
 })

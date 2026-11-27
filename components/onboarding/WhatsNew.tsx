@@ -5,6 +5,9 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Eas
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { unseenPatches, CHANGELOG, type ChangeKind } from '@/utils/whatsNew'
+import { useIsCover } from '@/hooks/useScreen'
+import { useBottomGutter } from '@/hooks/useCoverClearance'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 
 const KIND_COLOR: Record<ChangeKind, string> = {
@@ -20,6 +23,10 @@ export function WhatsNew({ visible, all, onClose }: { visible: boolean; all?: bo
   const scale    = useSharedValue(0.92)
   const opacity  = useSharedValue(0)
   const backdrop = useSharedValue(0)
+  // Flip cover screen: the card sits in the space above the cameras (2.0.52).
+  const cover = useIsCover()
+  const above = useBottomGutter(0)
+  const { height: winH } = useLiveWindow()
 
   useEffect(() => {
     if (visible) {
@@ -43,12 +50,12 @@ export function WhatsNew({ visible, all, onClose }: { visible: boolean; all?: bo
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }))
 
   return (
-    <Animated.View style={[styles.root, backdropStyle]} pointerEvents={visible ? 'auto' : 'none'}>
+    <Animated.View style={[styles.root, cover && { paddingTop: Spacing.md, paddingBottom: above }, backdropStyle]} pointerEvents={visible ? 'auto' : 'none'}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
         <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
       </Pressable>
 
-      <Animated.View style={[styles.card, cardStyle]}>
+      <Animated.View style={[styles.card, cover && { maxHeight: winH - above - Spacing.md }, cardStyle]}>
         <View style={styles.specular} />
 
         <Text style={styles.eyebrow}>{all ? 'CHANGELOG' : "WHAT'S NEW"}</Text>
