@@ -13,7 +13,7 @@ export type StripAction =
   | { kind: 'artist'; name: string }
   | { kind: 'song'; name: string; artist: string }
   | { kind: 'story'; period: 'week' | 'year' | 'all'; back?: number }
-  | { kind: 'route'; path: '/history' | '/backup' | '/play' | '/taste' }
+  | { kind: 'route'; path: '/history' | '/backup' | '/play' | '/taste' | '/learn' }
 
 export interface StripLine {
   /** Stable id (rotation keeps its place when lines are rebuilt). */
@@ -90,6 +90,7 @@ export const QUOTES = [
 
 export function tipLines(o: { backedUp: boolean }): StripLine[] {
   const tips: StripLine[] = [
+    { id: 't.learn', glyph: '✦', personal: false, text: 'New here? Learn the app in a minute', action: { kind: 'route', path: '/learn' } },
     { id: 't.pin', glyph: '◍', personal: false, text: 'Hold a lens to pin, share or compare it' },
     { id: 't.play', glyph: '★', personal: false, text: 'Four games about your own listening', action: { kind: 'route', path: '/play' } },
     { id: 't.taste', glyph: '◎', personal: false, text: 'Your taste across every lens', action: { kind: 'route', path: '/taste' } },

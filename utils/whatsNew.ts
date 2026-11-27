@@ -19,6 +19,20 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.50',
+    name:    'Learn the app',
+    date:    '2026-11-27',
+    sections: [
+      {
+        label: 'New',
+        items: [
+          'Settings › Help › Learn the app: everything playlist.lens can do, chapter by chapter (Lenses, your listening, playing, Play and Swipe, the Flip, making it yours, your data), with where to find each thing and a tap to go straight there.',
+          'Search it by any word: queue, backup, fold, stories…',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.49',
     name:    'A strip about you',
     date:    '2026-11-27',

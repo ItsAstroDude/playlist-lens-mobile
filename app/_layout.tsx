@@ -269,6 +269,7 @@ export default function RootLayout() {
             <Stack.Screen name="artist"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="song"      options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="backup"    options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="learn"     options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="flagged-covers" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="design"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="load-times" options={{ animation: 'slide_from_right' }} />

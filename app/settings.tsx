@@ -650,6 +650,9 @@ export default function SettingsScreen() {
 
           {/* Help */}
           <Section label="help">
+            <SettingRow icon="book-outline" tint="sky" label="Learn the app"
+              hint="Everything playlist.lens can do, and where to find it"
+              onPress={() => { haptic.light(); router.push('/learn') }} />
             <SettingRow icon="sparkles-outline" label="What’s new" value={`v${appVersion()}`}
               onPress={() => { haptic.light(); emitOpenWhatsNew() }} />
             <SettingRow icon="school-outline" tint="sky" label="Replay the tour"
