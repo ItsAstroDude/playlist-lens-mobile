@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.49',
+    name:    'A strip about you',
+    date:    '2026-11-27',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'The strip on Lenses is about you now: your artist of the week, the song you have on repeat, your week so far, your streak, and your all-time numbers, with the artist’s photo or the song’s cover beside them.',
+          'Tap a line to go there: the artist’s or song’s page, your week or your loudest year as a story, your history. Hold to skip to the next one.',
+          'Quotes and tips only fill in when there isn’t much to say about you yet. If your history isn’t backed up, it reminds you once.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.48',
     name:    'Your taste, at a glance',
     date:    '2026-11-26',
