@@ -7,10 +7,12 @@ import { router } from 'expo-router'
 import { Image } from 'expo-image'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withDelay } from 'react-native-reanimated'
 import {
-  Colors, FontFamily, FontSize, Spacing, Radius, alpha,
+  Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha,
   ACCENTS, FONTS, activeAccentId, activeFontId, activeThemeMode,
 } from '@/constants/theme'
 import { BackButton } from '@/components/ui/BackButton'
+import { useIsCover } from '@/hooks/useScreen'
+import { useBottomGutter } from '@/hooks/useCoverClearance'
 import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { Section, ListRow as SettingRow, ToggleRow } from '@/components/ui'
@@ -455,6 +457,9 @@ export default function SettingsScreen() {
   }
 
   const insets = useSafeAreaInsets()
+  // Flip cover screen: back + title on one row (like every page there), content ends above the cameras.
+  const cover = useIsCover()
+  const bottom = useBottomGutter(insets.bottom + Spacing['4xl'])
 
   // ── Entrance — header + content rise in like the other screens ──
   const enterY = useSharedValue(14)
@@ -472,17 +477,18 @@ export default function SettingsScreen() {
       <AmbientBackground />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
 
-        <View style={styles.header}>
+        <View style={[styles.header, cover && styles.headerCover]}>
           <BackButton />
+          {cover && <Text style={styles.titleCover} accessibilityRole="header" numberOfLines={1}>Settings</Text>}
         </View>
 
         <Animated.View style={[{ flex: 1 }, enterStyle]}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + Spacing['4xl'] }]}
+          contentContainerStyle={[styles.scroll, cover && styles.scrollCover, { paddingBottom: bottom }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title} accessibilityRole="header">settings</Text>
+          {!cover && <Text style={styles.title} accessibilityRole="header">settings</Text>}
 
           <ProfileCard me={me} onReconnect={onReconnect} reconnectMsg={reconnectMsg} />
 
@@ -725,12 +731,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
 
   header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
+  headerCover: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingBottom: Spacing.sm },
+  titleCover:  { ...Type.title, fontSize: 24, lineHeight: 30, letterSpacing: -1, flex: 1, minWidth: 0 },
   title: {
     fontFamily: FontFamily.syneBold, fontSize: FontSize['3xl'], color: Colors.text,
     letterSpacing: -1.5, marginBottom: Spacing.xs,
   },
 
   scroll: { paddingHorizontal: Spacing.lg, gap: Spacing.xl },
+  scrollCover: { gap: Spacing.lg },
 
   // Profile
   profile: {

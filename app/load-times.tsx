@@ -29,7 +29,7 @@ export default function LoadTimes() {
 
   return (
     <Screen>
-      <ScreenHeader title="load times" subtitle="Measured on this phone · median of the last 20" />
+      <ScreenHeader mainScreenOnly title="load times" subtitle="Measured on this phone · median of the last 20" />
 
       {data.rows.length === 0 ? (
         <EmptyState icon="timer-outline" title="Nothing measured yet"

@@ -1,4 +1,4 @@
-import { pointAt, perimeter, stadium, cleanOutline, toDp, panelScale, FLIP7_OUTLINE, FLIP7_FLASH, FLIP7_SYSTEM_BUTTON, SYSTEM_BUTTON_GAP, type CameraOutline } from '@/components/cover/outline'
+import { pointAt, perimeter, stadium, cleanOutline, cameraClearance, toDp, panelScale, FLIP7_OUTLINE, FLIP7_FLASH, FLIP7_SYSTEM_BUTTON, SYSTEM_BUTTON_GAP, type CameraOutline } from '@/components/cover/outline'
 import { isCoverWindow } from '@/hooks/useCoverScreen'
 import { liveFraction } from '@/components/cover/useRingProgress'
 
@@ -90,5 +90,16 @@ describe('bottom edge', () => {
     const width = FLIP7_SYSTEM_BUTTON.left * panelScale(474) - SYSTEM_BUTTON_GAP - 12
     expect(width).toBeGreaterThanOrEqual(4 * 40)
     expect(12 + width).toBeLessThan(FLIP7_SYSTEM_BUTTON.left * panelScale(474))
+  })
+})
+
+describe('cameraClearance', () => {
+  it('ends scrolled content above the Flip 7 ring (474×524 dp)', () => {
+    // Ring top = (935 − 85) × 0.5 − 7 = 418 dp → 524 − 418 + 16 = 122
+    expect(cameraClearance(FLIP7_OUTLINE, 474, 524)).toBe(122)
+  })
+  it('grows with the margin and never goes negative', () => {
+    expect(cameraClearance(FLIP7_OUTLINE, 474, 524, 0)).toBe(106)
+    expect(cameraClearance(FLIP7_OUTLINE, 474, 100)).toBe(0)
   })
 })

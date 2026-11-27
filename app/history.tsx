@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, Pressable, Linking, ActivityIndicato
 import { router, useLocalSearchParams } from 'expo-router'
 import { FlashList } from '@shopify/flash-list'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useBottomGutter } from '@/hooks/useCoverClearance'
 import { Colors, FontFamily, FontSize, Radius, Spacing, Type } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { fmtHours, fmtMinutesShort } from '@/utils/wrapped'
@@ -45,6 +46,7 @@ function clockLabel(t: number): string {
 export default function HistoryScreen() {
   const params = useLocalSearchParams<{ artist?: string; track?: string; album?: string; q?: string; day?: string }>()
   const insets = useSafeAreaInsets()
+  const listBottom = useBottomGutter(insets.bottom + Spacing['4xl'])
   const off = useMemo(() => localOffsetSec(), [])
   const today = localDay(Math.floor(Date.now() / 1000), off)
 
@@ -195,7 +197,7 @@ export default function HistoryScreen() {
       }
     >
       <View style={styles.head}>
-        <ScreenHeader title="history" subtitle={subtitle} />
+        <ScreenHeader title="history" subtitle={subtitle} coverSubtitle />
         <View style={styles.searchBox}>
           <Icon name="search" size={15} color={Colors.textMuted} />
           <TextInput
@@ -259,7 +261,7 @@ export default function HistoryScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: insets.bottom + Spacing['4xl'] }}
+          contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: listBottom }}
           ListFooterComponent={!done ? <Text style={styles.more}>Loading more…</Text> : plays.length > PAGE ? <Text style={styles.more}>That’s everything</Text> : null}
         />
       )}

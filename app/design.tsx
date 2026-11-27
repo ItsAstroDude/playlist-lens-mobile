@@ -17,7 +17,7 @@ export default function DesignGallery() {
 
   return (
     <Screen>
-      <ScreenHeader title="design" subtitle="The building blocks every screen is made of" />
+      <ScreenHeader mainScreenOnly title="design" subtitle="The building blocks every screen is made of" />
 
       <Section label="type">
         <View style={styles.pad}>

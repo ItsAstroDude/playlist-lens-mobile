@@ -19,6 +19,21 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.51',
+    name:    'Pages on the cover screen',
+    date:    '2026-11-27',
+    sections: [
+      {
+        label: 'Improved',
+        items: [
+          'On the Flip’s cover screen, every page (Settings, History, Recaps, Backup, Taste, Labs…) now has one slim row on top: back, title and buttons, like the tabs. More room for what’s on the page.',
+          'The end of every page stops above the cameras, so the last row is never stuck behind the lenses.',
+          'Labs tools made for the big screen (Load times, Errors, Design system, Motion lab, Covers check) say so on the cover screen.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.50',
     name:    'Learn the app',
     date:    '2026-11-27',

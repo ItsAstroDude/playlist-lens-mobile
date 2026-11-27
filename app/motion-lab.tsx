@@ -35,7 +35,7 @@ export default function MotionLab() {
 
   return (
     <Screen>
-      <ScreenHeader title="motion lab" subtitle="The 2.0 animations, one by one. Tap each to replay." />
+      <ScreenHeader mainScreenOnly title="motion lab" subtitle="The 2.0 animations, one by one. Tap each to replay." />
 
       <Section label="spark" footer="Tap him for the next mood. One loop at a time; he holds still under Reduce motion.">
         <View style={[styles.pad, styles.center]}>

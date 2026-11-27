@@ -35,7 +35,7 @@ export default function ErrorsScreen() {
 
   return (
     <Screen>
-      <ScreenHeader title="errors" subtitle="Crashes and errors, sent to your own server" />
+      <ScreenHeader mainScreenOnly title="errors" subtitle="Crashes and errors, sent to your own server" />
 
       {pending > 0 && (
         <Card tone="accent">

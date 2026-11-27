@@ -408,7 +408,12 @@ is switched off in `CoverHost` (`MINI_APP_ENABLED = false`), kept only for refer
       sheet (DetailSheet and the tour already read the live window when they open).
 - [x] Now Playing on the cover (2.0.22): compact layout (cover beside the title, stats on
       one line, Spotify as an icon or hold the cover), all above the cameras.
-- [ ] Per screen on the cover: Lenses, Queue, Play, Swipe, Settings, sheets clear of the cameras.
+- [~] Per screen on the cover: Lenses, Queue, Play, Swipe, Settings, sheets clear of the cameras.
+      2.0.51: every pushed page (`Screen` + `ScreenHeader`, and Settings) is one row on the
+      cover (back · title · buttons, no subtitle unless `coverSubtitle`), and scroll content
+      ends above the ring (`useBottomGutter` / `cameraClearance`, whatever the inset says).
+      Checked in a web render at 474×524 with the cameras drawn in; not yet on the phone.
+      Tabs (130 dp bottom padding) already clear the ring. [ ] Sheets on the cover.
 
 ## Plan (decided 2026-11-21)
 - [x] Measure the screen; find the cameras; camera ring prototype + lab — OTA on 2.0.18
@@ -421,7 +426,8 @@ is switched off in `CoverHost` (`MINI_APP_ENABLED = false`), kept only for refer
       Avoid the system's edges (top = quick panel, sides = back) and the bottom-centre button
 - [x] A first-time hint (the pager nudges, "swipe for more") — 2.0.21; [ ] swipe-up section picker from the cameras
 - [ ] Compact screens, in order: Now Playing, Home/stats, Swipe, Queue, then Wrapped and
-      stories; dev/settings screens say "open on the main screen"
+      stories; dev/settings screens say "open on the main screen" (✓ 2.0.51: `mainScreenOnly`
+      on Load times, Errors, Design, Motion lab, Covers check)
 - [ ] More camera moments: a new song's cover flies out from behind the lenses; toasts and
       "added to queue" pop out of the cameras
 - [ ] Ask for 120 Hz on the cover screen if the app can

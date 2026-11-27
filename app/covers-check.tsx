@@ -30,7 +30,7 @@ export default function CoversCheck() {
 
   return (
     <Screen>
-      <ScreenHeader title="covers check" subtitle="Why song and artist covers aren't showing, step by step." />
+      <ScreenHeader mainScreenOnly title="covers check" subtitle="Why song and artist covers aren't showing, step by step." />
       <Section label="this phone">
         <Card padded>
           <Text style={styles.line}>{counts.cached} covers saved · {counts.misses} remembered as "no picture" · {counts.overrides} pinned</Text>

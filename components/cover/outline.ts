@@ -110,3 +110,13 @@ export function cleanOutline(v: unknown, fallback: CameraOutline = FLIP7_OUTLINE
     r:   Math.min(300, Math.max(8, num(o.r, fallback.r))),
   }
 }
+
+/**
+ * How far from the window's bottom edge scrolled content must end to clear the camera
+ * ring (dp): the window height minus the ring's top, plus `margin`. Uses the ring's own
+ * gap (7 dp, as CameraRing draws it), so the last row stops just above the ring.
+ */
+export function cameraClearance(o: CameraOutline, windowW: number, windowH: number, margin = 16): number {
+  const s = stadium(toDp(o, panelScale(windowW)), 7)
+  return Math.max(0, Math.ceil(windowH - s.top + margin))
+}
