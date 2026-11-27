@@ -21,6 +21,22 @@ export function otaEnabled(): boolean {
 }
 
 /** Current bundle id, short — handy to show in About. */
+/**
+ * What's actually running, for Settings › Update details: proves an OTA landed.
+ * `runtime` must match the update's runtime for it to reach this APK.
+ */
+export function updateDetails(): { running: string; detail: string } {
+  if (!Updates.isEnabled) return { running: 'dev', detail: 'Updates are off in development builds' }
+  const runtime = (Updates.runtimeVersion ?? '?').slice(0, 8)
+  const channel = Updates.channel || '?'
+  if (Updates.isEmbeddedLaunch || !Updates.updateId) {
+    return { running: 'built in', detail: `Runtime ${runtime} · channel ${channel} · running the code inside the APK` }
+  }
+  const at = Updates.createdAt
+  const when = at ? ` · published ${at.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : ''
+  return { running: Updates.updateId.slice(0, 8), detail: `Runtime ${runtime} · channel ${channel}${when}` }
+}
+
 export function currentUpdateLabel(): string {
   if (!Updates.isEnabled) return 'dev'
   if (Updates.isEmbeddedLaunch) return 'base build'

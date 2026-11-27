@@ -1,4 +1,11 @@
 // First import: starts the JS-side load-time clock (utils/perf).
+import { CoverHost } from '@/components/cover/CoverHost'
+import { TabletopNowPlaying } from '@/components/fold/TabletopNowPlaying'
+import { FlexPanel } from '@/components/fold/FlexPanel'
+import { ContentHeightContext, useFlexSplit } from '@/hooks/useFlex'
+import { onRootLayout } from '@/utils/liveWindow'
+import { maybeAutoBackup } from '@/utils/backup'
+import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context'
 import '@/utils/perf'
 import React, { useEffect, useRef, useState } from 'react'
 import { Stack, router, usePathname, type ErrorBoundaryProps } from 'expo-router'
@@ -21,7 +28,7 @@ import {
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono'
 import { Manrope_500Medium, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope'
 import { Outfit_500Medium, Outfit_700Bold } from '@expo-google-fonts/outfit'
-import { useNowPlaying } from '@/hooks/useNowPlaying'
+import { useNowPlayingSelect } from '@/hooks/useNowPlaying'
 import { usePalette } from '@/hooks/usePalette'
 import { setTint, toHex, fallbackTint, type Tint } from '@/utils/liquidTint'
 import { ensureReadable } from '@/utils/color'
@@ -40,6 +47,7 @@ import { QueueCartTray } from '@/components/queue/QueueCartTray'
 import { StartQueueSheet } from '@/components/queue/StartQueueSheet'
 import type { QueueItem } from '@/utils/queueCart'
 import { checkForUpdate, applyUpdate } from '@/utils/updates'
+import { startOutbox } from '@/utils/outbox'
 import {
   shouldShowTutorial, markTutorialSeen, shouldShowWhatsNew, markWhatsNewSeen,
 } from '@/utils/whatsNew'
@@ -74,10 +82,10 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
  * aurora background floats in. Keeps the last song's colours when playback stops.
  */
 function LiquidTintFeeder() {
-  const { np } = useNowPlaying()
+  // Only the song (id + cover) — not progress, which changes every poll.
+  const song = useNowPlayingSelect(np => (np?.item ? `${np.item.id ?? ''}\u0000${np.item.album?.images?.[0]?.url ?? ''}` : null))
   const { extract } = usePalette()
-  const id = np?.item?.id ?? null
-  const art = np?.item?.album?.images?.[0]?.url ?? null
+  const [id, art] = song ? song.split('\u0000') : [null, null]
   useEffect(() => {
     if (!id || !art) return
     let alive = true
@@ -121,6 +129,14 @@ export default function RootLayout() {
 
   // Best-effort auto-Wrapped refresh (keeps recaps fresh; no-ops when logged out).
   useAutoWrapped(isAuthenticated)
+  // Changes waiting to reach Spotify (the outbox) go out once signed in, and on every return.
+  useEffect(() => { if (isAuthenticated) startOutbox() }, [isAuthenticated])
+
+  // Flex panel (2.0.35): folded, the screens live in the standing half and the flat half
+  // is a music remote. Screens see the half's height (sheets) and no bottom inset (the
+  // system bar is under the panel, not under them).
+  const flex = useFlexSplit()
+  const insets = useSafeAreaInsets()
 
   const [fontsLoaded] = useFonts({
     DMMono_400Regular,
@@ -186,11 +202,19 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isAuthenticated) return
     flushErrors()
+    // Weekly backup (2.0.47): a while after opening, so it never competes with the first
+    // screen; it does nothing unless it's switched on, due, and there are new plays.
+    let backupTimer: ReturnType<typeof setTimeout> | null = null
+    const backupSoon = () => {
+      if (backupTimer) clearTimeout(backupTimer)
+      backupTimer = setTimeout(() => { maybeAutoBackup().catch(() => {}) }, 12_000)
+    }
+    backupSoon()
     const sub = AppState.addEventListener('change', s => {
-      if (s === 'active') flushErrors()
-      else if (s === 'background') refreshWidget()   // leave the widget current
+      if (s === 'active') { flushErrors(); backupSoon() }
+      else if (s === 'background') { refreshWidget(); if (backupTimer) clearTimeout(backupTimer) }   // leave the widget current
     })
-    return () => sub.remove()
+    return () => { sub.remove(); if (backupTimer) clearTimeout(backupTimer) }
   }, [isAuthenticated])
 
   // ── Recap notifications (v1.5) — re-assert the schedule on launch + open Recaps
@@ -227,8 +251,12 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    // Measures the real window for useLiveWindow (the root always fills it).
+    <GestureHandlerRootView style={styles.root} onLayout={onRootLayout}>
       <StatusBar style={activeThemeMode() === 'light' ? 'dark' : 'light'} />
+      <View style={flex ? { height: flex.top, overflow: 'hidden' } : styles.fill}>
+      <ContentHeightContext.Provider value={flex ? flex.top : null}>
+      <SafeAreaInsetsContext.Provider value={flex ? { ...insets, bottom: 0 } : insets}>
       <Stack screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <>
@@ -238,11 +266,19 @@ export default function RootLayout() {
             <Stack.Screen name="compare"   options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="recaps"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="history"   options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="artist"    options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="song"      options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="backup"    options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="learn"     options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="flagged-covers" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="design"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="load-times" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="errors"    options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="motion-lab" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="cover-lab" options={{ animation: 'fade' }} />
+            <Stack.Screen name="labs"      options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="wrapped"   options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="covers-check" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="story"     options={{ animation: 'fade', gestureEnabled: false }} />
           </>
         ) : (
@@ -251,6 +287,10 @@ export default function RootLayout() {
         {/* OAuth redirect landing — always reachable, regardless of auth state */}
         <Stack.Screen name="callback" options={{ animation: 'fade' }} />
       </Stack>
+      </SafeAreaInsetsContext.Provider>
+      </ContentHeightContext.Provider>
+      </View>
+      {isAuthenticated && flex && <FlexPanel height={flex.bottom} />}
 
       {/* Root-mounted overlays (above the whole navigator) */}
       {isAuthenticated && <LiquidTintFeeder />}
@@ -268,6 +308,9 @@ export default function RootLayout() {
         onConfirm={() => { setShowUpdate(false); applyUpdate() }}
         onCancel={() => setShowUpdate(false)}
       />
+      {/* Flip cover screen: the compact app, over the normal one (which stays mounted) */}
+      {isAuthenticated && <CoverHost />}
+      {isAuthenticated && <TabletopNowPlaying />}
       {/* showDialog() / showToast() from anywhere — kept last so it sits on top */}
       <ServerWakeBanner />
       <DialogHost />
@@ -277,6 +320,7 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
+  fill: { flex: 1 },
   splash: { flex: 1, backgroundColor: Colors.background },
   crash:        { alignItems: 'center', justifyContent: 'center', padding: Spacing['3xl'], gap: Spacing.md },
   crashTitle:   { ...Type.title, textAlign: 'center' },

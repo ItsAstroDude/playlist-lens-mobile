@@ -1,7 +1,11 @@
 // App entry: expo-router, plus the home-screen widget's background handler
 // (Android runs it headless to draw the widget, even when the app isn't open).
+// The widget library is Android-only: iOS never loads it.
 import 'expo-router/entry'
-import { registerWidgetTaskHandler } from 'react-native-android-widget'
-import { widgetTaskHandler } from './widgets/taskHandler'
+import { Platform } from 'react-native'
 
-registerWidgetTaskHandler(widgetTaskHandler)
+if (Platform.OS === 'android') {
+  const { registerWidgetTaskHandler } = require('react-native-android-widget')
+  const { widgetTaskHandler } = require('./widgets/taskHandler')
+  registerWidgetTaskHandler(widgetTaskHandler)
+}

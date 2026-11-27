@@ -24,11 +24,15 @@ import { PlaylistCard, GRID_W, GRID_GAP, COVER_RADIUS } from '@/components/playl
 import { PlaylistCardSkeleton } from '@/components/ui/Skeleton'
 import { ColdStartOverlay, RetryBanner } from '@/components/ui/ServerState'
 import { useServerWaking } from '@/hooks/useServerWaking'
-import { HomeTopStrip } from '@/components/nowplaying/NowPlayingStrip'
+import { RotatingStrip } from '@/components/ui/RotatingStrip'
+import { TasteCard } from '@/components/playlist/TasteCard'
+import { NowPlayingButton, DropCardHost, useHeaderPlacement } from '@/components/nowplaying/DropCard'
+import { CoverBento } from '@/components/cover/CoverBento'
+import { useIsCover } from '@/hooks/useScreen'
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist'
 import { PlaylistActionsSheet } from '@/components/playlist/PlaylistActionsSheet'
 import { loadOrder, saveOrder, applyOrder, pinToTop } from '@/utils/playlistOrder'
-import { setTabBarHidden } from '@/utils/tabBar'
+import { hideTabBar } from '@/utils/tabBar'
 import { getLensLayout, setLensLayout, type LensLayout } from '@/utils/settings'
 import { showToast } from '@/utils/dialog'
 import { filterPlaylists } from '@/utils/playlistSearch'
@@ -47,6 +51,10 @@ export default function PlaylistsTab() {
   const { palettes, extract }          = usePalette()
 
   const [refreshing, setRefreshing]     = useState(false)
+  // Settings › Now playing › Header button: the song lives by the settings button (drop card).
+  const headerNowPlaying = useHeaderPlacement()
+  // Flip cover screen: a bento (now playing + this week) over playlist tiles, three across.
+  const cover = useIsCover()
   const wakeSecs = useServerWaking()   // app-wide server wake-up (utils/serverStatus)
   const [selectedPlaylist, setSelected] = useState<SpotifyPlaylist | null>(null)
   const gutter = useNowPlayingGutter()
@@ -65,6 +73,8 @@ export default function PlaylistsTab() {
       return next
     })
   }, [])
+
+  const listLayout = cover && !reorderMode ? 'tile' as const : layout
 
   const orderedData = useMemo(() => applyOrder(data ?? [], order), [data, order])
 
@@ -104,17 +114,17 @@ export default function PlaylistsTab() {
     scrollY.value = y
     if (reorderMode) return
     const dy = y - lastY.current
-    if (y < 40)       setTabBarHidden(false)
-    else if (dy > 10) setTabBarHidden(true)
-    else if (dy < -10) setTabBarHidden(false)
+    if (y < 40)       hideTabBar('scroll', false)
+    else if (dy > 10) hideTabBar('scroll', true)
+    else if (dy < -10) hideTabBar('scroll', false)
     lastY.current = y
   }, [reorderMode])
 
   // Reorder mode hides the navbar entirely (it has its own Done button + the bar
   // would otherwise create a dead-drop zone at the bottom). Restore on exit/unmount.
   useEffect(() => {
-    setTabBarHidden(reorderMode)
-    return () => setTabBarHidden(false)
+    hideTabBar('reorder', reorderMode)
+    return () => hideTabBar('reorder', false)
   }, [reorderMode])
 
   // ── Initial fetch ──
@@ -199,7 +209,7 @@ export default function PlaylistsTab() {
   const handleCardPress = useCallback((playlist: SpotifyPlaylist, rect?: { x: number; y: number; w: number; h: number }) => {
     if (rect) {
       setCoverHidden(true)   // the sheet's own cover waits until the flying one lands
-      setFlight({ key: ++flightKey.current, uri: playlist.images?.[0]?.url, from: rect, to: detailCoverRect(), fromRadius: COVER_RADIUS, toRadius: Radius.xl })
+      setFlight({ key: ++flightKey.current, uri: playlist.images?.[0]?.url, from: rect, to: detailCoverRect(), fromRadius: COVER_RADIUS, toRadius: Radius.lg })
     }
     setSelected(playlist)
   }, [])
@@ -215,9 +225,9 @@ export default function PlaylistsTab() {
       index={index}
       onPress={handleCardPress}
       onLongPress={openActions}
-      layout={layout}
+      layout={listLayout}
     />
-  ), [palettes, handleCardPress, openActions, layout])
+  ), [palettes, handleCardPress, openActions, listLayout])
 
   // Reorder mode — same card, but long-press starts a drag instead of opening actions.
   const renderDraggable = useCallback(({ item, drag, isActive }: RenderItemParams<SpotifyPlaylist>) => (
@@ -256,25 +266,15 @@ export default function PlaylistsTab() {
   // the quotes jump/skip on refresh. Only re-derives during a server wake-up.
   const listHeader = useMemo(() => (
     <>
-      {wakeSecs !== null ? <ColdStartOverlay elapsed={wakeSecs} /> : <HomeTopStrip />}
-      <TouchableOpacity
-        style={styles.tastePill}
-        onPress={openTaste}
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel="Your taste profile"
-        accessibilityHint="Aggregate stats, sharing and friend comparisons"
-      >
-        <View style={styles.tastePillSpecular} />
-        <Icon name="aperture" style={styles.tastePillIcon} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.tastePillText}>Your taste profile</Text>
-          <Text style={styles.tastePillSub}>Aggregate stats · share · compare friends</Text>
-        </View>
-        <Icon name="arrow-forward" style={styles.tastePillArrow} />
-      </TouchableOpacity>
+      {/* waking the server: only worth saying when there's nothing saved to show meanwhile */}
+      {wakeSecs !== null && !data?.length ? <ColdStartOverlay elapsed={wakeSecs} /> : cover ? null : <RotatingStrip />}
+      {cover ? <CoverBento /> : (
+      <>
+      <TasteCard onPress={openTaste} />
+      </>
+      )}
     </>
-  ), [wakeSecs, openTaste])
+  ), [wakeSecs, openTaste, cover, !!data?.length])
 
   const ListEmpty = () => {
     if (searching && orderedData.length > 0) {
@@ -322,6 +322,7 @@ export default function PlaylistsTab() {
 
         <TabHeader
           title={reorderMode ? 'reorder' : 'your lenses'}
+          actions={headerNowPlaying ? <NowPlayingButton /> : undefined}
           subtitle={
             searchOpen && !reorderMode ? undefined
             : reorderMode ? 'Long-press a lens and drag to arrange.'
@@ -399,13 +400,13 @@ export default function PlaylistsTab() {
           />
         ) : (
           <FlashList
-            key={layout}   // numColumns changes need a clean remount
+            key={listLayout}   // numColumns changes need a clean remount
             data={visibleData}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             renderItem={renderItem}
             keyExtractor={keyExtractor}
-            numColumns={layout === 'grid' ? 2 : 1}
+            numColumns={listLayout === 'tile' ? 3 : listLayout === 'grid' ? 2 : 1}
             contentContainerStyle={[styles.listContent, { paddingBottom: 130 + gutter }]}
             showsVerticalScrollIndicator={false}
             onScroll={onScroll}
@@ -442,6 +443,9 @@ export default function PlaylistsTab() {
 
       {/* Cover flying from the tapped card into the opening lens (above the sheet) */}
       <CoverFlight flight={flight} onLanded={() => setCoverHidden(false)} onDone={() => { setFlight(null); setCoverHidden(false) }} />
+
+      {/* Header button placement: news drops out of the cover button; tap = the whole card */}
+      <DropCardHost />
     </View>
   )
 }
@@ -458,26 +462,6 @@ const styles = StyleSheet.create({
   },
 
   // ── Header ──
-  // "Your taste" pill — lives in the top strip, opens the pushed taste screen
-  tastePill: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    gap:               Spacing.md,
-    marginHorizontal:  Spacing.lg,
-    marginBottom:      Spacing.md,
-    paddingVertical:   Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    backgroundColor:   alpha(Colors.greenPrimary, 0.07),
-    borderWidth:       1,
-    borderColor:       alpha(Colors.greenPrimary, 0.28),
-    borderRadius:      Radius.lg,
-    overflow:          'hidden',
-  },
-  tastePillSpecular: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: Colors.glassHighlight },
-  tastePillIcon:  { fontSize: 20, color: Colors.greenPrimary },
-  tastePillText:  { fontFamily: FontFamily.monoMedium, fontSize: FontSize.sm, color: Colors.text },
-  tastePillSub:   { fontFamily: FontFamily.mono, fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-  tastePillArrow: { fontFamily: FontFamily.monoMedium, fontSize: FontSize.lg, color: Colors.greenPrimary },
 
   // Section title below header
   doneBtn: {

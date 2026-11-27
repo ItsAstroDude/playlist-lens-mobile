@@ -27,7 +27,11 @@ import {
   getCustomQuote, setCustomQuote,
   NAVBAR_STYLES, getNavbarStyle, setNavbarStyle, launchNavbarStyle, type NavbarStyle,
   getNowPlayingPos, setNowPlayingPos, type NowPlayingPos,
+  errorReportsEnabled, setErrorReportsEnabled,
 } from '@/utils/settings'
+import { dropPendingErrors } from '@/utils/errorReport'
+
+const PRIVACY_POLICY_URL = 'https://playlist-lens-mobile.onrender.com/privacy'
 import { notificationsEnabled, setNotificationsEnabled, sendTestNotification } from '@/utils/notifications'
 import { clearWrappedStats } from '@/hooks/useWrapped'
 import { loadArtReports } from '@/hooks/useArtwork'
@@ -43,6 +47,7 @@ import {
 import type { SpotifyUser } from '@/types'
 import { useSparkMode, setSparkMode, nextSparkMode } from '@/components/spark'
 import { APP_ICONS, appIconsSupported, getAppIcon, setAppIcon, iconForAccent, type AppIconOption } from '@/utils/appIcon'
+import { backupStatus, onBackupStatus, backupAgo } from '@/utils/backup'
 
 // ─── Profile card — who's connected, on what plan ──────────────────────────────
 function ProfileCard({ me, onReconnect, reconnectMsg }: {
@@ -180,11 +185,15 @@ export default function SettingsScreen() {
   const [reduceMotion, setReduceMotion] = useState(reduceMotionEnabled())
   const [artwork, setArtwork]           = useState(artworkEnabled())
   const [tribute, setTribute]           = useState(tributeEnabled())
+  const [crashReports, setCrashReports] = useState(errorReportsEnabled())
   const sparkMode = useSparkMode()
   const [notifs, setNotifs]             = useState(notificationsEnabled())
   const [notifTested, setNotifTested]   = useState(false)
   const [me, setMe]                     = useState<SpotifyUser | null>(null)
   const [cacheCleared, setCacheCleared] = useState(false)
+  // Backup & restore (2.0.47): when you last backed up, live.
+  const [backup, setBackup] = useState(backupStatus)
+  useEffect(() => onBackupStatus(() => setBackup(backupStatus())), [])
   const [wrappedCleared, setWrappedCleared] = useState(false)
   const [updateMsg, setUpdateMsg]       = useState<string | null>(null)
   const [showRestart, setShowRestart]   = useState(false)
@@ -318,6 +327,39 @@ export default function SettingsScreen() {
     haptic.light()
   }
 
+  const onToggleCrashReports = (v: boolean) => {
+    setCrashReports(v)
+    setErrorReportsEnabled(v)
+    if (!v) dropPendingErrors()   // unsent ones never leave the phone
+    haptic.light()
+    showToast(v ? 'Crash reports on' : 'Crash reports off', v ? 'bug-outline' : 'eye-off-outline')
+  }
+
+  // Logging out only clears the phone. With tracking on, the server would keep saving
+  // plays with the stored sign-in, so ask what the user wants instead of guessing.
+  const onLogout = () => {
+    if (!trackOn) { logout(); return }
+    showDialog({
+      glyph: 'pulse', title: 'Log out',
+      message: 'Listening tracking is on. If you keep it, the server keeps saving your plays while you’re logged out. If you stop it, the server deletes your stored sign-in and every saved play.',
+      cancelLabel: 'Cancel',
+      altLabel: 'Keep tracking',
+      confirmLabel: 'Stop tracking', destructive: true,
+      onAlt: () => { logout() },
+      onConfirm: async () => {
+        setTrackBusy(true)
+        try {
+          await unenrollTracking()
+          await logout()
+        } catch (e: any) {
+          setTrackBusy(false)
+          showDialog({ glyph: 'alert-circle-outline', title: 'Couldn’t turn off tracking',
+            message: `${e?.message ?? 'Try again in a moment.'} You’re still logged in, so you can try again.` })
+        }
+      },
+    })
+  }
+
   const onToggleTribute = (v: boolean) => {
     setTribute(v)
     setTributeEnabled(v)
@@ -360,7 +402,7 @@ export default function SettingsScreen() {
   const onClearWrapped = () => {
     confirmDialog({
       glyph: 'trash-outline', destructive: true, confirmLabel: 'Clear',
-      title: 'Clear Wrapped history?',
+      title: 'Clear Rewind history?',
       message: 'Removes your imported listening history and all its stats. Your playlists are untouched — re-import the Spotify export anytime.',
       onConfirm: () => {
         clearWrappedStats()
@@ -538,7 +580,7 @@ export default function SettingsScreen() {
               <View style={styles.segment}>
                 {([
                   { id: 'bottom', icon: 'chevron-down-circle-outline', label: 'Above nav' },
-                  { id: 'top',    icon: 'chevron-up-circle-outline',   label: 'Home strip' },
+                  { id: 'top',    icon: 'chevron-up-circle-outline',   label: 'Header button' },
                 ] as Array<{ id: NowPlayingPos; icon: IconName; label: string }>).map(o => {
                   const active = npPos === o.id
                   return (
@@ -556,7 +598,7 @@ export default function SettingsScreen() {
                 })}
               </View>
               <Text style={styles.quoteHint}>
-                Where the live bar lives — docked above the nav, or up in the home tips strip.
+                Where the live bar lives — docked above the nav, or as a cover button by settings on Lenses (news drops out of it; tap it for controls).
               </Text>
             </View>
             <View style={[styles.appearanceBlock, !appearanceDirty && { borderBottomWidth: 0 }]}>
@@ -591,10 +633,14 @@ export default function SettingsScreen() {
 
           {/* Data */}
           <Section label="data & storage">
+            <SettingRow icon="shield-half-outline" tint="violet" label="Backup & restore"
+              hint="Keep your history safe: one file in Drive or Files"
+              value={backup.lastAt ? backupAgo(backup.lastAt) : 'Never'}
+              onPress={() => { haptic.light(); router.push('/backup') }} />
             <SettingRow icon="layers-outline" tint="sky" label="Clear cache"
               hint="Playlist analyses + taste profile — they rebuild as you browse"
               value={cacheCleared ? 'Cleared' : undefined} valueTone="ok" onPress={onClearCache} />
-            <SettingRow icon="disc-outline" tint="violet" label="Clear Wrapped history"
+            <SettingRow icon="disc-outline" tint="violet" label="Clear Rewind history"
               hint="Your imported listening history and its stats"
               value={wrappedCleared ? 'Cleared' : undefined} valueTone="ok" onPress={onClearWrapped} />
             <SettingRow icon="flag-outline" tint="pink" label="Flagged covers"
@@ -604,6 +650,9 @@ export default function SettingsScreen() {
 
           {/* Help */}
           <Section label="help">
+            <SettingRow icon="book-outline" tint="sky" label="Learn the app"
+              hint="Everything playlist.lens can do, and where to find it"
+              onPress={() => { haptic.light(); router.push('/learn') }} />
             <SettingRow icon="sparkles-outline" label="What’s new" value={`v${appVersion()}`}
               onPress={() => { haptic.light(); emitOpenWhatsNew() }} />
             <SettingRow icon="school-outline" tint="sky" label="Replay the tour"
@@ -617,26 +666,21 @@ export default function SettingsScreen() {
               value={appVersion()} />
             <SettingRow icon="cloud-download-outline" tint="sky" label="Check for updates"
               value={updateMsg ?? undefined} valueTone={okMsg(updateMsg) ? 'ok' : undefined} onPress={onCheckUpdates} />
-            <SettingRow icon="pulse-outline" tint="amber" label="Audio features"
-              hint="Spotify only shares these with apps registered before Nov 2024 — vibes fall back to genres" />
-            <SettingRow icon="color-palette-outline" label="Design system"
-              hint="Every colour, type style and component the app is built from"
-              onPress={() => { haptic.light(); router.push('/design') }} />
-            <SettingRow icon="sparkles-outline" tint="violet" label="Motion lab"
-              hint="Try the 2.0 animations"
-              onPress={() => { haptic.light(); router.push('/motion-lab') }} />
-            <SettingRow icon="timer-outline" tint="amber" label="Load times"
-              hint="How fast each screen opens on this phone"
-              onPress={() => { haptic.light(); router.push('/load-times') }} />
-            <SettingRow icon="bug-outline" tint="pink" label="Errors"
-              hint="Crash and error reports, sent to your own server"
-              onPress={() => { haptic.light(); router.push('/errors') }} />
+            <SettingRow icon="flask-outline" tint="amber" label="Labs"
+              hint="Prototypes and testing tools: cover screen, motion, load times, errors, design system, update details"
+              onPress={() => { haptic.light(); router.push('/labs') }} />
+            <ToggleRow icon="bug-outline" tint="pink" label="Send crash reports"
+              hint="Error details go to the playlist.lens server, linked to your Spotify account"
+              value={crashReports} onValueChange={onToggleCrashReports} />
+            <SettingRow icon="shield-checkmark-outline" tint="sky" label="Privacy policy"
+              hint="What’s stored, where, and how to delete it"
+              onPress={() => { haptic.light(); Linking.openURL(PRIVACY_POLICY_URL).catch(() => {}) }} />
             <SettingRow icon="shapes-outline" tint="pink" label="Icons" hint="Ionicons by Ionic — MIT licence"
               onPress={() => { Linking.openURL('https://ionic.io/ionicons').catch(() => {}) }} last />
           </Section>
 
           <TouchableOpacity
-            style={styles.logout} onPress={logout} activeOpacity={0.75}
+            style={styles.logout} onPress={onLogout} activeOpacity={0.75}
             accessibilityRole="button" accessibilityLabel="Log out"
           >
             <Icon name="log-out-outline" size={16} color={Colors.error} />

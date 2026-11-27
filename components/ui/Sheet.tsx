@@ -1,12 +1,14 @@
-import React, { useCallback, useEffect } from 'react'
-import { View, Text, StyleSheet, Pressable, Dimensions, BackHandler, type StyleProp, type ViewStyle } from 'react-native'
+import React, { useCallback, useEffect, useState } from 'react'
+import { View, Text, StyleSheet, Pressable, BackHandler, type StyleProp, type ViewStyle } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing, runOnJS } from 'react-native-reanimated'
 import { Colors, Spacing, Radius, Type } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
+import { useContentHeight } from '@/hooks/useFlex'
+import { hideTabBar } from '@/utils/tabBar'
 
-const { height: SH } = Dimensions.get('window')
+let sheetSeq = 0
 const CLOSE_DISTANCE = 110
 const CLOSE_VELOCITY = 900
 
@@ -44,18 +46,33 @@ export function Sheet({
   style?:       StyleProp<ViewStyle>
 }) {
   const insets = useSafeAreaInsets()
+  // The height the screens really have: the live window (the Flip's cover screen is about
+  // half the main one's), or the standing half while folded with the Flex panel.
+  const SH = useContentHeight()
   const y = useSharedValue(SH)
   const backdrop = useSharedValue(0)
 
+  // Closed sheets are unloaded (2.0.37): rendered only while open or sliding away.
+  const [shown, setShown] = useState(open)
   useEffect(() => {
     if (open) {
+      setShown(true)
       y.value = withSpring(0, Spring.sheet)
       backdrop.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.ease) })
     } else {
-      y.value = withSpring(SH, Spring.sheet)
+      y.value = withSpring(SH, Spring.sheet, done => { if (done) runOnJS(setShown)(false) })
       backdrop.value = withTiming(0, { duration: 160 })
     }
   }, [open])
+  // The height changed (unfolding, resizing): a closed sheet waits below the NEW bottom.
+  // It kept the old one, so after unfolding a closed sheet sat in the lower half.
+  useEffect(() => { if (!open) y.value = SH }, [SH])
+
+  // The floating tab bar (and the now-playing pill and queue tray that follow it) steps
+  // aside while any sheet is open, so it never covers a sheet's buttons (2.0.45).
+  const [barKey] = useState(() => `sheet:${++sheetSeq}`)
+  useEffect(() => { hideTabBar(barKey, open) }, [open])
+  useEffect(() => () => hideTabBar(barKey, false), [])
 
   const dismiss = useCallback(() => { haptic.light(); onClose() }, [onClose])
 
@@ -77,6 +94,7 @@ export function Sheet({
   const sheetStyle    = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }))
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }))
 
+  if (!shown && !open) return null
   return (
     <>
       <Animated.View style={[styles.backdrop, { zIndex }, backdropStyle]} pointerEvents={open ? 'auto' : 'none'}>

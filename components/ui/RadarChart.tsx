@@ -51,6 +51,8 @@ interface RadarChartProps {
   liveness:         number
   color:            string
   size?:            number
+  /** Off for the small radar on the lens's Sound tile: no axis names, no margin. */
+  labels?:          boolean
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -63,18 +65,20 @@ export function RadarChart({
   liveness,
   color,
   size = 200,
+  labels = true,
 }: RadarChartProps) {
   const CX   = size / 2
   const CY   = size / 2
-  const MAXR = size * 0.34   // leaves room for labels
+  const MAXR = size * (labels ? 0.34 : 0.46)   // leaves room for labels
+  const pad  = labels ? 20 : 0
 
   const values = [acousticness, danceability, energy, valence, instrumentalness, liveness]
 
   const GRID_RINGS = [0.25, 0.5, 0.75, 1.0]
 
   return (
-    <View style={[styles.container, { width: size + 40, height: size + 40 }]}>
-      <Svg width={size + 40} height={size + 40} viewBox={`-20 -20 ${size + 40} ${size + 40}`}>
+    <View style={[styles.container, { width: size + pad * 2, height: size + pad * 2 }]}>
+      <Svg width={size + pad * 2} height={size + pad * 2} viewBox={`${-pad} ${-pad} ${size + pad * 2} ${size + pad * 2}`}>
 
         {/* Grid rings */}
         {GRID_RINGS.map((r, i) => (
@@ -128,7 +132,7 @@ export function RadarChart({
       </Svg>
 
       {/* Labels — positioned absolutely around the SVG */}
-      {AXES.map((label, i) => {
+      {labels && AXES.map((label, i) => {
         const lp = labelPos(i, CX, CY, MAXR)
         // Center label horizontally/vertically relative to its position
         const isLeft  = lp.x < CX - 5

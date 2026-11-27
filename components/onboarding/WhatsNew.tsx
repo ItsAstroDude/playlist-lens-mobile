@@ -1,12 +1,11 @@
 import React, { useEffect } from 'react'
-import { View, Text, StyleSheet, Pressable, ScrollView, BackHandler, Dimensions } from 'react-native'
+import { View, Text, StyleSheet, Pressable, ScrollView, BackHandler } from 'react-native'
 import { BlurView } from 'expo-blur'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { unseenPatches, CHANGELOG, type ChangeKind } from '@/utils/whatsNew'
 
-const { height: SH } = Dimensions.get('window')
 
 const KIND_COLOR: Record<ChangeKind, string> = {
   New:      Colors.greenPrimary,
@@ -93,7 +92,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 60, paddingHorizontal: Spacing.lg,
   },
   card: {
-    width: '100%', maxWidth: 380, maxHeight: SH * 0.78,
+    width: '100%', maxWidth: 380, maxHeight: '78%',  // of the live window (the Flip cover screen is short)
     backgroundColor: Colors.sheet, borderRadius: Radius['2xl'], borderWidth: 1, borderColor: Colors.glassBorder,
     paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.lg, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.5, shadowRadius: 30, elevation: 20,

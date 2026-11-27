@@ -29,7 +29,8 @@ const SCHEMA        = 1
 const LEGACY_KEY    = 'wrapped_recent'      // the old MMKV buffer (utils/recents)
 const MIGRATED_META = 'migrated_mmkv_buffer'
 
-interface PlayRow {
+/** A play as stored (UTC seconds, source code). Backups carry these as they are. */
+export interface PlayRow {
   t: number; uri: string; ms: number
   track: string | null; artist: string | null; album: string | null
   src: number
@@ -45,7 +46,12 @@ let _stats: SQLiteDatabase | null = null
 const VERSION_KEY = 'plays.version'
 /** Increases whenever plays are added, replaced or removed. */
 export function playsVersion(): number { return storage.getNumber(VERSION_KEY) ?? 0 }
-function bump(): void { storage.set(VERSION_KEY, playsVersion() + 1) }
+function bump(): void { storage.set(VERSION_KEY, playsVersion() + 1); playsSubs.forEach(cb => { try { cb() } catch { /* a listener's problem */ } }) }
+
+/** Called after every write (a sync, an import, a clear) — screens that count plays
+ *  re-count. Returns an unsubscribe. */
+const playsSubs = new Set<() => void>()
+export function onPlaysChanged(cb: () => void): () => void { playsSubs.add(cb); return () => { playsSubs.delete(cb) } }
 
 /** Open (once) and bring the schema up to date. */
 export function db(): SQLiteDatabase {
@@ -319,4 +325,91 @@ function migrateLegacyBuffer(d: SQLiteDatabase): void {
   }
   setMeta(d, MIGRATED_META, String(Date.now()))
   // Keep the MMKV copy until 2.0 has proven itself; a later update deletes it.
+}
+
+export interface SongPlays {
+  plays: number
+  ms: number
+  /** UTC seconds of the first and the latest play. */
+  firstT: number | null
+  lastT: number | null
+  /** Plays at or after `weekStartT`. */
+  thisWeek: number
+}
+
+/**
+ * Your plays of one song (imported history + tracked), by its Spotify uri — or, for
+ * plays saved without one, by name + artist. Cheap: the uri is indexed.
+ */
+export function songPlays(uri: string | null, name: string, artist: string, weekStartT: number): SongPlays {
+  const where = uri ? '(uri = ? OR (uri = \'\' AND track = ? AND artist = ?))' : '(track = ? AND artist = ?)'
+  const args = uri ? [uri, name, artist] : [name, artist]
+  const r = db().getFirstSync<{ n: number; ms: number | null; a: number | null; b: number | null; w: number | null }>(
+    `SELECT COUNT(*) AS n, SUM(ms) AS ms, MIN(t) AS a, MAX(t) AS b, SUM(CASE WHEN t >= ? THEN 1 ELSE 0 END) AS w
+     FROM plays WHERE ${where}`,
+    [weekStartT, ...args],
+  )
+  return { plays: r?.n ?? 0, ms: r?.ms ?? 0, firstT: r?.a ?? null, lastT: r?.b ?? null, thisWeek: r?.w ?? 0 }
+}
+
+/**
+ * How many of these songs you've played since `sinceT` (the lens sheet's "you played"
+ * tile). By uri; chunked to stay well under SQLite's parameter limit.
+ */
+export function playedOf(uris: string[], sinceT: number): number {
+  const list = [...new Set(uris.filter(Boolean))]
+  let n = 0
+  for (let i = 0; i < list.length; i += 400) {
+    const chunk = list.slice(i, i + 400)
+    const r = db().getFirstSync<{ n: number }>(
+      `SELECT COUNT(DISTINCT uri) AS n FROM plays WHERE t >= ? AND uri IN (${chunk.map(() => '?').join(',')})`,
+      [sinceT, ...chunk])
+    n += r?.n ?? 0
+  }
+  return n
+}
+
+// ─── backup & restore (2.0.47) ───────────────────────────────────────────────────
+/** Every play as stored, oldest first — off the UI thread (the stats connection). */
+export async function allPlaysAsync(): Promise<PlayRow[]> {
+  return statsDb().getAllAsync<PlayRow>('SELECT t, uri, ms, track, artist, album, src FROM plays ORDER BY t, uri', [])
+}
+
+/**
+ * Add a backup's plays without replacing anything here (restore merges). Plays already
+ * on the phone stay as they are (same key = skipped). The import's overlap rule holds:
+ * `importCover` is the newest play any import covers (this phone's or the backup's), and
+ * non-import plays inside it are skipped. Call `applyImportCover` once after the last chunk.
+ * Returns how many plays were added.
+ */
+export function mergePlayChunk(rows: PlayRow[], importCover: number | null): number {
+  if (!rows.length) return 0
+  const d = db()
+  let added = 0
+  d.withTransactionSync(() => {
+    const stmt = d.prepareSync('INSERT OR IGNORE INTO plays (t, uri, ms, track, artist, album, src) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    try {
+      for (const r of rows) {
+        if (r.src !== Source.import && importCover !== null && r.t <= importCover) continue
+        added += stmt.executeSync([r.t, r.uri, r.ms, r.track, r.artist, r.album, r.src]).changes
+      }
+    } finally { stmt.finalizeSync() }
+  })
+  if (added) bump()
+  return added
+}
+
+/** After a merge: the import now covers up to `cover`; tracked/recent plays inside it go
+ *  (the import is authoritative for its range, as on an import). Returns how many went. */
+export function applyImportCover(cover: number | null): number {
+  if (cover === null) return 0
+  const d = db()
+  const current = importMaxT()
+  let removed = 0
+  d.withTransactionSync(() => {
+    if (current === null || cover > current) setMeta(d, 'import_max_t', String(cover))
+    removed = d.runSync('DELETE FROM plays WHERE src != ? AND t <= ?', [Source.import, Math.max(cover, current ?? cover)]).changes
+  })
+  if (removed) bump()
+  return removed
 }

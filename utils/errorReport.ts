@@ -15,6 +15,7 @@ import * as Updates from 'expo-updates'
 import { storage } from '@/utils/cache'
 import { api, ApiError } from '@/utils/api'
 import { appVersion } from '@/utils/version'
+import { errorReportsEnabled } from '@/utils/settings'
 
 const QUEUE_KEY  = 'errors.queue.v1'
 const SENT_KEY   = 'errors.sent.v1'      // recent reports kept locally for the Errors screen
@@ -52,6 +53,7 @@ function toMessage(err: unknown): { message: string; stack?: string } {
 /** Queue an error report (synchronous, crash-safe). Never throws. */
 export function reportError(err: unknown, opts?: { fatal?: boolean; screen?: string }): void {
   try {
+    if (!errorReportsEnabled()) return     // switched off in Settings › About
     const { message, stack } = toMessage(err)
     // Expected, user-facing conditions aren't bugs: offline, logged out.
     if (err instanceof ApiError && (err.status === 401 || err.status === 0)) return
@@ -77,7 +79,7 @@ export function sentErrors(): ErrorReport[] { return read(SENT_KEY) }
 let flushing = false
 /** Send the queue. Keeps it on failure (offline, backend not deployed yet). */
 export async function flushErrors(): Promise<number> {
-  if (flushing) return 0
+  if (flushing || !errorReportsEnabled()) return 0
   const q = read(QUEUE_KEY)
   if (!q.length) return 0
   flushing = true
@@ -94,6 +96,9 @@ export async function flushErrors(): Promise<number> {
     flushing = false
   }
 }
+
+/** Forget reports that haven't been sent yet (used when reporting is switched off). */
+export function dropPendingErrors(): void { write(QUEUE_KEY, []) }
 
 /** Fetch this account's reports from the backend (newest first). */
 export async function fetchErrors(limit = 100): Promise<ErrorReport[]> {

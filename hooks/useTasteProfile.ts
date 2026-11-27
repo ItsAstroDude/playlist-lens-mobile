@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import * as SecureStore from 'expo-secure-store'
 import { api } from '@/utils/api'
 import { storage, CacheKeys } from '@/utils/cache'
+import { saveTastePreview } from '@/utils/tastePreview'
 import { buildAnalysis, computeVibe, computeVibeFromGenres, isPlaylistAnalysis } from '@/utils/analyze'
 import type {
   SpotifyPlaylist, SpotifyTrack, SpotifyAudioFeatures,
@@ -17,7 +18,7 @@ function avg(nums: number[]) {
   return nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0
 }
 
-function readCachedAnalyses(): PlaylistAnalysis[] {
+export function readCachedAnalyses(): PlaylistAnalysis[] {
   try {
     const allKeys = storage.getAllKeys()
     const out: PlaylistAnalysis[] = []
@@ -187,6 +188,7 @@ export function useTasteProfile() {
     }
     const built = aggregate(analyses)
     setProfile(built)
+    saveTastePreview(built)
     return built
   }, [])
 
@@ -216,6 +218,7 @@ export function useTasteProfile() {
     const analyses = readCachedAnalyses()
     const built    = aggregate(analyses)
     setProfile(built)
+    saveTastePreview(built)
     setStatus('idle')
     return built
   }, [])

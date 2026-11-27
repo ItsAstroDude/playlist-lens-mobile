@@ -1,3 +1,5 @@
+import { useIsCover } from '@/hooks/useScreen'
+import { useFlexSplit } from '@/hooks/useFlex'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { BlurView } from 'expo-blur'
@@ -11,6 +13,7 @@ import Animated, {
 import { ACCENTS, Colors, FontFamily, Floating, activeAccentId, activeThemeMode, alpha, CHROME_FONT_MAX } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import { tabBarHidden } from '@/utils/tabBar'
+import { ProgressFill } from './ProgressFill'
 import {
   getNowPlayingPos, onNowPlayingPos, reduceMotionEnabled, type NavbarStyle,
 } from '@/utils/settings'
@@ -18,6 +21,8 @@ import { useNowPlaying } from '@/hooks/useNowPlaying'
 import { useAuth } from '@/hooks/useAuth'
 import { onOpenNowPlaying } from '@/utils/overlayEvents'
 import { NowPlayingSheet } from './NowPlayingSheet'
+import { forgetDropped, isDropped } from '@/utils/upNext'
+import { skipNext } from '@/utils/playback'
 
 // ─── Live now-playing bar (v1.3 "Pulse") ─────────────────────────────────────
 // Slim glass pill docked just above the floating tab bar, on every tab. Shows
@@ -89,17 +94,31 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
   // User-selectable placement (Settings → Appearance) — applies live. When the
-  // user parks now-playing in the home strip, this bottom pill stands down.
+  // user puts now-playing in the Lenses header (drop card), this bottom pill stands down.
   const [pos, setPos] = useState(getNowPlayingPos)
   useEffect(() => onNowPlayingPos(setPos), [])
 
   // The stats sheet lives HERE (always mounted at the layout level) no matter
-  // the placement — the home strip opens it via this event.
+  // the placement — the cover-screen ring opens it via this event.
   useEffect(() => onOpenNowPlaying(() => setSheetOpen(true)), [])
+
+  // A song dropped from up next (half-folded deck) is skipped the moment it starts:
+  // Spotify's API can't take songs out of the queue, so this is how "drop" works.
+  const songId = np?.item?.id ?? null
+  useEffect(() => {
+    if (!songId || !isDropped(songId) || !np?.is_playing) return
+    forgetDropped(songId)
+    skipNext().catch(() => {})
+  }, [songId, np?.is_playing])
 
   const isTrack = !!np?.item && np.type === 'track'
   const showReconnect = needsReconnect && !dismissed
-  const visible = pos === 'bottom' && (showReconnect || isTrack)
+  // On the Flip cover screen the camera ring shows progress and a tap on the cameras
+  // opens the sheet, so the pill stays out of the way (its sheet still lives here).
+  const cover = useIsCover()
+  // Folded with the Flex panel: the panel is the remote, so the pill stands down too.
+  const flex = useFlexSplit()
+  const visible = !cover && !flex && pos === 'bottom' && (showReconnect || isTrack)
 
   // Sits just above whichever navbar variant is active.
   const bottom = useMemo(() => {
@@ -130,7 +149,8 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
     const dur = np?.item?.duration_ms ?? 0
     if (!isTrack || !dur) { progress.value = 0; return }
     const at = Math.min((np?.progress_ms ?? 0) / dur, 1)
-    if (np?.is_playing) {
+    // Hidden (strip placement, or no track): park at the polled spot, no glide.
+    if (np?.is_playing && visible) {
       progress.value = withSequence(
         withTiming(at, { duration: 250 }),
         withTiming(1, { duration: Math.max(dur - (np?.progress_ms ?? 0), 0), easing: Easing.linear }),
@@ -138,9 +158,7 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
     } else {
       progress.value = withTiming(at, { duration: 250 })
     }
-  }, [np, isTrack])
-
-  const progressStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }))
+  }, [np, isTrack, visible])
 
   const onReconnect = async () => {
     if (isLoading) return
@@ -206,14 +224,15 @@ export function NowPlayingBar({ navStyle }: { navStyle: NavbarStyle }) {
                   {np?.item?.artists?.join(', ')}
                 </Text>
               </View>
-              <Equalizer playing={!!np?.is_playing} />
+              {/* stays mounted while hidden (opacity 0), so only bounce while it can be seen */}
+              <Equalizer playing={!!np?.is_playing && visible} />
             </Pressable>
           )}
 
           {/* progress underline — only meaningful in playing mode */}
           {!showReconnect && (
             <View style={styles.progressTrack}>
-              <Animated.View style={[styles.progressFill, progressStyle]} />
+              <ProgressFill progress={progress} style={styles.progressFill} />
             </View>
           )}
         </View>

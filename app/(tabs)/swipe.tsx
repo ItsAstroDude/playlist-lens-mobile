@@ -8,9 +8,10 @@ import { useSharedValue } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, Type, alpha } from '@/constants/theme'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import { haptic } from '@/constants/animation'
+import { enqueue } from '@/utils/outbox'
 import { api, ApiError } from '@/utils/api'
 import { deleteCache, CacheKeys } from '@/utils/cache'
-import { setTabBarHidden } from '@/utils/tabBar'
+import { hideTabBar } from '@/utils/tabBar'
 import { getScopeStatus, setScopeStatus, onScopeStatus } from '@/utils/scopeStatus'
 import { usePlaylists, usePlaylistTracks } from '@/hooks/useSpotify'
 import { useAuth } from '@/hooks/useAuth'
@@ -60,8 +61,8 @@ export default function SwipeTab() {
   // Full-immersion session: the floating tab bar (and the now-playing pill that
   // follows it) slide away while swiping, and come back for every other phase.
   useEffect(() => {
-    setTabBarHidden(phase === 'swipe')
-    return () => setTabBarHidden(false)
+    hideTabBar('swipe', phase === 'swipe')
+    return () => hideTabBar('swipe', false)
   }, [phase])
 
   // Only owned (or collaborative) playlists are editable on Spotify.
@@ -121,46 +122,32 @@ export default function SwipeTab() {
     }
   }
 
-  const doSaveAsNew = async () => {
+  // Instant (2.0.36): both show as done at once and go to Spotify in the background
+  // through the outbox (utils/outbox), which retries until they land — no waiting on
+  // the server, which may be asleep.
+  const doSaveAsNew = () => {
     if (!playlist) return
     setConfirm(null)
-    setBusy('Creating your new playlist…')
     setWriteError(null)
-    try {
-      const uris = kept.map(d => d.track.uri!).filter(Boolean)
-      const res = await api.post<{ name: string; added: number; skipped_local: number }>(
-        '/api/playlist/create',
-        {
-          name: `${playlist.name} (refreshed)`,
-          uris,
-          description: `Refreshed with playlist.lens — kept ${uris.length} of ${decisions.length} tracks`,
-        },
-      )
-      deleteCache(CacheKeys.playlists)
-      setBusy(null)
-      setDone({ kind: 'created', name: res.name, added: res.added, skippedLocal: res.skipped_local })
-      setPhase('done')
-      haptic.success()
-    } catch (e) { handleWriteError(e) }
+    const uris = kept.map(d => d.track.uri!).filter(Boolean)
+    const name = `${playlist.name} (refreshed)`.slice(0, 100)
+    enqueue({ kind: 'create', name, uris, description: `Refreshed with playlist.lens — kept ${uris.length} of ${decisions.length} tracks` })
+    setDone({ kind: 'created', name, added: uris.filter(u => u.startsWith('spotify:track:')).length, skippedLocal: uris.filter(u => !u.startsWith('spotify:track:')).length })
+    setPhase('done')
+    haptic.success()
   }
 
-  const doTrim = async () => {
+  const doTrim = () => {
     if (!playlist) return
     setConfirm(null)
     setWriteError(null)
-    setBusy('Backing up the original…')
-    try {
-      const backup = await api.post<{ name: string }>(`/api/playlist/${playlist.id}/duplicate`, {})
-      setBusy('Trimming the playlist…')
-      const cutUris = cut.map(d => d.track.uri!).filter(Boolean)
-      const res = await api.post<{ removed: number }>(`/api/playlist/${playlist.id}/remove`, { uris: cutUris })
-      deleteCache(CacheKeys.playlistAnalysis(playlist.id))
-      deleteCache(CacheKeys.playlists)
-      setBusy(null)
-      setDone({ kind: 'trimmed', backupName: backup.name, removed: res.removed })
-      setPhase('done')
-      haptic.success()
-    } catch (e) { handleWriteError(e) }
+    const cutUris = cut.map(d => d.track.uri!).filter(Boolean)
+    // Named here (the server's own pattern) so the done screen can say it straight away.
+    const backupName = `playlist.lens backup — ${playlist.name} — ${new Date().toISOString().slice(0, 10)}`.slice(0, 100)
+    enqueue({ kind: 'trim', playlistId: playlist.id, backupName, cutUris })
+    setDone({ kind: 'trimmed', backupName, removed: cutUris.length })
+    setPhase('done')
+    haptic.success()
   }
 
   // ── Shared chrome ──

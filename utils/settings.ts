@@ -3,6 +3,7 @@
  * Synchronous reads make it safe to call from render and from the haptic helper.
  */
 import { storage } from '@/utils/cache'
+import { cleanOutline, FLIP7_OUTLINE, type CameraOutline } from '@/components/cover/outline'
 
 const KEYS = {
   haptics:      'settings.haptics',
@@ -16,6 +17,11 @@ const KEYS = {
   navbarStyle:  'settings.navbarStyle',
   nowPlayingPos: 'settings.nowPlayingPos',
   tribute:       'settings.tribute',
+  cameraOutline: 'settings.cameraOutlinePx',   // panel px (the old dp key is ignored)
+  tabletop:      'settings.tabletop',
+  flexPanel:     'settings.flexPanel',
+  simulateFold:  'labs.simulateHalfFold',
+  errorReports:  'settings.errorReports',
 } as const
 
 // ── Haptics (default ON) ──
@@ -52,6 +58,16 @@ export function tributeEnabled(): boolean {
 }
 export function setTributeEnabled(on: boolean): void {
   storage.set(KEYS.tribute, on)
+}
+
+// ── Crash reports (default ON) — off = nothing is queued or sent to the server.
+// Survives logout (see flush() in utils/cache) so a privacy choice never silently resets. ──
+export function errorReportsEnabled(): boolean {
+  const v = storage.getBoolean(KEYS.errorReports)
+  return v === undefined ? true : v
+}
+export function setErrorReportsEnabled(on: boolean): void {
+  storage.set(KEYS.errorReports, on)
 }
 
 // ── Appearance (Expressive Expressions) — accent + font ──
@@ -136,4 +152,49 @@ export function setCustomQuote(text: string): void {
   const v = text.trim()
   if (v) storage.set(KEYS.customQuote, v)
   else   storage.remove(KEYS.customQuote)
+}
+
+// ── Cover-screen camera outline (prototype) — tuned in the Cover screen lab ──
+// Falls back to the hardcoded Flip 7 estimate until the user saves a tuned copy.
+export function getCameraOutline(): CameraOutline {
+  const raw = storage.getString(KEYS.cameraOutline)
+  if (!raw) return { ...FLIP7_OUTLINE }
+  try { return cleanOutline(JSON.parse(raw)) } catch { return { ...FLIP7_OUTLINE } }
+}
+export function setCameraOutline(o: CameraOutline | null): void {
+  if (o) storage.set(KEYS.cameraOutline, JSON.stringify(cleanOutline(o)))
+  else   storage.remove(KEYS.cameraOutline)
+}
+
+// ── Half-folded (tabletop) Now Playing (default ON) — applies live ──
+// `simulateFold` (Labs) pretends the phone is half-folded so the layout can be checked
+// without the posture-aware APK. Both notify subscribers (hooks/usePosture, the view).
+const foldListeners = new Set<() => void>()
+const emitFold = () => foldListeners.forEach(cb => cb())
+export function onFoldSettings(cb: () => void): () => void {
+  foldListeners.add(cb)
+  return () => { foldListeners.delete(cb) }
+}
+export function tabletopEnabled(): boolean {
+  // Off by default (2.0.35): folding brings up the Flex panel instead; Now playing's full
+  // screen opens from the cover button. On = folding while a song plays opens it.
+  return storage.getBoolean(KEYS.tabletop) ?? false
+}
+export function setTabletopEnabled(on: boolean): void {
+  storage.set(KEYS.tabletop, on); emitFold()
+}
+export function simulateHalfFold(): boolean {
+  return storage.getBoolean(KEYS.simulateFold) ?? false
+}
+export function setSimulateHalfFold(on: boolean): void {
+  storage.set(KEYS.simulateFold, on); emitFold()
+}
+
+/** Flex panel (2.0.35, default on): folded, the app moves to the standing half and the
+ *  flat half becomes a music remote. */
+export function flexPanelEnabled(): boolean {
+  return storage.getBoolean(KEYS.flexPanel) ?? true
+}
+export function setFlexPanelEnabled(on: boolean): void {
+  storage.set(KEYS.flexPanel, on); emitFold()
 }

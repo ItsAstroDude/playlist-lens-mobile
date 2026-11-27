@@ -1,6 +1,8 @@
 import { storage } from '@/utils/cache'
 import { reportError, pendingErrors, sentErrors, flushErrors, setErrorScreen } from '@/utils/errorReport'
 import { api, ApiError } from '@/utils/api'
+import { setErrorReportsEnabled } from '@/utils/settings'
+import { flush } from '@/utils/cache'
 
 jest.mock('@/utils/api', () => {
   const actual = jest.requireActual('@/utils/api')
@@ -52,5 +54,22 @@ describe('error reports', () => {
     reportError(new Error('a'))
     expect(await flushErrors()).toBe(0)
     expect(pendingErrors()).toHaveLength(1)
+  })
+})
+
+describe('crash reports switched off', () => {
+  it('queues and sends nothing', async () => {
+    setErrorReportsEnabled(false)
+    reportError(new Error('boom'))
+    expect(pendingErrors()).toEqual([])
+    expect(await flushErrors()).toBe(0)
+    expect(api.post).not.toHaveBeenCalled()
+  })
+
+  it('keeps the choice through a logout', async () => {
+    setErrorReportsEnabled(false)
+    await flush()
+    reportError(new Error('boom'))
+    expect(pendingErrors()).toEqual([])
   })
 })

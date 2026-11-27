@@ -64,10 +64,10 @@ export async function scheduleRecapNotifications(): Promise<void> {
   // Monday / the 1st / 1 January: the period that just ended opens as a story.
   await schedule('Your week in sound ✦', 'Last week, as a story. Tap to play.',
     { type: T.WEEKLY, weekday: 2, hour: 18, minute: 0, channelId: CHANNEL_ID }, { kind: 'week', back: 1 })
-  await schedule('Your month, wrapped ✦', 'Last month, as a story. Tap to play.',
+  await schedule('Your month, rewound ✦', 'Last month, as a story. Tap to play.',
     { type: T.MONTHLY, day: 1, hour: 18, minute: 5, channelId: CHANNEL_ID }, { kind: 'month', back: 1 })
   for (const month of [3, 6, 9, 12]) {
-    await schedule('A season just wrapped ✦', 'Your seasonal recap is ready to revisit.',
+    await schedule('A season just ended ✦', 'Your seasonal recap is ready to revisit.',
       { type: T.YEARLY, month, day: 1, hour: 19, minute: 0, channelId: CHANNEL_ID })
   }
   await schedule('Your year in music ✦', 'Last year, as a story. Tap to play.',

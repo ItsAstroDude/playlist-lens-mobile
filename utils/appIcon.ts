@@ -6,7 +6,7 @@
  * scripts/icon-art.mjs). The change shows once the launcher refreshes — usually a
  * few seconds.
  */
-import type { ImageSourcePropType } from 'react-native'
+import { Platform, type ImageSourcePropType } from 'react-native'
 
 export interface AppIconOption {
   name:     'Default' | 'Lavender' | 'Pink' | 'Sky' | 'Amber' | 'Coral'
@@ -35,6 +35,9 @@ function native(): Native | null {
 }
 
 export function appIconsSupported(): boolean {
+  // iOS needs its own icon set in app.json (the plugin's `ios` images) — none yet, so the
+  // picker stays Android-only until the first iOS build adds them.
+  if (Platform.OS !== 'android') return false
   try { return !!native()?.supportsAlternateIcons } catch { return false }
 }
 

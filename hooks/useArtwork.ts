@@ -341,3 +341,87 @@ export function loadArtReports(): ArtReport[] {
 export function clearArtReports(): void {
   storage.remove(REPORTS_KEY)
 }
+
+// ─── Diagnostics (Labs › Covers check) ────────────────────────────────────────
+
+/** How many covers are saved, remembered as "no picture", or pinned by hand. */
+export function artworkCounts(): { cached: number; misses: number; overrides: number } {
+  let cached = 0, misses = 0, overrides = 0
+  try {
+    for (const k of storage.getAllKeys()) {
+      if (k.startsWith('art:')) cached++
+      else if (k.startsWith(MISS_PREFIX)) misses++
+      else if (k.startsWith('artov:')) overrides++
+    }
+  } catch { /* best effort */ }
+  return { cached, misses, overrides }
+}
+
+/** Forget every remembered "no picture" so those covers are looked up again. */
+export function forgetArtworkMisses(): number {
+  let n = 0
+  try {
+    for (const k of storage.getAllKeys()) if (k.startsWith(MISS_PREFIX)) { storage.remove(k); n++ }
+  } catch { /* best effort */ }
+  for (const [k, v] of mem) if (v === null) mem.delete(k)
+  return n
+}
+
+export interface ArtProbe { step: string; ok: boolean; detail: string }
+
+async function timed(step: string, run: () => Promise<{ ok: boolean; detail: string }>): Promise<ArtProbe> {
+  const t0 = Date.now()
+  try {
+    const r = await run()
+    return { step, ok: r.ok, detail: `${r.detail} · ${Date.now() - t0} ms` }
+  } catch (e) {
+    return { step, ok: false, detail: `${e instanceof Error ? e.message : String(e)} · ${Date.now() - t0} ms` }
+  }
+}
+
+/** Run each step of the cover lookup once, on this phone, and report what happened. */
+export async function probeArtwork(): Promise<ArtProbe[]> {
+  const out: ArtProbe[] = []
+  out.push({ step: 'Artwork setting', ok: artworkEnabled(), detail: artworkEnabled() ? 'on' : 'OFF: covers are switched off in Settings' })
+
+  let sample: { track: string; artist: string | null; uri: string } | null = null
+  try {
+    sample = db().getFirstSync<{ track: string; artist: string | null; uri: string }>(
+      `SELECT track, artist, uri FROM plays WHERE uri LIKE 'spotify:track:%' AND track IS NOT NULL ORDER BY t DESC LIMIT 1`) ?? null
+  } catch { /* no db */ }
+  out.push({ step: 'Play database', ok: !!sample, detail: sample ? `latest: ${sample.track} · ${sample.artist ?? '?'}` : 'no plays with a Spotify ID' })
+
+  out.push(await timed('Spotify cover', async () => {
+    if (!sample) return { ok: false, detail: 'skipped (no sample song)' }
+    const id = sample.uri.slice('spotify:track:'.length)
+    const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(`https://open.spotify.com/track/${id}`)}`)
+    const json = res.ok ? await res.json() : null
+    return { ok: res.ok && typeof json?.thumbnail_url === 'string', detail: `HTTP ${res.status}${json?.thumbnail_url ? ', has cover' : ''}` }
+  }))
+
+  out.push(await timed('iTunes search', async () => {
+    const term = sample ? `${sample.track} ${sample.artist ?? ''}`.trim() : 'Radiohead'
+    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=3`)
+    const json = res.ok ? await res.json() : null
+    return { ok: res.ok, detail: `HTTP ${res.status}${json ? `, ${json.resultCount ?? 0} results` : ''}` }
+  }))
+
+  out.push(await timed('Artist photos (your server)', async () => {
+    const token = await SecureStore.getItemAsync(SecureKeys.accessToken)
+    if (!token) return { ok: false, detail: 'not signed in' }
+    const res = await fetch(`${BACKEND_URL}/api/artist-image?name=${encodeURIComponent(sample?.artist ?? 'Radiohead')}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    return { ok: res.ok, detail: `HTTP ${res.status}` }
+  }))
+
+  out.push(await timed('Full lookup (sample song)', async () => {
+    if (!sample) return { ok: false, detail: 'skipped (no sample song)' }
+    const r = await fetchArt('track', sample.track, sample.artist ?? undefined)
+    return { ok: !!r.url, detail: r.url ? 'found a cover' : r.final ? 'no cover exists' : 'lookup failed (network?)' }
+  }))
+
+  const c = artworkCounts()
+  out.push({ step: 'Saved on this phone', ok: true, detail: `${c.cached} covers · ${c.misses} remembered as "no picture" · ${c.overrides} pinned` })
+  return out
+}

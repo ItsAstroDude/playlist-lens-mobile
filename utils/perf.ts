@@ -34,7 +34,7 @@ export const METRIC_LABEL: Record<Metric, string> = {
   cold_start:  'Cold start',
   js_start:    'Cold start (from JS)',
   lenses:      'Lenses',
-  wrapped:     'Wrapped',
+  wrapped:     'Rewind',
   recaps:      'Recaps',
   read_buffer: 'Read recent plays',
   read_stats:  'Read lifetime stats',

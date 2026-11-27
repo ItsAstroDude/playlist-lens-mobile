@@ -106,6 +106,14 @@ async function playUris(uris: string[], deviceId?: string): Promise<number> {
   return res.started ?? uris.length
 }
 
+/**
+ * Play one song from a point in it (Blind five; "back to what you were playing").
+ * Older servers ignore position_ms and start at the top. Throws like startQueue.
+ */
+export async function playAt(uri: string, positionMs: number): Promise<void> {
+  await api.put('/api/playback/play', { uris: [uri], position_ms: Math.max(0, Math.round(positionMs)) })
+}
+
 async function queueUri(uri: string, deviceId?: string): Promise<void> {
   await api.post('/api/playback/queue', { uri, ...(deviceId ? { device_id: deviceId } : {}) })
 }

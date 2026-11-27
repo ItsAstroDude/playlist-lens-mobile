@@ -13,6 +13,7 @@ import { api } from '@/utils/api'
 import { Colors, FontFamily, FontSize, Radius, Spacing, alpha } from '@/constants/theme'
 import { Spring, haptic } from '@/constants/animation'
 import type { SpotifyTrack } from '@/types'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 // ─── Swipe deck (v1.3 "Lively") ──────────────────────────────────────────────
 // The card stack for swipe-refresh: drag right = keep, left = cut, with a 30s
@@ -24,8 +25,19 @@ import type { SpotifyTrack } from '@/types'
 const { width: SW, height: SH } = Dimensions.get('window')
 const CARD_W  = Math.min(SW - Spacing.lg * 2, 380)
 const CARD_H  = Math.min(SH * 0.52, 460)
-const FLY_X   = SW * 1.4
-const THRESH  = SW * 0.30
+
+/** Card size and swipe distances for the live window (the Flip's cover screen is far
+ *  shorter than the main one: the card gets a smaller share of its height there). */
+function useDeckSize() {
+  const { width: w, height: h } = useLiveWindow()
+  const short = h < 600
+  return {
+    CARD_W: Math.min(w - Spacing.lg * 2, short ? 300 : 380),
+    CARD_H: Math.min(h * (short ? 0.5 : 0.52), 460),
+    FLY_X:  w * 1.4,
+    THRESH: w * 0.30,
+  }
+}
 
 // ── Preview resolution (session cache; backend caches 30min on top) ──
 const previewCache = new Map<string, string | null>()
@@ -60,6 +72,7 @@ function Card({ track, onDecide, onUndo, canUndo, drag }: {
   /** 0 → 1 as this card is dragged toward a decision; lifts the card underneath. */
   drag:     SharedValue<number>
 }) {
+  const { CARD_W, CARD_H, FLY_X, THRESH } = useDeckSize()
   const tx = useSharedValue(0)
   const ty = useSharedValue(0)
   // 2.0 physics: tilt follows where you grabbed the card (top half tilts one way,
@@ -165,7 +178,7 @@ function Card({ track, onDecide, onUndo, canUndo, drag }: {
   return (
     <>
       <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.card, cardStyle]}>
+        <Animated.View style={[styles.card, { width: CARD_W, height: CARD_H }, cardStyle]}>
           {art ? (
             <Image source={{ uri: art }} style={StyleSheet.absoluteFill} contentFit="cover" transition={180} />
           ) : (
@@ -255,6 +268,7 @@ export function SwipeDeck({ track, nextTrack, onDecide, onUndo, canUndo }: {
   onUndo:    () => void
   canUndo:   boolean
 }) {
+  const { CARD_W, CARD_H } = useDeckSize()
   // Prefetch the next snippet while the current one plays.
   useEffect(() => { if (nextTrack) resolvePreview(nextTrack) }, [nextTrack?.id])
 
@@ -270,7 +284,7 @@ export function SwipeDeck({ track, nextTrack, onDecide, onUndo, canUndo }: {
     <View style={styles.deck}>
       {/* the card waiting underneath */}
       {nextTrack && (
-        <Animated.View style={[styles.card, styles.cardNext, nextStyle]}>
+        <Animated.View style={[styles.card, { width: CARD_W, height: CARD_H }, styles.cardNext, nextStyle]}>
           {nextArt ? (
             <Image source={{ uri: nextArt }} style={StyleSheet.absoluteFill} contentFit="cover" />
           ) : (

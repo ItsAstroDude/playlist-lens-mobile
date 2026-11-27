@@ -622,3 +622,42 @@ export function heatLevel(ms: number, levels: [number, number, number]): 0 | 1 |
   if (ms <= levels[2]) return 3
   return 4
 }
+
+// ─── one song, in depth (up next, after the queue) ───────────────────────────
+export interface SongDepth {
+  /** Plays of the song per month, the last 12 months, oldest first; labels 'J'…'D'. */
+  months: number[]
+  monthLabels: string[]
+  /** The artist: all their plays, and where they rank among your artists (1 = top). */
+  artistPlays: number
+  artistRank: number | null
+}
+
+/**
+ * The song's last year by month, and its artist's standing. Runs off the UI thread
+ * (runAsync): the artist rank counts over every artist.
+ */
+export function* songDepthJob(name: string, artist: string, now: Date = new Date(), offsetSec = localOffsetSec(now)): Job<SongDepth> {
+  const y = now.getFullYear(), m = now.getMonth()
+  const start = Math.floor(new Date(y, m - 11, 1).getTime() / 1000)
+  const rows: { y: number; m: number; n: number }[] = yield all(
+    `SELECT CAST(strftime('%Y', t + ?, 'unixepoch') AS INTEGER) AS y,
+            CAST(strftime('%m', t + ?, 'unixepoch') AS INTEGER) - 1 AS m, COUNT(*) AS n
+     FROM plays WHERE ${MUSIC} AND track = ? AND artist = ? AND t >= ? GROUP BY y, m`,
+    [offsetSec, offsetSec, name, artist, start])
+  const months: number[] = [], monthLabels: string[] = []
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(y, m - i, 1)
+    months.push(rows.find(r => r.y === d.getFullYear() && r.m === d.getMonth())?.n ?? 0)
+    monthLabels.push(MONTHS[d.getMonth()][0])
+  }
+  const a: { n: number } | null = yield first(`SELECT COUNT(*) AS n FROM plays WHERE ${MUSIC} AND artist = ?`, [artist])
+  const artistPlays = a?.n ?? 0
+  let artistRank: number | null = null
+  if (artistPlays > 0) {
+    const r: { n: number } | null = yield first(
+      `SELECT COUNT(*) AS n FROM (SELECT artist FROM plays WHERE ${MUSIC} AND artist IS NOT NULL GROUP BY artist HAVING COUNT(*) > ?)`, [artistPlays])
+    artistRank = (r?.n ?? 0) + 1
+  }
+  return { months, monthLabels, artistPlays, artistRank }
+}

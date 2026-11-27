@@ -18,7 +18,7 @@ const MOODS: SparkMood[] = ['idle', 'listening', 'thinking', 'talking', 'happy',
 const pad = (n: number) => (n < 10 ? '0' : '') + n
 
 /**
- * Settings › About › Motion lab — every 2.0 motion primitive, live on the phone,
+ * Settings › About › Labs › Motion lab — every 2.0 motion primitive, live on the phone,
  * before they're woven into the new UI.
  */
 export default function MotionLab() {

@@ -10,7 +10,7 @@ export interface WeekFacts {
   ms:          number
   deltaMs:     number | null
   topArtist:   string | null
-  topTrack:    { name: string; plays: number } | null
+  topTrack:    { name: string; artist?: string; plays: number } | null
   newArtists:  number
   streak:      number
 }
@@ -49,7 +49,7 @@ export function weekFacts(now: Date = new Date()): WeekFacts | null {
       ms: c.current.ms,
       deltaMs: c.deltaMs,
       topArtist: c.current.topArtists[0]?.name ?? null,
-      topTrack: t ? { name: t.name, plays: t.plays } : null,
+      topTrack: t ? { name: t.name, artist: t.sub, plays: t.plays } : null,
       newArtists: newArtistsSince(weekStart),
       streak: streakFrom(activeDays(Math.floor(now.getTime() / 1000) - 120 * 86400, offset), today),
     }

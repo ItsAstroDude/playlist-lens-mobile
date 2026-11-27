@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.andrei.playlistlens'
+version = '0.2.0'
+
+android {
+  namespace "expo.modules.displayinfo"
+  defaultConfig {
+    versionCode 2
+    versionName '0.2.0'
+  }
+}
+
+dependencies {
+  // Fold posture (FoldingFeature): flat / half-opened, hinge bounds.
+  implementation "androidx.window:window:1.3.0"
+  implementation "androidx.window:window-java:1.3.0"
+}

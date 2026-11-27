@@ -280,12 +280,21 @@ Ranked by value for effort. Everything here works with data the app already has,
 as OTA updates unless marked, and keeps history on the phone.
 
 **Tier 1 — next**
-1. **Artist and song pages.** Tap any artist or song anywhere (Wrapped, Recaps, History,
+1. ✅ **Artist and song pages** — 2.0.43 (`utils/itemStats.ts`, `components/item/ItemPage`,
+   `/artist?name=` and `/song?name=&artist=`). From Rewind, Recaps, History, New to you,
+   Now Playing, and the quick sheet in Taste / lenses. 2.0.44: stories (a "Your page" pill
+   with its own touch target; the story holds while you're away), the end of every Play
+   game ("From this round", never mid-question), and the cover player (tap the title,
+   artists or your numbers); a compact side-by-side hero on the cover screen.
+   Was: tap any artist or song anywhere (Wrapped, Recaps, History,
    stories) → its own page: lifetime time and plays, first listen ("you found them on
    3 Mar 2021"), a listening-over-time chart, your top songs by them, when you play them
    (clock), your longest run with them, and "Play top 10" / "Add to queue". The explorer's
    missing depth — the play database already answers all of it.
-2. **Backup and restore.** The whole history lives only on the phone: a lost or reset phone
+2. ✅ **Backup and restore** — 2.0.47 (`utils/backupFormat.ts` the file, `utils/backup.ts`
+   folder / share / weekly / restore, `app/backup.tsx`). One gzip'd file, plays by column
+   with a string table (~1–3 MB for 150k plays); restore merges, never replaces.
+   Was: The whole history lives only on the phone: a lost or reset phone
    loses years of imported + tracked plays. Export the play database to one file (share
    sheet → Drive / Files), import it back on a new phone. Also covers Phase 5's
    "export + delete" requirement.
@@ -328,6 +337,216 @@ The tracker's per-user play store is the foundation, so nothing in 2.0 blocks it
 2. Backend cold starts: pay for an always-on Render instance (~$7/mo) or live with them?
 3. iOS at all for 2.0, or Android-only?
 4. ~~Alternate icons~~ → the six accents (decided 2026-11-18)
+
+---
+
+# Wrapped behind the wall (decided 2026-11-21)
+Wrapped Year / All time still dropped ~30% of frames after two rounds of fixes (the UI
+thread is fixed; the RenderThread/GPU drawing of the aurora + many glass cards is the limit),
+and as a tab it stayed mounted and slowed the other tabs. So until it's fixed:
+- Wrapped is its own page, `/wrapped` (Settings › About › Labs › Wrapped). It mounts only
+  while open. Stories, Recaps, History and notifications are unchanged.
+- Its tab is **Play**: a construction wall linking to Labs, and **More or less**, a game on
+  your own listening (`utils/game.ts`, `app/(tabs)/play.tsx`): did you play this song /
+  artist more or less than that one? Chains until a wrong answer; best score saved. Cheap to
+  draw on purpose (two cards, no endless motion).
+- [ ] Profile Wrapped's drawing (lag session), fix, then decide: back as a tab, or stay a page.
+
+---
+
+# Cover screen — Galaxy Z Flip 7 (started 2026-11-21)
+A compact playlist.lens for the Flip's cover screen, built around the cameras the way
+Samsung's own cover UI is. One UI 9 lets almost any app run there.
+
+## The screen (measured on the phone)
+| | Main (display 0) | Cover (display 1) |
+|---|---|---|
+| Panel | 1080 × 2520 px | 948 × 1048 px |
+| What the app gets | 411 × 960 dp at ×2.625 | **474 × 524 dp at ×2.625** (1244 × 1375 px, scaled down to the panel) |
+| Refresh rate | 120 Hz | 60 Hz by default (supports 120) |
+
+- **Cameras bottom-right**, two lenses side by side, the flash to their left. Outline in
+  panel px: lenses at x 649 / 836, y 935, radius 85 (`FLIP7_OUTLINE`, checked on the phone).
+- **Samsung's "open on main screen" button sits at the bottom centre** (panel px x 455–523,
+  `FLIP7_SYSTEM_BUTTON`). The tab strip runs from the left edge up to it. Keep controls and
+  gestures clear of it; it's also why the cover UI has no bottom tab bar.
+- **App pixels aren't panel pixels on the cover screen**: One UI gives apps a 1244 × 1375 px
+  display at ×2.625 and scales it down to the 948 × 1048 panel (screenshots are panel-sized).
+  Place things by panel position: scale by window size ÷ panel size (`panelScale`).
+  Screenshots also leave out the camera cutout.
+- **Which screen:** `useScreen()` (hooks/useScreen.ts) asks Android for the activity's
+  display through the `DisplayInfo` native module (modules/display-info, APK versionCode 4,
+  2026-11-21; confirmed on the phone: display 1 = cover). Older APKs fall back to window
+  size (short + nearly square = cover).
+
+## Camera ring (motion, prototype in Settings › About › Labs › Cover screen lab)
+A ring hugging both lenses (`components/cover/`), in the cover art's colours:
+- **Progress:** fills clockwise from the top centre (right lens first) as the song plays,
+  with a glowing white tip. A new song rewinds it on `Spring.bouncy`; seeks use `Spring.snappy`.
+- **Playing:** three soft pulses ripple out from the cameras (1.7 s cycle, 26 dp travel).
+- **Paused:** the track breathes for 30 s, then holds still (no frame work while idle).
+- **Reduce motion:** progress only, no pulses or breathing.
+- Geometry: a stadium 7 dp outside the glass, 3.5 dp stroke; maths in `outline.ts` (tested).
+- The lab draws at the real camera positions (no simulator), has a Tune mode (drag,
+  steppers, red lens guide, saved per phone) and a background picker: the animated aurora
+  in 20 colour sets + black/white + the cover art's colours, to check the ring on any backdrop.
+- **Before it leaves the lab:** progress advances a fraction of a pixel every frame. Snap
+  it to whole pixels like the now-playing line (`ProgressFill`) so it doesn't redraw at 60/120 Hz.
+
+## Direction (changed 2026-11-21): the real app, compact
+A separate 3-page cover mini-app (`CoverApp`: Now playing / This week / More) was built
+and rejected: the cover screen shows **the real app** with compact layouts. The mini-app
+is switched off in `CoverHost` (`MINI_APP_ENABLED = false`), kept only for reference.
+- [x] Shared chrome (2.0.21): `TabHeader` collapses to one row (title + buttons, 24 pt);
+      the tab bar becomes a small icon strip in the free bottom-left corner
+      (`CoverTabs`); swipe anywhere off the edges changes tab (paused on Swipe, whose
+      deck swipes sideways); the now-playing pill hides; `CoverRing` draws the ring over
+      everything and a tap round the cameras opens Now playing.
+- [x] Sizes from the live window, not the launch one: playlist cards (smaller row cover
+      on the cover screen), `Sheet`, the swipe deck, What's new.
+- [x] Sized from the live window too (2.0.22): story + its pictures, auth, artwork-fix
+      sheet (DetailSheet and the tour already read the live window when they open).
+- [x] Now Playing on the cover (2.0.22): compact layout (cover beside the title, stats on
+      one line, Spotify as an icon or hold the cover), all above the cameras.
+- [ ] Per screen on the cover: Lenses, Queue, Play, Swipe, Settings, sheets clear of the cameras.
+
+## Plan (decided 2026-11-21)
+- [x] Measure the screen; find the cameras; camera ring prototype + lab — OTA on 2.0.18
+- [x] Native "which screen" flag (`DisplayInfo`) — APK
+- [x] Ring without per-frame redraws (draws only round the cameras; progress steps whole pixels), then out of the lab — 2.0.21
+- [x] Cover shell (`CoverHost` → `CoverApp`): over the normal app, which stays mounted and whose background pauses; "Use the full app" escape — 2.0.21
+- [x] First sections: Now playing (tap art = play/pause, hold = open in Spotify, prev/next) and This week — 2.0.21
+- [ ] Gesture-only navigation: swipe left/right between sections, swipe up for a section
+      picker that springs out of the cameras; tap = play/pause, long-press = actions.
+      Avoid the system's edges (top = quick panel, sides = back) and the bottom-centre button
+- [x] A first-time hint (the pager nudges, "swipe for more") — 2.0.21; [ ] swipe-up section picker from the cameras
+- [ ] Compact screens, in order: Now Playing, Home/stats, Swipe, Queue, then Wrapped and
+      stories; dev/settings screens say "open on the main screen"
+- [ ] More camera moments: a new song's cover flies out from behind the lenses; toasts and
+      "added to queue" pop out of the cameras
+- [ ] Ask for 120 Hz on the cover screen if the app can
+- [ ] Restart test: does the app reload when moving between screens? If yes, handle
+      `density` in `configChanges` (native, next APK)
+
+## Half-folded (Flex mode / tabletop) — started 2026-11-23
+Stand the Flip half-folded on a table while a song plays: Now Playing splits at the hinge
+(`components/fold/TabletopNowPlaying.tsx`). The half that stands up: cover, title,
+artist. The half lying flat: progress, big controls, your plays / time / rank, Spotify.
+Opening the phone flat (or the arrow, or back) springs it away; the app underneath stays
+where it was and its background holds still meanwhile.
+- **Posture:** Jetpack WindowManager's `FoldingFeature` (state flat / half-opened,
+  orientation, hinge bounds) through the `DisplayInfo` module's `getPosture` +
+  `onPosture` (`androidx.window` 1.3.0) — **native, APK versionCode 5**. JS:
+  `hooks/usePosture.ts`, maths in `utils/posture.ts` (tested). Older APKs read "no fold".
+- Only when the hinge runs across the screen and leaves both halves ≥ 25% of the height;
+  never on the cover screen. Dismissed with the arrow = stays away until the next fold.
+- Labs › half-folded: on/off (default on), **Simulate half-folded** (a fold across the
+  middle, to check the layout on APK 4), and a live "Fold right now" readout.
+- Motion: the standing half drops in, the flat half rises (`Spring.entrance`); a new
+  song's cover pops on `Spring.bouncy`. Reduce motion: fades only.
+- [ ] Check on the phone: hinge position reported vs the real crease; which angles count
+      as half-opened on One UI.
+- [ ] Next: other screens in tabletop (stories with the controls below, the Play game).
+
+## Tried and rolled back (2026-11-23): top island, floating spot
+Two takes on "one living thing that speaks up when it matters" — both rejected on the
+phone, both reverted in 2.0.25 (bar, toasts, wake banner as in 2.0.22):
+- 2.0.23 **top island**: black pill round the selfie camera holding toasts, wake-up, the
+  song and the tips lines. Verdict: "doesn't feel natural".
+- 2.0.24 **spot**: a floating draggable dot that opened into a card for news. Verdict:
+  "meh"; also it should *replace the now-playing bar* (the home-strip slot), not float.
+  Code kept in git (`f83fa93`: components/spot, utils/spot.ts + tests).
+- [ ] Next: prototype in the Motion lab first, not on the live app. Candidates: a dot in
+      the bar's slot that spreads into the pill with news; a dot that rides the top while
+      scrolling; an edge droplet.
+
+## Designs picked (2026-11-23, design board "Flip: cover, pill, half-folded")
+- **Pill → P2 "Drop card"** — 2.0.26. Settings › Now playing › Header button (the old
+  Home strip value): a cover button with a progress ring by settings on Lenses
+  (`components/nowplaying/DropCard.tsx`). Toasts (while Lenses is in front, via
+  `claimToasts` in utils/dialog) and new songs drop out of it as a small card (2.6 s /
+  3.5 s, `Spring.bouncy`); tap = the whole card (song, controls, stats, LATELY from
+  `utils/dropCard.ts`, tested). The tips strip stays.
+- **Cover → C2+ B "Bento"** — 2.0.26. On the cover screen Lenses shows `CoverBento`
+  (now-playing tile 2×2, this week, top artist + streak) over playlist tiles three across
+  (`PlaylistCard` layout 'tile'; sizes in `utils/bento.ts`, tested).
+- **Cover Now playing → after Samsung's open Now Bar** — 2.0.27 (`components/cover/
+  CoverPlayer.tsx`, replaces the compact sheet on the cover). Missing vs Samsung: seek,
+  shuffle, save (✓) — the backend has no endpoints for them yet (needs /api/playback/seek,
+  /shuffle and a library save + the user-library-modify scope).
+- **Half-folded H2 → both C+D layouts built** — 2.0.28, to choose between on the phone:
+  `components/fold/UpNext.tsx` ('strip' = C+D 1, 'pad' = C+D 2), switch in the view
+  (now · 1 · 2) and in Labs (`settings.tabletopLayout`). Queue from the new server route
+  GET /api/playback/upnext (playlist-lens-web branch ccr-fb44cf78-jfekr9 — **live only
+  once merged to master**; until then the deck says the server needs updating).
+  Spotify can't remove queue items, so "drop" = skip it when it starts (watcher in
+  NowPlayingBar, `utils/upNext.ts`, tested); "play now" = skip ahead to it.
+- **Half-folded Lenses "stage"** — 2.0.31, **rejected and removed in 2.0.32** ("I don't
+  like this layout idea": a big stage card between the header and the hinge, playlists
+  below). Kept: folded, the cover button opens the full view (`requestTabletop`);
+  auto-open on fold back ON by default. [ ] A better half-fold idea for Lenses / when
+  nothing plays — design first, on the board.
+- **Instant (Instagram-style)** — 2.0.36: `readCache` (stale-while-revalidate; nothing is
+  deleted for age) in playlists, tracks and analysis; Lenses hides the wake card when it
+  has a saved list; `utils/outbox` for Swipe's create/trim (optimistic done screen,
+  backoff 2 s → 5 min, persisted, backup step remembered). Playback stays live.
+- **Up next: layout 1 kept**, layout 2 removed (2.0.36). [ ] Controls rework + Flex panel
+  rework: options on the board (Ctl A/B/C, F1/F2/F3), waiting for a pick.
+- **Flex panel = the folded state** — 2.0.35 (picked over bedside / stories theatre /
+  keep-as-is). Root layout: folded, the Stack lives in the standing half
+  (`ContentHeightContext` for sheets, bottom inset 0) and `FlexPanel` fills the flat half:
+  song + progress + expand (→ Now playing full screen) and a touch pad (tap = play/pause,
+  swipe = skip). Bottom pill hides while folded. Auto-open of the full screen on fold:
+  Labs, off. [ ] Check every screen in the half (sheets, story, keyboard).
+- **The half-fold screen IS Now playing's expanded state** — 2.0.34 (Andrei's idea). The
+  Lenses cover button opens `TabletopNowPlaying` full screen on a flat phone too (split at
+  the middle; at the hinge when folded). The drop card's own open card is gone; its news
+  cards stay. Folding still opens it by itself (Labs switch). [ ] Rethink what the folded
+  state does now that this screen isn't fold-only.
+- **Resize-proof sizing** — 2.0.33: after Samsung's resize the reported window width
+  went stale (cards narrow and centred, bento tiles misaligned). PlaylistCard (full / grid /
+  tile) now fills its list cell with paddings; CoverBento measures its own width. Other
+  `useWindowDimensions` users may need the same if more show up.
+- **Drop card open/close** — 2.0.28: unfolds from the button (top-right corner held,
+  content fades in), folds back in; anchor corrected for the status bar.
+  2.0.29: the cover is a shared element (button art → card cover, `Spring.default` open,
+  240 ms in-out close), words then controls stagger in, the button hides until it has
+  folded back.
+
+# iOS build — plan (2026-11-23, nothing built yet)
+**Account:** a friend's paid Apple Developer account (Andrei is asking what's easiest for
+him). Simplest: he adds Andrei to his team in App Store Connect (App Manager), registers
+the bundle id `com.andrei.playlistlens`, and creates an **App Store Connect API key**
+(Issuer ID + Key ID + .p8) for EAS. With the key, builds and TestFlight uploads run from
+here with no Apple sign-in. The app shows under his name until it moves to an account
+of Andrei's own (App Store Connect can transfer apps).
+
+**Where it goes:** TestFlight (recommended: no device registration, friends can join,
+OTAs still work). Ad hoc needs every iPhone's UDID registered first.
+
+**Already checked (no account needed):**
+- [x] The JS bundles for iOS (`expo export --platform ios`, 7 MB) — no blockers.
+- [x] Android-only widget library no longer loads on iOS (index.ts).
+- iOS gets its own fingerprint (`e9dd482d…` today); Android stays `b0b14760…`.
+- **Don't touch eas.json casually:** it is part of the ANDROID fingerprint too (checked:
+  adding a profile changes it), so any iOS profile change waits for the next APK.
+  TestFlight uses the existing `production` profile → channel `production`, so iOS OTAs
+  go to the `production` branch (Android stays on `preview`).
+
+**Before the first iOS build (code, no account):**
+- [x] Recap notifications: already cross-platform (only the Android channel is skipped on iOS).
+- [x] Save image: iOS already falls back to the share sheet (its "Save Image" saves to
+      Photos) — no new native module, so the Android fingerprint stays put.
+- [x] Android-only bits hidden on iOS: Flip cover/fold Labs rows, the app-icon picker
+      (until iOS icon images are added to the plugin config — next APK + first iOS build);
+      the widget has no iOS UI and its library isn't loaded there.
+- [x] Spotify sign-in: `Linking.createURL('/callback')` = `playlistlens://callback` in a
+      standalone build, which the server allows. [ ] Confirm on a real iPhone.
+- [ ] Check the header, tab bar and sheets round the notch / Dynamic Island.
+
+**Build day:** `eas build -p ios --profile production` → `eas submit -p ios` →
+TestFlight → install. Then the shipping rule gains a second runtime: publish each OTA
+for Android (preview) and iOS (production).
 
 ---
 

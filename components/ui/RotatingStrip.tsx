@@ -1,110 +1,97 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { StyleSheet, Pressable, View, Text } from 'react-native'
+import { StyleSheet, Pressable, View, Text, InteractionManager } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useFocusEffect } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withSpring,
 } from 'react-native-reanimated'
 import { Colors, FontFamily, FontSize, Spacing, Radius, CHROME_FONT_MAX } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { loadCachedWrapped } from '@/hooks/useWrapped'
-import { wrappedTeasers } from '@/utils/wrapped'
+import type { WrappedStats } from '@/utils/wrapped'
 import { reduceMotionEnabled, getCustomQuote } from '@/utils/settings'
-import { weekFacts, weekLines } from '@/utils/liveLines'
-import { GlyphOrIcon } from '@/components/ui/Icon'
+import { weekFacts } from '@/utils/liveLines'
+import { allTimeAsync } from '@/utils/stats'
+import { peekCached } from '@/utils/sqlJob'
+import { backupStatus } from '@/utils/backup'
+import { buildStrip, weekStripLines, lifetimeStripLines, stripHref, type StripLine } from '@/utils/stripLines'
+import { GlyphOrIcon, Icon } from '@/components/ui/Icon'
+import { ArtThumb } from '@/components/ui/ArtThumb'
 
 /**
- * The Lenses top strip — tappable, stat-aware, alive.
- *  • Rotates music quotes/tips AND the user's own numbers (from imported history).
- *  • Tap to skip to the next line.
+ * The Lenses top strip (2.0.49) — lines about you, each one a way in.
+ *  • Your week and your lifetime lead (utils/stripLines); quotes and tips only fill in
+ *    when there's little to say about you yet.
+ *  • Tap opens the line (an artist's page, a song's, your week as a story…); a line with
+ *    nowhere to go skips ahead. Hold to skip any line.
  *  • `override` pins a message (e.g. the cold-start status) and pauses rotation.
- *  • Honours the Reduce-motion setting (no auto-rotate / fades — still tappable).
- * Each line is "<glyph>  <text>"; the glyph is tinted with a cycling accent.
+ *  • Honours Reduce motion (no auto-rotate / fades — still tappable).
  */
-const QUOTES = [
-  // 2.0
-  '♪  Shuffle is just trust with extra steps.',
-  '☾  Headphones on, world off.',
-  '⤳  One more song. Famous last words.',
-  '♥  Some songs are a place you go back to.',
-  '☾  3 a.m. playlists hit different.',
-  '✦  Your week as a story: Wrapped › Play your week.',
-  '◎  Pull your lenses down. Watch the aperture.',
-  '◐  The colours follow your music. Play something.',
-  '◍  Hold a lens to pin, share or compare it.',
-  '★  Your queue, your rules.',
-  // 1.x
-  '✦  Every playlist tells a story.',
-  '♪  Where words fail, music speaks.',
-  '◎  Tap your taste profile for the big picture.',
-  '◐  Import your lifetime history in Wrapped.',
-  '♥  Pretending the aux is yours again.',
-  '✦  Without music, life would be a mistake.',
-  '☾  Your late-night playlist knows things.',
-  '◍  Compare two playlists — see who really wins.',
-  '⤳  Skips are just unspoken opinions.',
-  '♪  Good taste is a playlist away.',
-]
 
 const ACCENTS = [Colors.greenPrimary, Colors.lavender, Colors.pink]
 const ROTATE_MS = 5600
 
-/** Split "<glyph>  <rest>" → ['<glyph>', '<rest>']; falls back gracefully. */
-function splitGlyph(line: string): [string, string] {
-  const m = line.match(/^(\S+)\s{2,}(.*)$/)
-  return m ? [m[1], m[2]] : ['✦', line]
-}
-
-/** Interleave personal lines + quotes so something about YOU shows up early: this
- *  week's live facts first, then lifetime teasers from the import. */
-function buildPool(): string[] {
-  const teasers = [...weekLines(weekFacts() ?? { ms: 0, deltaMs: null, topArtist: null, topTrack: null, newArtists: 0, streak: 0 }), ...wrappedTeasers(loadCachedWrapped())]
-  const out: string[] = []
-  // The user's custom banner (Settings → Appearance) leads the rotation.
-  const custom = getCustomQuote()
-  if (custom) out.push(custom)
-  if (!teasers.length) return out.concat(QUOTES)
-  const max = Math.max(teasers.length, QUOTES.length)
-  for (let i = 0; i < max; i++) {
-    if (i < teasers.length) out.push(teasers[i])
-    if (i < QUOTES.length)  out.push(QUOTES[i])
-  }
-  return out
+/** The rotation from what's known right now — instant (saved answers only). */
+function readStrip(): StripLine[] {
+  const life = peekCached<WrappedStats | null>('allTime') ?? loadCachedWrapped()
+  return buildStrip({
+    custom: getCustomQuote(),
+    week: weekStripLines(weekFacts()),
+    life: lifetimeStripLines(life),
+    backedUp: backupStatus().lastAt !== null,
+  })
 }
 
 export function RotatingStrip({ override }: { override?: string }) {
   const reduce = reduceMotionEnabled()
-  const [pool, setPool] = useState(buildPool)
-  // With a custom banner, open on it; otherwise land somewhere random.
-  const [i, setI] = useState(() => (getCustomQuote() ? 0 : Math.floor(Math.random() * pool.length)))
-  const op       = useSharedValue(1)
-  const press    = useSharedValue(1)
-  const timer    = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [pool, setPool] = useState(readStrip)
+  // Open on the first line (your banner or your own numbers lead); with nothing about
+  // you yet, somewhere random among the quotes.
+  const [i, setI] = useState(() => (pool[0]?.personal ? 0 : Math.floor(Math.random() * Math.max(1, pool.length))))
+  const op    = useSharedValue(1)
+  const press = useSharedValue(1)
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Re-read the custom banner when the screen regains focus (e.g. returning from
-  // Settings) so edits apply live without a restart.
-  const quoteRef = useRef(getCustomQuote())
+  // Rebuild, keeping the line on screen in place when it's still there.
+  const poolRef = useRef(pool); poolRef.current = pool
+  const iRef = useRef(i); iRef.current = i
+  const rebuild = useCallback(() => {
+    const next = readStrip()
+    const current = poolRef.current[iRef.current]?.id
+    const at = current ? next.findIndex(l => l.id === current) : -1
+    setPool(next)
+    setI(at >= 0 ? at : 0)
+  }, [])
+
+  // Fresh numbers whenever Lenses comes back to the front (a sync, a new song, Settings).
+  const first = useRef(true)
   useFocusEffect(useCallback(() => {
-    const q = getCustomQuote()
-    if (q !== quoteRef.current) {
-      quoteRef.current = q
-      setPool(buildPool())
-      setI(0)
-    }
-  }, []))
+    if (first.current) { first.current = false; return }
+    rebuild()
+  }, [rebuild]))
+
+  // Lifetime lines come from the saved All-time answer; bring it up to date quietly
+  // once the screen has settled (off the UI thread, cached until a play changes).
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      allTimeAsync(loadCachedWrapped()).then(() => rebuild(), () => {})
+    })
+    return () => task.cancel()
+  }, [rebuild])
 
   const advance = (step = 1) => {
-    if (reduce) { setI(p => (p + step + pool.length) % pool.length); return }
+    const len = poolRef.current.length || 1
+    if (reduce) { setI(p => (p + step + len) % len); return }
     op.value = withTiming(0, { duration: 280 })
     setTimeout(() => {
-      setI(p => (p + step + pool.length) % pool.length)
+      setI(p => (p + step + len) % len)
       op.value = withTiming(1, { duration: 320 })
     }, 300)
   }
 
   const startTimer = () => {
     if (timer.current) clearInterval(timer.current)
-    if (override || reduce) return
+    if (override || reduce || pool.length < 2) return
     timer.current = setInterval(() => advance(1), ROTATE_MS)
   }
 
@@ -113,35 +100,45 @@ export function RotatingStrip({ override }: { override?: string }) {
     return () => { if (timer.current) clearInterval(timer.current) }
   }, [override, reduce, pool.length])
 
-  const onPress = () => {
-    if (override) return
-    haptic.light()
+  const bump = () => {
     press.value = withSpring(0.97, { mass: 0.4, damping: 12, stiffness: 320 })
     setTimeout(() => { press.value = withSpring(1, { mass: 0.5, damping: 14, stiffness: 260 }) }, 90)
-    advance(1)
-    startTimer() // reset cadence after a manual skip
+  }
+  const skip = () => { haptic.light(); bump(); advance(1); startTimer() }
+
+  const line: StripLine | undefined = override ? undefined : pool[i % Math.max(1, pool.length)]
+  const href = line ? stripHref(line.action) : null
+  const onPress = () => {
+    if (override || !line) return
+    if (!href) { skip(); return }
+    haptic.light(); bump()
+    router.push(href as never)
   }
 
   const textStyle  = useAnimatedStyle(() => ({ opacity: op.value }))
   const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: press.value }] }))
-
-  const line = override ?? pool[i] ?? QUOTES[0]
-  const [glyph, rest] = splitGlyph(line)
   const accent = override ? Colors.lavender : ACCENTS[i % ACCENTS.length]
+  const text = override ?? line?.text ?? ''
+  const glyph = override ? '◌' : line?.glyph ?? '✦'
 
   return (
     <Animated.View style={[styles.outer, pressStyle]}>
-      <Pressable onPress={onPress} disabled={!!override}>
+      <Pressable onPress={onPress} onLongPress={override ? undefined : skip} delayLongPress={350} disabled={!!override}
+        accessibilityRole={href ? 'link' : 'button'} accessibilityLabel={text}
+        accessibilityHint={href ? 'Opens it. Hold for the next line.' : 'Shows the next line'}>
         <LinearGradient
           colors={['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.02)']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={[styles.pill, { borderColor: `${accent}33` }]}
         >
           <View style={styles.specular} />
-          <Animated.Text style={[styles.text, textStyle]} numberOfLines={1} maxFontSizeMultiplier={CHROME_FONT_MAX}>
-            <GlyphOrIcon glyph={glyph} size={13} color={accent} inline /><Text style={styles.glyph}>  </Text>
-            <Text style={styles.body}>{rest}</Text>
-          </Animated.Text>
+          <Animated.View style={[styles.row, textStyle]}>
+            {line?.art
+              ? <ArtThumb kind={line.art.kind} name={line.art.name} artist={line.art.artist} size={22} />
+              : <Text style={styles.glyph}><GlyphOrIcon glyph={glyph} size={13} color={accent} inline /></Text>}
+            <Text style={styles.body} numberOfLines={1} maxFontSizeMultiplier={CHROME_FONT_MAX}>{text}</Text>
+            {href ? <Icon name="chevron-forward" size={13} color={accent} /> : null}
+          </Animated.View>
         </LinearGradient>
       </Pressable>
     </Animated.View>
@@ -159,8 +156,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.sm + 2,
-    paddingHorizontal: Spacing.lg,
+    minHeight: 40,
+    paddingVertical: Spacing.xs + 2,
+    paddingHorizontal: Spacing.md + 2,
     borderRadius: Radius.full,
     borderWidth: 1,
     overflow: 'hidden',
@@ -169,14 +167,18 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: Spacing.lg, right: Spacing.lg, height: 1,
     backgroundColor: Colors.glassHighlight,
   },
-  text: {
-    textAlign: 'center',
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    minWidth: 0,
   },
   glyph: {
     fontFamily: FontFamily.monoMedium,
     fontSize: FontSize.sm,
   },
   body: {
+    flexShrink: 1,
     fontFamily: FontFamily.monoMedium,
     fontSize: FontSize.sm,
     color: Colors.textSecondary,

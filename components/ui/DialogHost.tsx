@@ -40,6 +40,8 @@ function DialogLayer() {
       confirmLabel={shown.confirmLabel ?? 'OK'}
       cancelLabel={shown.cancelLabel ?? null}
       destructive={shown.destructive}
+      altLabel={shown.altLabel}
+      onAlt={() => resolveDialog('alt')}
       onConfirm={() => resolveDialog(true)}
       onCancel={() => resolveDialog(false)}
     />

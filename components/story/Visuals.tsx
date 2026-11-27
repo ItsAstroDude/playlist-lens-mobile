@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, Dimensions } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
 import { FitHeadline } from './FitHeadline'
 import { FontFamily, Spacing } from '@/constants/theme'
 import { RackFocus } from '@/components/motion'
@@ -7,6 +7,7 @@ import { ArtThumb } from '@/components/ui'
 import { ShareCard, CARD_W, CARD_H } from './ShareCard'
 import { fmtListen, type StorySlide, type Palette } from '@/utils/story'
 import type { PeriodSummary } from '@/utils/listening'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 /**
  * Story mode's pictures (2.0.13): each slide fills the space under its words with
@@ -14,18 +15,23 @@ import type { PeriodSummary } from '@/utils/listening'
  * day's clock, a preview of the share card. They enter with the rack-focus motion.
  */
 
-const { width: SW, height: SH } = Dimensions.get('window')
 const PAD = Spacing.xl
-const INNER = SW - PAD * 2
+
+/** Sizes from the live window (the Flip's cover screen is about half the main one). */
+function useStorySize() {
+  const { width: SW, height: SH } = useLiveWindow()
+  return { SW, SH, INNER: SW - PAD * 2 }
+}
 
 /** The period's bars, the biggest one solid and labelled. */
 export function StoryBars({ bars, height }: { bars: NonNullable<StorySlide['bars']>; height?: number }) {
+  const { SH } = useStorySize()
   const max = Math.max(...bars.values, 1)
   const many = bars.values.length > 14
   return (
     <RackFocus index={1} step={120}>
       {bars.peakText ? <Text style={styles.peakCaption}>{bars.peakText}</Text> : null}
-      <View style={[styles.barsRow, height ? { height } : null]} accessible accessibilityLabel={bars.peakText ?? 'Listening across the period; the biggest is highlighted'}>
+      <View style={[styles.barsRow, { height: height ?? Math.min(280, SH * 0.32) }]} accessible accessibilityLabel={bars.peakText ?? 'Listening across the period; the biggest is highlighted'}>
         {bars.values.map((v, i) => (
           <View key={i} style={styles.barCol}>
             <View style={[styles.bar, {
@@ -56,6 +62,7 @@ export function StoryBars({ bars, height }: { bars: NonNullable<StorySlide['bars
 
 /** A grid of covers, three across — as many rows as fit the space (measured). */
 export function StoryMosaic({ items }: { items: NonNullable<StorySlide['mosaic']> }) {
+  const { INNER } = useStorySize()
   const cols = 3
   const gap = Spacing.sm
   const size = Math.floor((INNER - gap * (cols - 1)) / cols)
@@ -116,11 +123,12 @@ function SongStrip({ songs }: { songs: NonNullable<StorySlide['songs']> }) {
 
 /** The listening clock, big: 24 bars with hour marks. */
 export function StoryClock({ clock, compact }: { clock: number[]; compact?: boolean }) {
+  const { SH } = useStorySize()
   const max = Math.max(...clock, 1)
   const peak = clock.indexOf(max)
   return (
     <RackFocus index={1} step={120}>
-      <View style={[styles.clockRow, compact && { height: Math.min(170, SH * 0.19) }]}>
+      <View style={[styles.clockRow, { height: compact ? Math.min(170, SH * 0.19) : Math.min(240, SH * 0.28) }]}>
         {clock.map((v, h) => (
           <View key={h} style={styles.barCol}>
             <View style={[styles.bar, { height: `${Math.max(3, (v / max) * 100)}%`, opacity: h === peak ? 1 : 0.38, borderRadius: 3 }]} />
@@ -136,6 +144,7 @@ export function StoryClock({ clock, compact }: { clock: number[]; compact?: bool
 
 /** The share card itself, scaled to the free space — what you'd send. */
 export function StoryCardPreview({ s, all, palette, maxHeight, line }: { s: PeriodSummary; all: boolean; palette: Palette; maxHeight: number; line?: string }) {
+  const { INNER } = useStorySize()
   const scale = Math.min(INNER / CARD_W, maxHeight / CARD_H, 1)
   return (
     <RackFocus index={1} step={120} style={{ alignSelf: 'center' }}>
@@ -153,6 +162,7 @@ export function StoryCardPreview({ s, all, palette, maxHeight, line }: { s: Peri
  * as two slim bars, and a row of small numbers.
  */
 export function StoryTime({ slide }: { slide: StorySlide }) {
+  const { SH } = useStorySize()
   return (
     <View style={styles.timeStack}>
       {slide.bars ? <StoryBars bars={slide.bars} height={slide.songs ? Math.min(130, SH * 0.15) : Math.min(200, SH * 0.22)} /> : null}
@@ -200,9 +210,10 @@ const ROW_H = 58
  */
 export function StoryHero({ slide }: { slide: StorySlide }) {
   const h = slide.hero!
+  const { SW, SH } = useStorySize()
   const [listH, setListH] = useState(0)
   const rows = (slide.list ?? []).slice(0, listH ? Math.max(0, Math.floor(listH / ROW_H)) : 0)
-  const size = Math.min(Math.round(SW * 0.44), 184)
+  const size = Math.min(Math.round(SW * 0.44), Math.round(SH * 0.24), 184)
   return (
     <View style={styles.heroWrap}>
       <RackFocus index={0} style={styles.heroCover}>
@@ -234,6 +245,7 @@ const PYRAMID_SIZE = [128, 92, 74, 62]
 
 /** Artists in rows of 1, 2, 3, 4 — biggest first — each with its name; scaled to fit. */
 export function StoryPyramid({ items }: { items: NonNullable<StorySlide['pyramid']> }) {
+  const { INNER } = useStorySize()
   const [boxH, setBoxH] = useState(0)
   const rows: { name: string; value: string }[][] = []
   let i = 0
@@ -250,7 +262,7 @@ export function StoryPyramid({ items }: { items: NonNullable<StorySlide['pyramid
             {row.map((a, j) => (
               <RackFocus key={a.name} index={k * 2 + j} step={70} style={{ width: Math.max(size, 64), alignItems: 'center' }}>
                 <ArtThumb kind="artist" name={a.name} size={size} />
-                <Text style={[styles.pyrName, k === 0 && styles.pyrNameTop]} numberOfLines={1}>{a.name}</Text>
+                <Text style={[styles.pyrName, k === 0 && [styles.pyrNameTop, { maxWidth: INNER }]]} numberOfLines={1}>{a.name}</Text>
                 {k === 0 ? <Text style={styles.pyrValue}>{a.value}</Text> : null}
               </RackFocus>
             ))}
@@ -262,7 +274,7 @@ export function StoryPyramid({ items }: { items: NonNullable<StorySlide['pyramid
 }
 
 /** Room for a card preview between the words and the Share button. */
-export const PREVIEW_MAX_H = Math.round(SH * 0.4)
+export const previewMaxH = (windowHeight: number) => Math.round(windowHeight * 0.4)
 
 const styles = StyleSheet.create({
   timeStack:    { gap: Spacing.md },
@@ -295,10 +307,10 @@ const styles = StyleSheet.create({
   pyramidBox:   { flex: 1, justifyContent: 'center', gap: Spacing.md },
   pyramidRow:   { flexDirection: 'row', justifyContent: 'center' },
   pyrName:      { fontFamily: FontFamily.monoMedium, fontSize: 11, color: '#fff', marginTop: 6, maxWidth: 110, textAlign: 'center' },
-  pyrNameTop:   { fontFamily: FontFamily.syneBold, fontSize: 17, letterSpacing: -0.4, maxWidth: INNER },
+  pyrNameTop:   { fontFamily: FontFamily.syneBold, fontSize: 17, letterSpacing: -0.4 },
   pyrValue:     { fontFamily: FontFamily.mono, fontSize: 12, color: 'rgba(255,255,255,0.8)' },
-  barsRow:      { flexDirection: 'row', alignItems: 'flex-end', height: Math.min(280, SH * 0.32), gap: 3 },
-  clockRow:     { flexDirection: 'row', alignItems: 'flex-end', height: Math.min(240, SH * 0.28), gap: 3 },
+  barsRow:      { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
+  clockRow:     { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
   barCol:       { flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center' },
   bar:          { width: '100%', backgroundColor: '#fff' },
   peakTag:      { position: 'absolute', bottom: '100%', left: '50%', width: 80, marginLeft: -40, marginBottom: 6, textAlign: 'center', fontFamily: FontFamily.monoMedium, fontSize: 12, color: '#fff' },

@@ -1,15 +1,20 @@
-import React, { useCallback, useMemo, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Tabs } from 'expo-router'
-import { StyleSheet, View } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import { runOnJS } from 'react-native-reanimated'
+import Animated, { runOnJS, useAnimatedStyle, withTiming } from 'react-native-reanimated'
+import { tabBarHidden, hideTabBar } from '@/utils/tabBar'
 import { Colors } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
 import { getNavbarStyle } from '@/utils/settings'
 import { NowPlayingBar } from '@/components/nowplaying/NowPlayingBar'
-import { LiquidTabBar } from '@/components/motion/LiquidTabBar'
+import { LiquidTabBar, TAB_ICONS } from '@/components/motion/LiquidTabBar'
+import { Icon } from '@/components/ui/Icon'
+import { useIsCover } from '@/hooks/useScreen'
+import { FLIP7_SYSTEM_BUTTON, SYSTEM_BUTTON_GAP, panelScale } from '@/components/cover/outline'
 import { LiquidBackground } from '@/components/motion/LiquidBackground'
+import { useLiveWindow } from '@/utils/liveWindow'
 
 // Minimal structural type for the navigator props we actually use (avoids a
 // dependency on @react-navigation/bottom-tabs' types, which don't resolve here).
@@ -30,9 +35,12 @@ interface TabBarProps {
 // otherwise reach `navigation`/`state`).
 type NavApi = { index: number; routes: { key: string; name: string }[]; navigate: (n: string) => void }
 
-function GestureDots({ state, navigation, navRef }: TabBarProps & { navRef: React.MutableRefObject<NavApi | null> }) {
+type TabBarExtra = { navRef: React.MutableRefObject<NavApi | null>; onTab: (name: string) => void }
+
+function GestureDots({ state, navigation, navRef, onTab }: TabBarProps & TabBarExtra) {
   const insets = useSafeAreaInsets()
   navRef.current = { index: state.index, routes: state.routes, navigate: navigation.navigate }
+  useEffect(() => { onTab(state.routes[state.index]?.name ?? '') }, [state.index])
   return (
     <View pointerEvents="none" style={[styles.gestureZone, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       <View style={styles.dotsRow}>
@@ -44,10 +52,54 @@ function GestureDots({ state, navigation, navRef }: TabBarProps & { navRef: Reac
   )
 }
 
+// ─── Flip cover screen — swipe anywhere + a small icon strip ────────────────────
+// The cover screen (≈474×524 dp) has the cameras bottom-right and Samsung's "open on
+// main screen" button bottom-centre, so the tab bar shrinks to a strip of icons in
+// the free bottom-left corner. Swiping anywhere (away from the edges) switches tabs.
+const STRIP_LEFT = 12
+const STRIP_BOTTOM = 12
+
+function CoverTabs({ state, navigation, navRef, onTab }: TabBarProps & TabBarExtra) {
+  // Low in the corner (the system's bottom inset is ~100 dp here and holds nothing on
+  // the left), stretching right up to Samsung's "open on main screen" button.
+  const { width: W } = useLiveWindow()
+  const width = FLIP7_SYSTEM_BUTTON.left * panelScale(W) - SYSTEM_BUTTON_GAP - STRIP_LEFT
+  navRef.current = { index: state.index, routes: state.routes, navigate: navigation.navigate }
+  useEffect(() => { onTab(state.routes[state.index]?.name ?? '') }, [state.index])
+  // Same hide signal as the main tab bar (scrolling Lenses, an open lens sheet).
+  useEffect(() => { hideTabBar('scroll', false) }, [state.index])
+  const hide = useAnimatedStyle(() => ({
+    opacity: 1 - tabBarHidden.value,
+    transform: [{ translateY: tabBarHidden.value * (STRIP_BOTTOM + 60) }],
+  }))
+  return (
+    <Animated.View style={[styles.coverStrip, { left: STRIP_LEFT, bottom: STRIP_BOTTOM, width }, hide]}>
+      {state.routes.map((route, i) => {
+        const on = i === state.index
+        const [filled, outline] = TAB_ICONS[route.name] ?? ['ellipse', 'ellipse-outline']
+        return (
+          <Pressable key={route.key} hitSlop={4} accessibilityRole="tab"
+            accessibilityLabel={route.name === 'index' ? 'lenses' : route.name} accessibilityState={{ selected: on }}
+            onPress={() => {
+              const e = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true })
+              if (!on && !e.defaultPrevented) { haptic.light(); navigation.navigate(route.name) }
+            }}
+            style={[styles.coverItem, on && styles.coverItemOn]}>
+            <Icon name={on ? filled : outline} size={18} color={on ? '#000' : Colors.text} />
+          </Pressable>
+        )
+      })}
+    </Animated.View>
+  )
+}
+
 export default function TabLayout() {
   // Read once per launch — changing the style in Settings applies after restart,
   // same as accent/font (see the Appearance section's restart row).
   const navStyle = getNavbarStyle()
+  const cover = useIsCover()
+  // The Swipe tab's card deck swipes sideways itself, so tab-swiping pauses there.
+  const [tab, setTab] = useState('index')
 
   // Bridge: the full-screen swipe lives outside the navigator, so GestureDots
   // publishes the current tab + navigate fn here on each render.
@@ -63,19 +115,24 @@ export default function TabLayout() {
   // Horizontal-only: yields to vertical scroll (failOffsetY) and only claims a
   // clearly-horizontal swipe (activeOffsetX), so taps + list scrolling still work.
   const swipe = useMemo(() => Gesture.Pan()
+    .enabled((navStyle === 'gestures' || cover) && tab !== 'swipe')
+    // On the cover screen keep clear of the system's back-gesture edges.
+    .hitSlop(cover ? { left: -28, right: -28 } : {})
     .activeOffsetX([-24, 24])
     .failOffsetY([-20, 20])
     .onEnd(e => {
       'worklet'
       if (Math.abs(e.translationX) < 56 || Math.abs(e.velocityX) < Math.abs(e.velocityY)) return
       runOnJS(switchTab)(e.translationX < 0 ? 1 : -1)
-    }), [switchTab])
+    }), [switchTab, cover, tab])
 
   const tabs = (
     <Tabs
       tabBar={(props: any) =>
-        navStyle === 'gestures'
-          ? <GestureDots {...props} navRef={navRef} />
+        cover
+          ? <CoverTabs {...props} navRef={navRef} onTab={setTab} />
+          : navStyle === 'gestures'
+          ? <GestureDots {...props} navRef={navRef} onTab={setTab} />
           : <LiquidTabBar {...props} minimal={navStyle === 'minimal'} />}
       screenOptions={{
         headerShown: false,
@@ -86,7 +143,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="index"   options={{ title: 'lenses'  }} />
       <Tabs.Screen name="queue"   options={{ title: 'queue'   }} />
-      <Tabs.Screen name="wrapped" options={{ title: 'wrapped' }} />
+      <Tabs.Screen name="play"    options={{ title: 'play'    }} />
       <Tabs.Screen name="swipe"   options={{ title: 'swipe'   }} />
     </Tabs>
   )
@@ -100,10 +157,9 @@ export default function TabLayout() {
     </View>
   )
 
-  // Gestures mode wraps the whole navigator so a swipe anywhere switches tabs.
-  return navStyle === 'gestures'
-    ? <GestureDetector gesture={swipe}>{content}</GestureDetector>
-    : content
+  // Always wrapped (the pan is only enabled in gestures mode or on the cover screen):
+  // switching the wrapper on fold/unfold would remount every tab.
+  return <GestureDetector gesture={swipe}>{content}</GestureDetector>
 }
 
 // ─── Layout + gestures-only dots ────────────────────────────────────────────────
@@ -113,4 +169,8 @@ const styles = StyleSheet.create({
   dotsRow:     { flexDirection: 'row', alignItems: 'center', gap: 7 },
   dot:         { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.28)' },
   dotActive:   { width: 18, backgroundColor: Colors.greenPrimary },
+  coverStrip:  { position: 'absolute', flexDirection: 'row', gap: 4, padding: 4, borderRadius: 24,
+                 backgroundColor: 'rgba(12,12,16,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
+  coverItem:   { flex: 1, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  coverItemOn: { backgroundColor: '#fff' },
 })

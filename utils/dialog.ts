@@ -19,8 +19,11 @@ export interface DialogOptions {
   /** Secondary button label. Omit (or pass null) for a single-button info dialog. */
   cancelLabel?:  string | null
   destructive?:  boolean
+  /** Optional middle choice (e.g. "Keep tracking"). Cancel, backdrop and back still mean cancel. */
+  altLabel?:     string
   onConfirm?:    () => void
   onCancel?:     () => void
+  onAlt?:        () => void
 }
 
 export interface ToastOptions {
@@ -58,11 +61,12 @@ export function confirmDialog(opts: Omit<DialogOptions, 'cancelLabel'> & { cance
  * Resolve the open dialog. Called by the host — runs the matching callback AFTER
  * the dialog leaves the queue, so a callback that opens another dialog works.
  */
-export function resolveDialog(confirmed: boolean): void {
+export function resolveDialog(choice: boolean | 'alt'): void {
   const head = queue.shift()
   publish()
   if (!head) return
-  if (confirmed) head.onConfirm?.()
+  if (choice === 'alt') head.onAlt?.()
+  else if (choice) head.onConfirm?.()
   else head.onCancel?.()
 }
 
@@ -75,7 +79,20 @@ export function onDialog(cb: DialogCb): () => void {
 /** Show a brief, non-blocking confirmation pill. */
 export function showToast(message: string, glyph?: IconName, duration?: number): void {
   const t: ToastOptions = { message, glyph, duration }
+  // A screen can take toasts over (Lenses: they drop out of the header's cover button).
+  if (toastSink) { toastSink(t); return }
   toastSubs.forEach(c => c(t))
+}
+
+/**
+ * While set, toasts go here instead of the top pill (the drop card on Lenses claims them
+ * while that screen is in front). Returns a release function; only the current claimer
+ * releases.
+ */
+let toastSink: ToastCb | null = null
+export function claimToasts(cb: ToastCb): () => void {
+  toastSink = cb
+  return () => { if (toastSink === cb) toastSink = null }
 }
 
 export function onToast(cb: ToastCb): () => void {

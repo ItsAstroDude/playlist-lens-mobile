@@ -17,8 +17,10 @@ import { newToYouAsync, onThisDay, streaksAsync, milestonesAsync, type NewToYou,
 import { NewToYouCard, OnThisDayCard, StreaksCard, MilestonesCard } from '@/components/stats/Highlights'
 import { CalendarHeatmap } from '@/components/stats/CalendarHeatmap'
 import { trackingEnrolled } from '@/utils/tracking'
-import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow, IconButton, ArtThumb } from '@/components/ui'
+import { Chip, Stat, EmptyState as DSEmptyState, ListRow, Card, TabHeader, RankRow, IconButton, ArtThumb, BackButton } from '@/components/ui'
+import { LiquidBackground } from '@/components/motion/LiquidBackground'
 import { WrappedItemSheet, type WrappedSelection } from '@/components/wrapped/WrappedItemSheet'
+import { artistHref, songHref } from '@/utils/itemStats'
 import { AddToQueueButton } from '@/components/queue/AddToQueueButton'
 import { useNowPlayingGutter } from '@/hooks/useNowPlayingGutter'
 import type { QueueItem } from '@/utils/queueCart'
@@ -308,7 +310,13 @@ export default function WrappedTab() {
       onConfirm: clearHistory,
     })
   }, [clearHistory])
-  const onSelect = useCallback((s: WrappedSelection) => { haptic.light(); setSel(s) }, [])
+  // Artists and songs open their own page (2.0.43); albums keep the quick sheet.
+  const onSelect = useCallback((s: WrappedSelection) => {
+    haptic.light()
+    if (s.kind === 'artist') router.push(artistHref(s.name))
+    else if (s.kind === 'track' && s.artist) router.push(songHref(s.name, s.artist))
+    else setSel(s)
+  }, [])
 
   const renderBlock = useCallback(({ item }: { item: Block }) => {
     switch (item.t) {
@@ -334,7 +342,7 @@ export default function WrappedTab() {
             <View style={styles.cardSpecular} />
             <Text style={styles.sectionLabel}>{item.title}</Text>
             {item.rows.map((r, i) => (
-              <RackFocus key={r.name + i} index={Math.min(i, 8)} step={70}>
+              <RackFocus key={r.name + i} index={Math.min(i, 8)} step={70} settle>
                 <RankRow rank={i + 1} name={r.name} sub={r.sub} value={r.value} frac={r.frac} color={item.color} onPress={() => onSelect(r.sel)}
                   leading={<ArtThumb kind={item.kind} name={r.name} artist={item.kind === 'artist' ? undefined : r.sub} />}
                   trailing={r.add ? <AddToQueueButton item={r.add} /> : undefined} />
@@ -352,7 +360,8 @@ export default function WrappedTab() {
             <View style={styles.cardSpecular} />
             <Text style={styles.sectionLabel}>BY YEAR</Text>
             {item.rows.map(y => (
-              <RankRow key={y.year} name={String(y.year)} sub={y.topArtist} value={fmtHours(y.ms)} frac={y.frac} color={Colors.greenPrimary} />
+              <RankRow key={y.year} name={String(y.year)} sub={y.topArtist} value={fmtHours(y.ms)} frac={y.frac} color={Colors.greenPrimary}
+                onPress={y.topArtist ? () => { haptic.light(); router.push(artistHref(y.topArtist)) } : undefined} />
             ))}
           </View>
         )
@@ -476,6 +485,8 @@ export default function WrappedTab() {
 
   return (
     <View style={styles.container}>
+      {/* Its own page now (Labs › Wrapped), so it brings the background the tabs share. */}
+      <LiquidBackground />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
         <TabHeader
@@ -483,6 +494,7 @@ export default function WrappedTab() {
           subtitle={subtitle}
           titleRight={
             <>
+              <BackButton />
               <IconButton icon="time-outline" label="History: every play, searchable, by day" onPress={() => router.push('/history')} />
               <IconButton icon="albums-outline" label="Recaps: past weeks, months, seasons and years" onPress={() => router.push('/recaps')} />
             </>

@@ -14,7 +14,7 @@ import {
   activeAccentId, alpha,
 } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
-import { setTabBarHidden } from '@/utils/tabBar'
+import { resetTabBar } from '@/utils/tabBar'
 import { getNavbarStyle, reduceMotionEnabled } from '@/utils/settings'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { Button } from '@/components/ui/Button'
@@ -31,8 +31,8 @@ const HOLE_RADIUS = 16
 const GLIDE    = { duration: 460, easing: Easing.out(Easing.cubic) }
 const COLLAPSE = { duration: 300, easing: Easing.in(Easing.cubic) }
 
-type TabRoute = 'index' | 'queue' | 'wrapped' | 'swipe'
-const ROUTE_INDEX: Record<TabRoute, number> = { index: 0, queue: 1, wrapped: 2, swipe: 3 }
+type TabRoute = 'index' | 'queue' | 'play' | 'swipe'
+const ROUTE_INDEX: Record<TabRoute, number> = { index: 0, queue: 1, play: 2, swipe: 3 }
 
 interface Step {
   route:    TabRoute
@@ -48,7 +48,7 @@ interface Step {
 const ROUTE_HREF: Record<TabRoute, string> = {
   index:   '/(tabs)',
   queue:   '/queue',
-  wrapped: '/wrapped',
+  play: '/play',
   swipe:   '/swipe',
 }
 
@@ -72,9 +72,9 @@ function buildSteps(): Step[] {
       body:  'Build a queue from anywhere and play it on your Spotify — hand-pick tracks, or let the rediscovery shelves bring back old favorites.',
     },
     {
-      route: 'wrapped', spotlight: true, glyph: 'disc', tint: Colors.lavender,
-      title: 'Wrapped',
-      body:  'Your week, month and year in music: top artists, tracks and time listened. For the full picture, turn on tracking in Settings or import your Spotify history under All time.',
+      route: 'play', spotlight: true, glyph: 'game-controller', tint: Colors.lavender,
+      title: 'Play',
+      body:  'More or less: did you play this song more or less than that one? A game on your own listening. Rewind is being rebuilt meanwhile; find it in Settings › About › Labs.',
     },
     {
       route: 'swipe', spotlight: true, glyph: 'layers', tint: RAW_ACCENT,
@@ -156,7 +156,7 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
   // Per step: navigate to its tab, reveal the bar, then glide the spotlight.
   useEffect(() => {
     go(step.route)
-    setTabBarHidden(false)
+    resetTabBar()
     const hole = step.spotlight ? tabHole(step.route) : null
     if (hole) {
       // First appearance (currently collapsed): seed at the hole's centre so it
