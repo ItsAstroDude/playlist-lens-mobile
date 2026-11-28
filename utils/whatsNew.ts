@@ -19,6 +19,23 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.53',
+    name:    'Safer backups, no double saves',
+    date:    '2026-11-28',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Restoring a backup never loses a play: a play in both the backup and your history is kept once, and a damaged file can’t wipe plays tracked on the phone.',
+          'A backup that fails half-way no longer leaves a broken file behind, and plays tracked while a backup runs are picked up by the next one.',
+          'A dropped connection no longer makes a playlist twice or skips twice: only reads are retried.',
+          'Week and month totals are right across a daylight-saving change.',
+          'Up next no longer flashes an older answer after a newer one, and covers on screen load before ones you’ve scrolled past.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.52',
     name:    'Sheets on the cover screen',
     date:    '2026-11-27',
