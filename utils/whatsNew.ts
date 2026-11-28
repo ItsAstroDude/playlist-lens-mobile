@@ -19,6 +19,19 @@ export interface PatchEntry {
 // Newest first. Bump the top entry's `version` whenever a drop should surface notes.
 export const CHANGELOG: PatchEntry[] = [
   {
+    version: '2.0.54',
+    name:    'Smooth after Rewind',
+    date:    '2026-11-28',
+    sections: [
+      {
+        label: 'Fixed',
+        items: [
+          'Switching Rewind between Year and All time while it was still coming in could leave the whole app scrolling jerkily until you restarted it. It now stays smooth.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.53',
     name:    'Safer backups, no double saves',
     date:    '2026-11-28',
