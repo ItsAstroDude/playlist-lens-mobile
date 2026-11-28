@@ -109,6 +109,13 @@ describe('apiFetch — error handling', () => {
     jest.useRealTimers()
   }, 15_000)
 
+  it('never resends a POST after a network error (the server may have acted on it)', async () => {
+    mockFetchNetwork()
+    ;(SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null)
+    await expect(apiFetch('/api/playlist/create', { method: 'POST', body: '{}' })).rejects.toBeInstanceOf(ApiError)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
   it('exposes the HTTP status code on ApiError', async () => {
     mockFetch(404, { error: 'Not found' })
     try {

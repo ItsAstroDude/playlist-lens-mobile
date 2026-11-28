@@ -1,3 +1,22 @@
+// ─── en-US formatting on every PC ─────────────────────────────────────────────
+// The app formats with the phone's locale; tests expect en-US. Node on Windows takes the
+// system locale and ignores LANG, so pin the default here (explicit locales still win).
+{
+  const pin = (l?: string | string[]) => l ?? 'en-US'
+  const num = Number.prototype.toLocaleString
+  Number.prototype.toLocaleString = function (l?: any, o?: any) { return num.call(this, pin(l), o) }
+  for (const m of ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString'] as const) {
+    const f = Date.prototype[m] as (l?: any, o?: any) => string
+    Date.prototype[m] = function (l?: any, o?: any) { return f.call(this, pin(l), o) }
+  }
+  for (const k of ['NumberFormat', 'DateTimeFormat', 'PluralRules'] as const) {
+    const C = (Intl as any)[k]
+    const W: any = function (l?: any, o?: any) { return new C(pin(l), o) }
+    W.prototype = C.prototype; W.supportedLocalesOf = C.supportedLocalesOf
+    ;(Intl as any)[k] = W
+  }
+}
+
 // ─── Native module mocks ──────────────────────────────────────────────────────
 // These modules have native code that can't run in Node.js/Jest.
 // We replace them with lightweight stubs so pure logic can be tested.

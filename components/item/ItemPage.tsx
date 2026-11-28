@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getColors } from 'react-native-image-colors'
 import { Colors, FontFamily, FontSize, Radius, Spacing, Type, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
-import { AmbientBackground } from '@/components/ui/AmbientBackground'
+import { LiquidBackground } from '@/components/motion/LiquidBackground'
 import { BackButton, BACK_BUTTON_SIZE } from '@/components/ui/BackButton'
 import { useIsCover } from '@/hooks/useScreen'
 import { Card, ListRow, RankRow, ArtThumb, Button, EmptyState, Icon, type IconName } from '@/components/ui'
@@ -171,7 +171,7 @@ export function ItemPage({ item }: { item: ItemRef }) {
 
   return (
     <View style={styles.container}>
-      <AmbientBackground />
+      <LiquidBackground />
       <Animated.ScrollView
         onScroll={cc.onScroll}
         scrollEventThrottle={16}

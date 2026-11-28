@@ -2,7 +2,7 @@ import React from 'react'
 import { View, Text, StyleSheet, ScrollView, type ScrollViewProps } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Colors, Spacing, Type } from '@/constants/theme'
-import { AmbientBackground } from '@/components/ui/AmbientBackground'
+import { LiquidBackground } from '@/components/motion/LiquidBackground'
 import { BackButton } from '@/components/ui/BackButton'
 
 /**
@@ -24,7 +24,7 @@ export function Screen({ children, scroll = true, back = true, scrollProps, over
   const insets = useSafeAreaInsets()
   return (
     <View style={styles.container}>
-      <AmbientBackground />
+      <LiquidBackground />
       <SafeAreaView style={styles.safe} edges={['top']}>
         {back && <View style={styles.backRow}><BackButton /></View>}
         {scroll ? (

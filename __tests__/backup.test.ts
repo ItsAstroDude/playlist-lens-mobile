@@ -61,6 +61,9 @@ describe('backup format', () => {
       .map(f => dir + encodeURIComponent(f))
     expect(isBackupUri(files[2])).toBe(false)
     expect(backupsToPrune(files, 2)).toEqual([files[0]])
+    const sameDay = ['playlist-lens-backup-2026-11-28.plbackup', 'playlist-lens-backup-2026-11-28 (1).plbackup', 'playlist-lens-backup-2026-11-28 (2).plbackup']
+      .map(f => dir + encodeURIComponent(f))
+    expect(backupsToPrune(sameDay, 2)).toEqual([sameDay[0]])            // the plain name is that day's first
   })
 
   it('weekly: only when on, with a folder, a week on, and new plays', () => {
@@ -133,6 +136,26 @@ describe('restore (merge)', () => {
     ], null)
     expect((await restoreBackup(b)).added).toBe(1)
     expect(all().map(p => p.track)).toEqual(['Imported', 'Outside'])
+  })
+
+  it('a play held here as tracked and in the backup as imported survives the restore', async () => {
+    insertPlays([row('2024-04-15T10:00:00Z', 'Same')], 'tracked')
+    const b = backupOf([
+      { t: T('2024-04-15T10:00:00Z'), uri: 'spotify:track:Same', ms: 180_000, track: 'Same', artist: 'A', album: 'Al', src: Source.import },
+    ], T('2024-04-15T10:00:00Z'))
+    await restoreBackup(b)
+    expect(all().map(p => [p.track, p.src])).toEqual([['Same', Source.import]])
+  })
+
+  it('a backup can’t claim an import cover past its own imported plays', async () => {
+    insertPlays([row('2025-01-01T10:00:00Z', 'Mine')], 'tracked')
+    const b = backupOf([
+      { t: T('2024-01-01T10:00:00Z'), uri: 'spotify:track:Old', ms: 1, track: 'Old', artist: 'A', album: null, src: Source.import },
+    ], T('2100-01-01T00:00:00Z'))
+    expect(b.importMaxT).toBe(T('2024-01-01T10:00:00Z'))
+    await restoreBackup(b)
+    expect(all().map(p => p.track)).toEqual(['Old', 'Mine'])
+    expect(backupOf([], 123).importMaxT).toBeNull()                    // no imported plays, no cover
   })
 
   it('reports progress in chunks', async () => {

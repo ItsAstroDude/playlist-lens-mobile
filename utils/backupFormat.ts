@@ -87,6 +87,16 @@ export function encodeBackup(rows: PlayRow[], opts: { importMaxT: number | null;
 const isInt = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x)
 const strArr = (x: unknown): string[] => (Array.isArray(x) ? x.filter((v): v is string => typeof v === 'string') : [])
 
+/** The import cover a backup may claim: never past its own newest imported play (that's
+ *  what an import sets it to), so a damaged file can't wipe tracked plays it doesn't hold. */
+function coverOf(rows: PlayRow[], claimed: unknown): number | null {
+  if (!isInt(claimed)) return null
+  let max: number | null = null
+  for (const r of rows) if (r.src === IMPORT_SRC && (max === null || r.t > max)) max = r.t
+  return max === null ? null : Math.min(claimed, max)
+}
+const IMPORT_SRC = 1   // Source.import in utils/playDb (not imported: this file stays pure)
+
 /** Read a backup file's bytes. Throws BackupError with a message fit to show. */
 export function decodeBackup(bytes: Uint8Array): Backup {
   let w: Wire
@@ -124,7 +134,7 @@ export function decodeBackup(bytes: Uint8Array): Backup {
     plays: n,
     first: n ? rows[0].t : null,
     last: n ? rows[n - 1].t : null,
-    importMaxT: isInt(w.importMaxT) ? w.importMaxT : null,
+    importMaxT: coverOf(rows, w.importMaxT),
     rows,
     prefs: { covers, keptSeasons: strArr(p.keptSeasons), hiddenYears: strArr(p.hiddenYears) },
   }
@@ -145,11 +155,17 @@ export function isBackupUri(uri: string): boolean {
 
 /** Of our backups in a folder, the ones to delete so only the newest `keep` remain. */
 export function backupsToPrune(uris: string[], keep = 2): string[] {
-  const ours = uris.filter(isBackupUri).sort((a, b) => {
-    const da = decodeURIComponent(a), db = decodeURIComponent(b)
-    return da < db ? 1 : da > db ? -1 : 0          // newest first (dates sort as text)
-  })
-  return ours.slice(keep)
+  // Date, then the folder's " (n)" for a second file that day: "28 (1)" is newer than
+  // "28", though as text " " sorts before ".".
+  const key = (uri: string): [string, number] => {
+    let s = uri
+    try { s = decodeURIComponent(uri) } catch { /* raw */ }
+    const m = /(\d{4}-\d\d-\d\d)(?: ?\((\d+)\))?\.plbackup$/.exec(s)!
+    return [m[1], m[2] ? Number(m[2]) : 0]
+  }
+  const ours = uris.filter(isBackupUri).map(u => ({ u, k: key(u) }))
+  ours.sort((a, b) => a.k[0] < b.k[0] ? 1 : a.k[0] > b.k[0] ? -1 : b.k[1] - a.k[1])   // newest first
+  return ours.slice(keep).map(o => o.u)
 }
 
 export const WEEK_MS = 7 * 86_400_000

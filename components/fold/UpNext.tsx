@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 import { Image } from 'expo-image'
 import { Ionicons } from '@expo/vector-icons'
 import { Gesture, GestureDetector, type ComposedGesture, type GestureType } from 'react-native-gesture-handler'
@@ -48,8 +48,15 @@ export type UpNextState =
 export function useUpNext(songId: string | null | undefined, active: boolean) {
   const [state, setState] = useState<UpNextState>({ status: 'loading' })
   const [, bump] = useState(0)
+  // Only the latest request may set the queue: an older, slower reply would bring back a
+  // queue Spotify has already moved past. Unmounting bumps it too, so nothing lands after.
+  const seq = useRef(0)
+  useEffect(() => () => { seq.current++ }, [])
   const load = useCallback(() => {
-    fetchUpNext(10).then(r => setState(r.ok ? { status: 'ok', queue: r.queue } : { status: r.reason }))
+    const my = ++seq.current
+    fetchUpNext(10).then(r => {
+      if (my === seq.current) setState(r.ok ? { status: 'ok', queue: r.queue } : { status: r.reason })
+    })
   }, [])
   useEffect(() => {
     if (!active) return
@@ -197,7 +204,7 @@ export function useCardGestures(deck: Deck, W: number) {
 }
 
 export function DeckCard({ deck, cardStyle, gesture, compact, artSize }: {
-  deck: Deck; cardStyle: ReturnType<typeof useAnimatedStyle>; gesture: GestureType | ComposedGesture; compact?: boolean; artSize?: number
+  deck: Deck; cardStyle: ReturnType<typeof useAnimatedStyle<ViewStyle>>; gesture: GestureType | ComposedGesture; compact?: boolean; artSize?: number
 }) {
   const t = deck.card
   if (!t) return null

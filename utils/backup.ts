@@ -95,10 +95,10 @@ export function backupAgo(ms: number, now = Date.now()): string {
 
 export function setWeeklyBackup(on: boolean): void { storage.set(K.auto, on); emit() }
 
-function markDone(plays: number, where: 'folder' | 'shared'): void {
+function markDone(made: Made, where: 'folder' | 'shared'): void {
   storage.set(K.lastAt, Date.now())
-  storage.set(K.lastPlays, plays)
-  storage.set(K.lastVersion, playsVersion())
+  storage.set(K.lastPlays, made.plays)
+  storage.set(K.lastVersion, made.version)
   storage.set(K.lastWhere, where)
   storage.remove(K.lastError)
   emit()
@@ -131,13 +131,15 @@ export function applyPrefs(p: BackupPrefs): number {
 }
 
 // ─── make one ─────────────────────────────────────────────────────────────────────
-export interface Made { bytes: Uint8Array; name: string; plays: number }
+export interface Made { bytes: Uint8Array; name: string; plays: number; version: number }
 
 /** The whole history as a backup file's bytes. Reads the plays off the UI thread. */
 export async function makeBackup(now: Date = new Date()): Promise<Made> {
+  // Read before the plays: a play tracked while they load is then still "not backed up".
+  const version = playsVersion()
   const rows = await allPlaysAsync()
   const bytes = encodeBackup(rows, { importMaxT: importMaxT(), app: appVersion(), prefs: collectPrefs(), now })
-  return { bytes, name: backupFileName(now), plays: rows.length }
+  return { bytes, name: backupFileName(now), plays: rows.length, version }
 }
 
 // ─── the folder ───────────────────────────────────────────────────────────────────
@@ -152,10 +154,19 @@ export async function chooseFolder(): Promise<boolean> {
   return true
 }
 
+/** The folder was fine but the file couldn't be written (phone full…): keep the folder. */
+class WriteFailed extends Error {}
+
 async function writeToFolder(dir: string, made: Made): Promise<void> {
   // octet-stream: the folder keeps the name as given (no extension added for a type).
   const dest = await SAF.createFileAsync(dir, made.name, MIME)
-  await FileSystem.writeAsStringAsync(dest, bytesToBase64(made.bytes), { encoding: FileSystem.EncodingType.Base64 })
+  try {
+    await FileSystem.writeAsStringAsync(dest, bytesToBase64(made.bytes), { encoding: FileSystem.EncodingType.Base64 })
+  } catch {
+    // Never leave a half-written file: it would count as a newest backup when pruning.
+    await FileSystem.deleteAsync(dest, { idempotent: true }).catch(() => {})
+    throw new WriteFailed()
+  }
   // Only once the new one is written: keep the two newest, remove older ones.
   try {
     const old = backupsToPrune(await SAF.readDirectoryAsync(dir), 2)
@@ -181,7 +192,11 @@ export async function backupToFolder(opts: { ask?: boolean } = {}): Promise<Fold
   }
   try {
     await writeToFolder(dir, made)
-  } catch {
+  } catch (e) {
+    if (e instanceof WriteFailed) {
+      const message = 'Couldn’t write the backup. Is the phone full? Try again.'
+      markError(message); return { ok: false, reason: 'failed', message }
+    }
     // The folder was removed or access was taken back: ask again (when we may).
     storage.remove(K.folder)
     if (ask && (await chooseFolder())) {
@@ -194,7 +209,7 @@ export async function backupToFolder(opts: { ask?: boolean } = {}): Promise<Fold
       markError(message); return { ok: false, reason: ask ? 'cancelled' : 'failed', message }
     }
   }
-  markDone(made.plays, 'folder')
+  markDone(made, 'folder')
   return { ok: true, plays: made.plays }
 }
 
@@ -205,7 +220,7 @@ export async function shareBackup(): Promise<{ ok: boolean; plays: number }> {
   await FileSystem.writeAsStringAsync(uri, bytesToBase64(made.bytes), { encoding: FileSystem.EncodingType.Base64 })
   if (!(await Sharing.isAvailableAsync())) return { ok: false, plays: made.plays }
   await Sharing.shareAsync(uri, { mimeType: MIME, dialogTitle: 'Save your playlist.lens backup' })
-  markDone(made.plays, 'shared')
+  markDone(made, 'shared')
   return { ok: true, plays: made.plays }
 }
 

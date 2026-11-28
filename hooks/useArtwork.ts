@@ -138,12 +138,26 @@ async function fetchSpotifyArtistImage(name: string): Promise<string | null> {
 // (fetchArtworkCandidates) don't wait, but still count.
 const ITUNES_GAP_MS = 3100
 let itunesNext = 0
-function itunesSlot(wait: boolean): Promise<void> {
-  const now = Date.now()
-  const at = Math.max(now, itunesNext)
-  itunesNext = (wait ? at : now) + ITUNES_GAP_MS
-  return wait && at > now ? new Promise(r => setTimeout(r, at - now)) : Promise.resolve()
+/** A user-started search: goes now, and pushes the automatic queue back a gap. */
+function itunesNow(): void { itunesNext = Date.now() + ITUNES_GAP_MS }
+// Automatic lookups take turns. A turn is only spent if a row on screen still wants it:
+// scrolling 30 rows away used to leave ~90 s of queue ahead of the rows you can see.
+let itunesQueue: Promise<unknown> = Promise.resolve()
+function itunesTurn(wanted: () => boolean): Promise<boolean> {
+  const turn = itunesQueue.then(async () => {
+    if (!wanted()) return false
+    const wait = itunesNext - Date.now()
+    if (wait > 0) await new Promise(r => setTimeout(r, wait))
+    itunesNext = Date.now() + ITUNES_GAP_MS
+    return true
+  })
+  itunesQueue = turn.catch(() => {})
+  return turn
 }
+
+// How many mounted rows show each key (useArtwork): 0 = nobody is looking any more.
+const watching = new Map<string, number>()
+const watched = (k: string) => (watching.get(k) ?? 0) > 0
 
 // One lookup per item at a time, however many rows ask for it.
 const inflight = new Map<string, Promise<string | null>>()
@@ -196,7 +210,7 @@ async function spotifyCover(uri: string): Promise<{ url: string | null; final: b
 }
 
 /** The cover, plus whether that's a real answer (`final`) or a failed lookup. */
-async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<{ url: string | null; final: boolean }> {
+async function fetchArt(kind: ArtKind, name: string, artist?: string, wanted: () => boolean = () => true): Promise<{ url: string | null; final: boolean; dropped?: boolean }> {
   // Artists: prefer a real Spotify portrait; then one of their songs' covers.
   if (kind === 'artist') {
     const portrait = await fetchSpotifyArtistImage(name)
@@ -211,7 +225,7 @@ async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<{
   const term   = kind === 'artist' ? name : `${name} ${artist ?? ''}`.trim()
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=${entity}&limit=8`
   try {
-    await itunesSlot(true)
+    if (!(await itunesTurn(wanted))) return { url: null, final: false, dropped: true }
     const res  = await fetch(url)
     if (!res.ok) return { url: null, final: false }          // rate-limited / server trouble
     const json = await res.json()
@@ -222,7 +236,7 @@ async function fetchArt(kind: ArtKind, name: string, artist?: string): Promise<{
 }
 
 /** Test hook: forget this session's lookups (as if the app restarted). */
-export function _resetArtworkSession(): void { mem.clear(); ovMem.clear(); inflight.clear(); itunesNext = 0 }
+export function _resetArtworkSession(): void { mem.clear(); ovMem.clear(); inflight.clear(); watching.clear(); itunesNext = 0; itunesQueue = Promise.resolve() }
 
 export function useArtwork(kind: ArtKind | null, name?: string, artist?: string): string | null {
   const enabled = artworkEnabled()
@@ -244,9 +258,11 @@ export function useArtwork(kind: ArtKind | null, name?: string, artist?: string)
     if (mem.has(k)) { setUrl(mem.get(k)!); return }
     if (knownMiss(k)) { mem.set(k, null); setUrl(null); return }
     let cancelled = false
+    watching.set(k, (watching.get(k) ?? 0) + 1)
     let p = inflight.get(k)
     if (!p) {
-      p = fetchArt(kind, name, artist).then(({ url: u, final }) => {
+      p = fetchArt(kind, name, artist, () => watched(k)).then(({ url: u, final, dropped }) => {
+        if (dropped) return null                             // nobody looked: ask again next time it shows
         mem.set(k, u)                                        // this session: don't ask again
         if (u) storage.set(k, u)                             // found: kept for good
         else if (final) storage.set(MISS_PREFIX + k, Date.now())
@@ -255,7 +271,11 @@ export function useArtwork(kind: ArtKind | null, name?: string, artist?: string)
       inflight.set(k, p)
     }
     p.then(u => { if (!cancelled) setUrl(u) })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      const n = (watching.get(k) ?? 1) - 1
+      if (n > 0) watching.set(k, n); else watching.delete(k)
+    }
   }, [k])
 
   return url
@@ -272,7 +292,7 @@ export async function fetchArtworkCandidates(
   const q = (term && term.trim()) || (kind === 'artist' ? name : `${name} ${artist ?? ''}`.trim())
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=${entity}&limit=20`
   try {
-    await itunesSlot(false)
+    itunesNow()
     const res  = await fetch(url)
     const json = await res.json()
     const seen = new Set<string>()
