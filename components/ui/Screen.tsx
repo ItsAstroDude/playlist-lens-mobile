@@ -2,7 +2,7 @@ import React, { createContext, useContext } from 'react'
 import { View, Text, StyleSheet, ScrollView, type ScrollViewProps } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Colors, FontFamily, FontSize, Spacing, Type } from '@/constants/theme'
-import { AmbientBackground } from '@/components/ui/AmbientBackground'
+import { LiquidBackground } from '@/components/motion/LiquidBackground'
 import { BackButton } from '@/components/ui/BackButton'
 import { Icon } from '@/components/ui/Icon'
 import { useIsCover } from '@/hooks/useScreen'
@@ -35,7 +35,7 @@ export function Screen({ children, scroll = true, back = true, scrollProps, over
   const bottom = useBottomGutter(insets.bottom + Spacing['4xl'])
   return (
     <View style={styles.container}>
-      <AmbientBackground />
+      <LiquidBackground />
       <SafeAreaView style={styles.safe} edges={['top']}>
         {back && !cover && <View style={styles.backRow}><BackButton /></View>}
         <BackInHeader.Provider value={back && cover}>

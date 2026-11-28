@@ -387,13 +387,19 @@ export function mergePlayChunk(rows: PlayRow[], importCover: number | null): num
   const d = db()
   let added = 0
   d.withTransactionSync(() => {
-    const stmt = d.prepareSync('INSERT OR IGNORE INTO plays (t, uri, ms, track, artist, album, src) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    const keep = d.prepareSync('INSERT OR IGNORE INTO plays (t, uri, ms, track, artist, album, src) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    // An imported play wins over a tracked copy of itself (as on an import), else
+    // applyImportCover would delete the tracked copy and the play would be gone.
+    const imp = d.prepareSync(`INSERT INTO plays (t, uri, ms, track, artist, album, src) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (t, uri) DO UPDATE SET ms = excluded.ms, track = excluded.track, artist = excluded.artist,
+        album = excluded.album, src = excluded.src WHERE plays.src != excluded.src`)
     try {
       for (const r of rows) {
         if (r.src !== Source.import && importCover !== null && r.t <= importCover) continue
+        const stmt = r.src === Source.import ? imp : keep
         added += stmt.executeSync([r.t, r.uri, r.ms, r.track, r.artist, r.album, r.src]).changes
       }
-    } finally { stmt.finalizeSync() }
+    } finally { keep.finalizeSync(); imp.finalizeSync() }
   })
   if (added) bump()
   return added

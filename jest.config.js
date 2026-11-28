@@ -1,3 +1,6 @@
+// Tests are written for UTC; set here so every worker inherits it (any PC, any zone).
+process.env.TZ = 'UTC'
+
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',

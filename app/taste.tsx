@@ -4,7 +4,6 @@ import {
   TextInput, Keyboard, Share,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { AmbientBackground } from '@/components/ui/AmbientBackground'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withDelay,
   withTiming, withRepeat, Easing, FadeIn,

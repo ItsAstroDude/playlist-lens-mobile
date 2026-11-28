@@ -77,7 +77,11 @@ export function periodRange(kind: Exclude<StatsKind, 'all'>, now: Date, offsetSe
     s = Date.UTC(y - back, 0, 1) / 1000
     e = Date.UTC(y - back + 1, 0, 1) / 1000
   }
-  return { start: s - offsetSec, end: e - offsetSec }
+  // In the phone's own zone, each boundary takes the offset in force on its date (a summer
+  // "this year" starts at winter's midnight on Jan 1); a fixed offset is applied as given.
+  const phone = offsetSec === localOffsetSec(now)
+  const toUtc = (wall: number) => wall - (phone ? localOffsetSec(new Date((wall - offsetSec) * 1000)) : offsetSec)
+  return { start: toUtc(s), end: toUtc(e) }
 }
 
 /** First and last play we hold (UTC seconds), or null when the database is empty. */
@@ -118,6 +122,8 @@ export function* periodStatsJob(kind: StatsKind, opts: StatsOpts = {}): Job<Peri
   const until = Math.min(end, opts.cutoff ?? end)
   const W = `${MUSIC} AND t >= ? AND t < ?`
   const P = [start, until]
+  // shortcut: hours/days of plays use one offset for the whole period, so plays from the other
+  // DST half sit an hour off in the clock and day buckets; per-play zones if that ever matters.
   const LT = `(t + ${off})`
 
   const tot: { ms: number | null; n: number; a: number; tr: number; al: number } | null = yield first(

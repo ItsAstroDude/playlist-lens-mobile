@@ -78,6 +78,20 @@ describe('artwork cache (useArtwork)', () => {
     expect((global.fetch as jest.Mock).mock.calls.length).toBe(calls)
   })
 
+  it('rows scrolled away give up their iTunes turn: the row still on screen goes first', async () => {
+    global.fetch = itunes([{ artistName: 'C', trackName: 'Gamma', artworkUrl100: 'http://c/100x100bb.jpg' }]) as any
+    const m = load()
+    const a = renderHook(() => m.useArtwork('track', 'Alpha', 'A'))
+    const b = renderHook(() => m.useArtwork('track', 'Beta', 'B'))
+    const c = renderHook(() => m.useArtwork('track', 'Gamma', 'C'))
+    a.unmount(); b.unmount()                                 // scrolled off before their turn
+    // Without skipping, Gamma would wait two 3.1 s gaps; waitFor gives up after 1 s.
+    await waitFor(() => expect(c.result.current).toMatch(/^http/))
+    const asked = (global.fetch as jest.Mock).mock.calls.map(([u]: [string]) => u).filter(u => u.includes('itunes'))
+    expect(asked).toHaveLength(1)
+    expect(asked[0]).toContain('Gamma')
+  })
+
   it('"no picture" is remembered across launches; a rate limit is not', async () => {
     global.fetch = itunes([], false) as any                  // 429
     const a = load()

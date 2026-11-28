@@ -1,7 +1,7 @@
 import { storage } from '@/utils/cache'
 import { insertPlays, _resetForTests } from '@/utils/playDb'
 import {
-  periodRange, periodStats, comparePeriod, historyPage, historyTotals, dayTotals, localDay, playSpan,
+  periodRange, localOffsetSec, periodStats, comparePeriod, historyPage, historyTotals, dayTotals, localDay, playSpan,
 } from '@/utils/stats'
 import type { StreamRow } from '@/utils/wrapped'
 
@@ -30,6 +30,23 @@ describe('periodRange', () => {
   it('goes back whole periods', () => {
     expect(periodRange('year', NOW, UTC, 1)).toEqual({ start: Date.UTC(2025, 0, 1) / 1000, end: Date.UTC(2026, 0, 1) / 1000 })
     expect(periodRange('month', NOW, UTC, 11).start).toBe(Date.UTC(2025, 11, 1) / 1000)
+  })
+
+  it('in the phone’s zone, a summer “this year” starts at January’s midnight, not July’s offset', () => {
+    // Berlin 2025–26: UTC+2 from 30 Mar 2025 01:00 UTC to 26 Oct 2025 01:00, and from 29 Mar 2026 01:00 to 25 Oct 2026 01:00.
+    const summer = (ms: number) => (ms >= Date.UTC(2025, 2, 30, 1) && ms < Date.UTC(2025, 9, 26, 1)) || (ms >= Date.UTC(2026, 2, 29, 1) && ms < Date.UTC(2026, 9, 25, 1))
+    const spy = jest.spyOn(Date.prototype, 'getTimezoneOffset').mockImplementation(function (this: Date) { return summer(this.getTime()) ? -120 : -60 })
+    try {
+      const july = new Date(Date.UTC(2026, 6, 15, 12))
+      const { start, end } = periodRange('year', july, localOffsetSec(july))
+      expect(start).toBe(Date.UTC(2025, 11, 31, 23) / 1000)            // Jan 1 00:00 CET (UTC+1)
+      expect(end).toBe(Date.UTC(2026, 11, 31, 23) / 1000)
+      const w = periodRange('week', new Date(Date.UTC(2026, 2, 30, 12)), localOffsetSec(new Date(Date.UTC(2026, 2, 30, 12))))
+      expect(w.start).toBe(Date.UTC(2026, 2, 29, 22) / 1000)            // Mon 30 Mar 00:00 CEST
+      // (the week before held the switch to summer time: it is 167 hours long)
+      const prev = periodRange('week', new Date(Date.UTC(2026, 2, 30, 12)), localOffsetSec(new Date(Date.UTC(2026, 2, 30, 12))), 1)
+      expect(prev.end - prev.start).toBe(167 * 3600)
+    } finally { spy.mockRestore() }
   })
 })
 

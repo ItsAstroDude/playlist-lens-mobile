@@ -75,8 +75,11 @@ export async function apiFetch<T>(
   path: string,
   options: FetchOptions = {}
 ): Promise<T> {
-  const { onColdStart, onRetry, retries = 0, ...fetchOptions } = options
+  const { onColdStart, onRetry, retries = MAX_RETRIES, ...fetchOptions } = options
   const url = `${BACKEND_URL}${path}`
+  // A network error can hide a request the server already acted on: only resend reads,
+  // or a lost "create playlist" / "next song" reply turns into 2–4 of them.
+  const resendable = (fetchOptions.method ?? 'GET').toUpperCase() === 'GET'
 
   let coldStartTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -135,7 +138,7 @@ export async function apiFetch<T>(
       if (err instanceof ApiError) throw err
 
       // Network error — retry with backoff
-      if (attempt < (retries || MAX_RETRIES)) {
+      if (resendable && attempt < retries) {
         onRetry?.(attempt + 1)
         await delay(RETRY_DELAY_MS * Math.pow(2, attempt)) // exponential backoff
         return attemptFetch(attempt + 1, refreshed)

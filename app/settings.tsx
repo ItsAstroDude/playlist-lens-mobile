@@ -13,7 +13,7 @@ import {
 import { BackButton } from '@/components/ui/BackButton'
 import { useIsCover } from '@/hooks/useScreen'
 import { useBottomGutter } from '@/hooks/useCoverClearance'
-import { AmbientBackground } from '@/components/ui/AmbientBackground'
+import { LiquidBackground } from '@/components/motion/LiquidBackground'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { Section, ListRow as SettingRow, ToggleRow } from '@/components/ui'
 import { Spring, haptic } from '@/constants/animation'
@@ -474,7 +474,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <AmbientBackground />
+      <LiquidBackground />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
 
         <View style={[styles.header, cover && styles.headerCover]}>

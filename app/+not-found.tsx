@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { Colors, FontFamily, FontSize, Spacing, Radius, alpha } from '@/constants/theme'
 import { haptic } from '@/constants/animation'
-import { AmbientBackground } from '@/components/ui/AmbientBackground'
+import { LiquidBackground } from '@/components/motion/LiquidBackground'
 import { Icon } from '@/components/ui/Icon'
 
 /**
@@ -15,7 +15,7 @@ export default function NotFound() {
   const goHome = () => { haptic.light(); router.replace('/') }
   return (
     <View style={styles.container}>
-      <AmbientBackground />
+      <LiquidBackground />
       <SafeAreaView style={styles.safe}>
         <Icon name="aperture-outline" size={56} color={alpha(Colors.greenPrimary, 0.8)} />
         <Text style={styles.title} accessibilityRole="header">Out of focus</Text>
