@@ -15,8 +15,11 @@ const { ReanimatedModule } = require('react-native-reanimated/src/ReanimatedModu
  * Marking a node that came back (react-freeze) is harmless: removal only happens once
  * the node is gone from the tree.
  */
-const mark = ReanimatedModule.markNodeAsRemovable.bind(ReanimatedModule)
-ReanimatedModule.markNodeAsRemovable = (wrapper: unknown) => {
-  mark(wrapper)
-  setTimeout(() => mark(wrapper), 1000)
+// Internal API: if an upgrade renames it, skip the patch (the leak returns) rather than crash at launch.
+if (typeof ReanimatedModule?.markNodeAsRemovable === 'function') {
+  const mark = ReanimatedModule.markNodeAsRemovable.bind(ReanimatedModule)
+  ReanimatedModule.markNodeAsRemovable = (wrapper: unknown) => {
+    mark(wrapper)
+    setTimeout(() => mark(wrapper), 1000)
+  }
 }
